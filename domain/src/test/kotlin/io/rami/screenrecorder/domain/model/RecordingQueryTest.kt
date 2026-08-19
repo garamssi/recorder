@@ -18,6 +18,7 @@ class RecordingQueryTest {
         resolution = Resolution.FHD,
         frameRate = 60,
         codec = VideoCodec.H264,
+        bitrateBps = null,
         createdAtEpochMillis = createdAt,
     )
 

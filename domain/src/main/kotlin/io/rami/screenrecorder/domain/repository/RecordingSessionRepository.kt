@@ -1,5 +1,6 @@
 package io.rami.screenrecorder.domain.repository
 
+import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingState
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +14,13 @@ import kotlinx.coroutines.flow.Flow
 interface RecordingSessionRepository {
     /** 현재 세션 상태 스트림. */
     val state: Flow<RecordingState>
+
+    /**
+     * 저장 완료 이벤트 스트림 (기능명세서 6.2절 "저장 직후 이름 변경" 진입점).
+     *
+     * 수동 중지뿐 아니라 타이머/저장 공간 부족/시스템 중단에 의한 자동 안전 중지도 포함한다.
+     */
+    val completedRecordings: Flow<Recording>
 
     /** [config]로 새 녹화 세션을 시작한다 (카운트다운 포함). */
     suspend fun start(config: RecordingConfig)

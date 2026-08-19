@@ -19,6 +19,8 @@ data class Recording(
     val frameRate: Int,
     val codec: VideoCodec,
     val createdAtEpochMillis: Long,
+    /** 인코딩 비트레이트(bps). 메타데이터에서 읽을 수 없으면 null (기능명세서 7.2절 상세 정보). */
+    val bitrateBps: Int?,
 )
 
 /** 녹화 목록 정렬 기준 (기능명세서 7.1절: 최신순 기본). */
