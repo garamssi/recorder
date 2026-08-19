@@ -7,12 +7,9 @@ import io.rami.screenrecorder.domain.model.VideoCodec
 import java.io.File
 import java.nio.ByteBuffer
 
-/**
- * 플랫폼 API(MediaProjection, MediaCodec, Muxer)를 격리하는 어댑터 경계 (CLAUDE.md 3절).
- *
- * RecordingCoordinator는 이 인터페이스들에만 의존하므로 JVM에서 페이크로 테스트 가능하다.
- * 실물 어댑터는 실기기 계측 테스트로 검증한다.
- */
+// 플랫폼 API(MediaProjection, MediaCodec, Muxer)를 격리하는 어댑터 경계 (CLAUDE.md 3절).
+// RecordingCoordinator는 이 인터페이스들에만 의존하므로 JVM에서 페이크로 테스트 가능하고,
+// 실물 어댑터는 실기기 계측 테스트로 검증한다.
 
 /** 비디오 인코더 설정 (세션 내 고정, 기능명세서 5절). */
 data class VideoEncoderConfig(
