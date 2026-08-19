@@ -11,6 +11,7 @@ import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.session.MonotonicClock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -186,10 +187,14 @@ class RecordingCoordinatorTest {
             }
         return RecordingCoordinator(
             sessionFactory = factory,
-            fileStore = fileStore,
-            fileNameProvider = { "Rec_test.mp4" },
-            displayInfo = { Resolution(2560, 1600) },
-            clock = clock,
+            dependencies =
+                RecorderDependencies(
+                    fileStore = fileStore,
+                    fileNameProvider = { "Rec_test.mp4" },
+                    displayInfo = { Resolution(2560, 1600) },
+                    clock = clock,
+                    storageRepository = { MutableStateFlow(Long.MAX_VALUE) },
+                ),
             scope = backgroundScope,
             blockingDispatcher = StandardTestDispatcher(testScheduler),
         )

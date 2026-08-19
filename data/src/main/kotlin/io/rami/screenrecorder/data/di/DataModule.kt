@@ -10,6 +10,7 @@ import io.rami.screenrecorder.data.recorder.DefaultFileNameProvider
 import io.rami.screenrecorder.data.recorder.DisplayInfoProvider
 import io.rami.screenrecorder.data.recorder.FileNameProvider
 import io.rami.screenrecorder.data.recorder.ProjectionRecorderSessionFactory
+import io.rami.screenrecorder.data.recorder.RecorderDependencies
 import io.rami.screenrecorder.data.recorder.RecorderSessionFactory
 import io.rami.screenrecorder.data.recorder.RecordingCoordinator
 import io.rami.screenrecorder.data.recorder.RecordingFileStore
@@ -55,17 +56,11 @@ internal object DataProvidesModule {
     @Singleton
     fun provideRecordingSessionRepository(
         sessionFactory: RecorderSessionFactory,
-        fileStore: RecordingFileStore,
-        fileNameProvider: FileNameProvider,
-        displayInfo: DisplayInfoProvider,
-        clock: MonotonicClock,
+        dependencies: RecorderDependencies,
     ): RecordingSessionRepository =
         RecordingCoordinator(
             sessionFactory = sessionFactory,
-            fileStore = fileStore,
-            fileNameProvider = fileNameProvider,
-            displayInfo = displayInfo,
-            clock = clock,
+            dependencies = dependencies,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
 }

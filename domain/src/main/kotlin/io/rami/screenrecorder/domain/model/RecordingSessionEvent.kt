@@ -1,0 +1,53 @@
+package io.rami.screenrecorder.domain.model
+
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+
+/** 자동 안전 중지 사유 (기능명세서 11절). */
+enum class AutoStopReason {
+    /** 타이머 녹화 시간 도달 (11.4절). */
+    TIME_LIMIT_REACHED,
+
+    /** 저장 공간 부족 (11.1절: 200MB 이하). */
+    STORAGE_LOW,
+
+    /** 일시정지 30분 초과 (11.2절). */
+    PAUSE_TIMEOUT,
+}
+
+/** 세션 진행 중 알림이 필요한 이벤트 (기능명세서 11절). */
+sealed interface RecordingSessionEvent {
+    /** 시간 제한 종료 예고 (11.4절: 1분 전, 10초 전). */
+    data class TimeLimitWarning(
+        val remaining: Duration,
+    ) : RecordingSessionEvent
+
+    /** 일시정지 자동 중지 예고 (11.2절: 중지 5분 전). */
+    data class PauseTimeoutWarning(
+        val remaining: Duration,
+    ) : RecordingSessionEvent
+
+    /** 자동 안전 중지 발생. 저장은 완료 이벤트로 별도 전달된다. */
+    data class AutoStopped(
+        val reason: AutoStopReason,
+    ) : RecordingSessionEvent
+}
+
+/** 일시정지 자동 중지 정책 (기능명세서 11.2절 [결정]). */
+object PauseTimeoutPolicy {
+    /** 일시정지 상태 최대 유지 시간. */
+    val AUTO_STOP_AFTER: Duration = 30.minutes
+
+    /** 자동 중지 예고 시점 (중지 몇 분 전). */
+    val WARNING_BEFORE: Duration = 5.minutes
+}
+
+/** 타이머 녹화 예고 정책 (기능명세서 11.4절 [결정]). */
+object TimeLimitWarningPolicy {
+    /** 1차 예고 시점 (종료 1분 전). 제한이 1분 미만이면 생략한다. */
+    val FIRST_WARNING_BEFORE: Duration = 60.seconds
+
+    /** 최종 예고 시점 (종료 10초 전). */
+    val FINAL_WARNING_BEFORE: Duration = 10.seconds
+}

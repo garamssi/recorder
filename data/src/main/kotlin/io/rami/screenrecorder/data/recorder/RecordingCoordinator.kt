@@ -2,45 +2,68 @@ package io.rami.screenrecorder.data.recorder
 
 import android.media.MediaFormat
 import io.rami.screenrecorder.domain.model.AutoBitratePolicy
+import io.rami.screenrecorder.domain.model.AutoStopReason
 import io.rami.screenrecorder.domain.model.BitrateOption
+import io.rami.screenrecorder.domain.model.PauseTimeoutPolicy
+import io.rami.screenrecorder.domain.model.RecordableTimeEstimator
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingConfig
+import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
+import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
+import io.rami.screenrecorder.domain.repository.StorageRepository
 import io.rami.screenrecorder.domain.session.MonotonicClock
 import io.rami.screenrecorder.domain.session.PauseAwareStopwatch
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
+/** 코디네이터가 쓰는 세션 무관 의존성 묶음 (DI 조립 단순화용). */
+class RecorderDependencies
+    @javax.inject.Inject
+    constructor(
+        val fileStore: RecordingFileStore,
+        val fileNameProvider: FileNameProvider,
+        val displayInfo: DisplayInfoProvider,
+        val clock: MonotonicClock,
+        val storageRepository: StorageRepository,
+    )
+
 /**
  * 녹화 세션 오케스트레이터 — [RecordingSessionRepository]의 구현.
  *
  * 캡처/인코더/먹서 어댑터를 조율하고 상태 전이, 카운트다운, 일시정지 PTS 보정,
- * 안전 마무리(시스템 중단 포함)를 담당한다 (기능명세서 3, 11절).
+ * 자동 안전 중지(타이머/저장 공간/일시정지 방치)와 안전 마무리를 담당한다 (기능명세서 3, 11절).
  */
 class RecordingCoordinator(
     private val sessionFactory: RecorderSessionFactory,
-    private val fileStore: RecordingFileStore,
-    private val fileNameProvider: FileNameProvider,
-    private val displayInfo: DisplayInfoProvider,
-    private val clock: MonotonicClock,
+    dependencies: RecorderDependencies,
     private val scope: CoroutineScope,
     /** 블로킹 어댑터 호출(코덱 정리 대기, 파일 IO)을 위임할 디스패처. */
     private val blockingDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : RecordingSessionRepository {
+    private val fileStore = dependencies.fileStore
+    private val fileNameProvider = dependencies.fileNameProvider
+    private val displayInfo = dependencies.displayInfo
+    private val clock = dependencies.clock
+    private val storageRepository = dependencies.storageRepository
+
     private val mutableState = MutableStateFlow<RecordingState>(RecordingState.Idle)
     private val mutableCompleted = MutableSharedFlow<Recording>(extraBufferCapacity = 1)
+    private val mutableEvents = MutableSharedFlow<RecordingSessionEvent>(extraBufferCapacity = EVENT_BUFFER)
 
     private val countdown = CountdownRunner()
     private var activeSession: ActiveSession? = null
@@ -48,6 +71,8 @@ class RecordingCoordinator(
     override val state: StateFlow<RecordingState> = mutableState
 
     override val completedRecordings: Flow<Recording> = mutableCompleted
+
+    override val sessionEvents: Flow<RecordingSessionEvent> = mutableEvents
 
     override suspend fun start(config: RecordingConfig) {
         check(activeSession == null) { "이미 진행 중인 세션이 있다" }
@@ -75,19 +100,31 @@ class RecordingCoordinator(
         val session = activeSession ?: return
         session.encoder.setSuspended(true)
         session.audioRecorder?.setSuspended(true)
-        session.pauseOffset.onPause(nowUs())
+        session.pauseOffset.onPause(clock.elapsedRealtimeMillis() * US_PER_MS)
         session.stopwatch.pause()
         mutableState.value = RecordingState.Paused(session.stopwatch.elapsed())
+        session.pauseTimeout = scope.launch { runPauseTimeout() }
     }
 
     override suspend fun resume() {
         val session = activeSession ?: return
-        session.pauseOffset.onResume(nowUs())
+        session.pauseTimeout?.cancel()
+        session.pauseTimeout = null
+        session.pauseOffset.onResume(clock.elapsedRealtimeMillis() * US_PER_MS)
         session.stopwatch.resume()
         session.encoder.setSuspended(false)
         session.audioRecorder?.setSuspended(false)
         session.encoder.requestKeyFrame()
         mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
+    }
+
+    /** 일시정지 방치 시 예고 후 자동 안전 중지한다 (기능명세서 11.2절 [결정]: 30분, 5분 전 예고). */
+    private suspend fun runPauseTimeout() {
+        delay(PauseTimeoutPolicy.AUTO_STOP_AFTER - PauseTimeoutPolicy.WARNING_BEFORE)
+        mutableEvents.emit(RecordingSessionEvent.PauseTimeoutWarning(PauseTimeoutPolicy.WARNING_BEFORE))
+        delay(PauseTimeoutPolicy.WARNING_BEFORE)
+        mutableEvents.emit(RecordingSessionEvent.AutoStopped(AutoStopReason.PAUSE_TIMEOUT))
+        finalizeSession()
     }
 
     private suspend fun startPipeline(config: RecordingConfig) {
@@ -139,16 +176,44 @@ class RecordingCoordinator(
         }
         val session = checkNotNull(activeSession)
         mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
-        session.ticker = scope.launch { tickElapsed(session) }
+        session.ticker = scope.launch { tickElapsed(session, config.timeLimit) }
+        session.storageWatch = scope.launch { watchStorage() }
     }
 
-    private suspend fun tickElapsed(session: ActiveSession) {
+    private suspend fun tickElapsed(
+        session: ActiveSession,
+        timeLimit: TimeLimit,
+    ) {
+        val watcher = TimeLimitWatcher(timeLimit)
         while (true) {
             delay(ELAPSED_TICK_MS)
-            if (mutableState.value is RecordingState.Recording) {
-                mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
+            if (mutableState.value !is RecordingState.Recording) continue
+            val elapsed = session.stopwatch.elapsed()
+            mutableState.value = RecordingState.Recording(elapsed)
+            when (val verdict = watcher.onTick(elapsed)) {
+                is TimeLimitWatcher.Verdict.Warn ->
+                    mutableEvents.emit(RecordingSessionEvent.TimeLimitWarning(verdict.remaining))
+
+                is TimeLimitWatcher.Verdict.Stop -> {
+                    mutableEvents.emit(RecordingSessionEvent.AutoStopped(AutoStopReason.TIME_LIMIT_REACHED))
+                    finalizeSession()
+                    return
+                }
+
+                is TimeLimitWatcher.Verdict.Continue -> Unit
             }
         }
+    }
+
+    /** 저장 공간이 유지 임계 이하로 떨어지면 자동 안전 중지한다 (기능명세서 11.1절). */
+    private suspend fun watchStorage() {
+        val lowStorage =
+            storageRepository.observeAvailableBytes().firstOrNull { availableBytes ->
+                availableBytes <= RecordableTimeEstimator.MIN_FREE_BYTES_TO_CONTINUE
+            }
+        if (lowStorage == null) return
+        mutableEvents.emit(RecordingSessionEvent.AutoStopped(AutoStopReason.STORAGE_LOW))
+        finalizeSession()
     }
 
     /**
@@ -162,32 +227,36 @@ class RecordingCoordinator(
         if (!session.finalizing.compareAndSet(false, true)) return
         mutableState.value = RecordingState.Stopping
         session.ticker?.cancel()
-        try {
-            val recording =
-                withContext(blockingDispatcher) {
-                    try {
-                        session.capture.stop()
-                    } finally {
+        session.storageWatch?.cancel()
+        session.pauseTimeout?.cancel()
+        // 감시 코루틴(ticker/storageWatch/pauseTimeout) 스스로 finalize를 호출하는 경우
+        // 위 cancel()이 자기 자신을 취소하므로, 이후 정리는 취소 불가로 보호한다.
+        withContext(NonCancellable) {
+            try {
+                val recording =
+                    withContext(blockingDispatcher) {
                         try {
-                            session.audioRecorder?.stopAndRelease()
+                            session.capture.stop()
                         } finally {
                             try {
-                                session.encoder.stopAndRelease()
+                                session.audioRecorder?.stopAndRelease()
                             } finally {
-                                session.muxer.close()
+                                try {
+                                    session.encoder.stopAndRelease()
+                                } finally {
+                                    session.muxer.close()
+                                }
                             }
                         }
+                        fileStore.publish(session.tempFile, session.fileName)
                     }
-                    fileStore.publish(session.tempFile, session.fileName)
-                }
-            mutableCompleted.emit(recording)
-        } finally {
-            activeSession = null
-            mutableState.value = RecordingState.Idle
+                mutableCompleted.emit(recording)
+            } finally {
+                activeSession = null
+                mutableState.value = RecordingState.Idle
+            }
         }
     }
-
-    private fun nowUs(): Long = clock.elapsedRealtimeMillis() * US_PER_MS
 
     /** 한 세션의 미디어 파이프라인 구성 요소 묶음. */
     private class SessionMedia(
@@ -209,6 +278,8 @@ class RecordingCoordinator(
         val muxer = media.muxer
         val pauseOffset = PauseOffsetTracker()
         var ticker: Job? = null
+        var storageWatch: Job? = null
+        var pauseTimeout: Job? = null
         val finalizing = AtomicBoolean(false)
 
         private val videoCorrector = PresentationTimeCorrector(pauseOffset)
@@ -270,5 +341,6 @@ class RecordingCoordinator(
         const val ELAPSED_TICK_MS = 1_000L
         const val US_PER_MS = 1_000L
         const val BPS_PER_MBPS = 1_000_000
+        const val EVENT_BUFFER = 16
     }
 }

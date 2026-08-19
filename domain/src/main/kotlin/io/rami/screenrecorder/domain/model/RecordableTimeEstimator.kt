@@ -17,6 +17,9 @@ object RecordableTimeEstimator {
     /** 녹화 시작에 필요한 최소 여유 공간 (기능명세서 2.2절). */
     const val MIN_FREE_BYTES_TO_START = 500_000_000L
 
+    /** 녹화 유지에 필요한 최소 여유 공간. 이하로 떨어지면 자동 안전 중지한다 (기능명세서 11.1절). */
+    const val MIN_FREE_BYTES_TO_CONTINUE = 200_000_000L
+
     /** [availableBytes]와 [videoBitrateBps]로 녹화 가능 시간을 추정한다. 오디오/컨테이너 오버헤드를 반영한다. */
     fun estimate(
         availableBytes: Long,
