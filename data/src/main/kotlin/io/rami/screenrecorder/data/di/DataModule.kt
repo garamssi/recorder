@@ -46,6 +46,11 @@ internal abstract class DataBindsModule {
 
     @Binds
     abstract fun bindStorageRepository(implementation: DeviceStorageRepository): StorageRepository
+
+    @Binds
+    abstract fun bindSettingsRepository(
+        implementation: io.rami.screenrecorder.data.settings.DataStoreSettingsRepository,
+    ): io.rami.screenrecorder.domain.repository.SettingsRepository
 }
 
 /** 세션 오케스트레이터 프로바이더. */

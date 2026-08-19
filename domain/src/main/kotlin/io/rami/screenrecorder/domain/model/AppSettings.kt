@@ -55,16 +55,17 @@ data class AppSettings(
 ) {
     companion object {
         /** 기능명세서 4절 기본값 조합. */
-        val DEFAULT = AppSettings(
-            recording = RecordingConfig.DEFAULT,
-            selectedCaptureMode = CaptureModeKind.FULL_SCREEN,
-            fileNamePrefix = FileNamePrefix.DEFAULT,
-            storageLocation = StorageLocation.MediaStoreDefault,
-            theme = ThemeSetting.SYSTEM,
-            dynamicColor = true,
-            language = LanguageSetting.KOREAN,
-            showFloatingBubble = false,
-            showTouches = false,
-        )
+        val DEFAULT =
+            AppSettings(
+                recording = RecordingConfig.DEFAULT,
+                selectedCaptureMode = CaptureModeKind.FULL_SCREEN,
+                fileNamePrefix = FileNamePrefix.DEFAULT,
+                storageLocation = StorageLocation.MediaStoreDefault,
+                theme = ThemeSetting.SYSTEM,
+                dynamicColor = true,
+                language = LanguageSetting.KOREAN,
+                showFloatingBubble = false,
+                showTouches = false,
+            )
     }
 }
