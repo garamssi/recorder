@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var observeRecordingState: ObserveRecordingStateUseCase
 
     private var pendingAudioSource = AudioSource.INTERNAL
+    private var pendingTimeLimitSeconds = 0L
 
     private val consentLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -50,7 +51,11 @@ class MainActivity : ComponentActivity() {
             if (result.resultCode == RESULT_OK && data != null) {
                 projectionTokenHolder.store(result.resultCode, data)
                 startForegroundService(
-                    RecordingForegroundService.startIntent(this, pendingAudioSource),
+                    RecordingForegroundService.startIntent(
+                        this,
+                        pendingAudioSource,
+                        pendingTimeLimitSeconds,
+                    ),
                 )
             }
         }
@@ -68,28 +73,48 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     DebugRecordingControls(
                         observeRecordingState = observeRecordingState,
-                        onStartClick = ::requestProjectionConsent,
-                        onStopClick = {
-                            startService(RecordingForegroundService.stopIntent(this))
-                        },
+                        actions =
+                            DebugActions(
+                                onStart = { source ->
+                                    requestProjectionConsent(source, timeLimitSeconds = 0L)
+                                },
+                                onStartWithLimit = {
+                                    requestProjectionConsent(AudioSource.SILENT, timeLimitSeconds = 30L)
+                                },
+                                onPause = { startService(RecordingForegroundService.pauseIntent(this)) },
+                                onResume = { startService(RecordingForegroundService.resumeIntent(this)) },
+                                onStop = { startService(RecordingForegroundService.stopIntent(this)) },
+                            ),
                     )
                 }
             }
         }
     }
 
-    private fun requestProjectionConsent(audioSource: AudioSource) {
+    private fun requestProjectionConsent(
+        audioSource: AudioSource,
+        timeLimitSeconds: Long,
+    ) {
         pendingAudioSource = audioSource
+        pendingTimeLimitSeconds = timeLimitSeconds
         val manager = getSystemService(MediaProjectionManager::class.java)
         consentLauncher.launch(manager.createScreenCaptureIntent())
     }
 }
 
+/** 디버그 UI 콜백 묶음 (Stage 6에서 정식 홈 화면으로 대체). */
+private class DebugActions(
+    val onStart: (AudioSource) -> Unit,
+    val onStartWithLimit: () -> Unit,
+    val onPause: () -> Unit,
+    val onResume: () -> Unit,
+    val onStop: () -> Unit,
+)
+
 @Composable
 private fun DebugRecordingControls(
     observeRecordingState: ObserveRecordingStateUseCase,
-    onStartClick: (AudioSource) -> Unit,
-    onStopClick: () -> Unit,
+    actions: DebugActions,
 ) {
     val state by observeRecordingState().collectAsState(initial = RecordingState.Idle)
     Column(
@@ -98,10 +123,13 @@ private fun DebugRecordingControls(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text = "상태: $state", style = MaterialTheme.typography.titleLarge)
-        Button(onClick = { onStartClick(AudioSource.INTERNAL) }) { Text("시작: 내부 오디오") }
-        Button(onClick = { onStartClick(AudioSource.MICROPHONE) }) { Text("시작: 마이크") }
-        Button(onClick = { onStartClick(AudioSource.INTERNAL_AND_MICROPHONE) }) { Text("시작: 믹싱") }
-        Button(onClick = { onStartClick(AudioSource.SILENT) }) { Text("시작: 무음") }
-        Button(onClick = onStopClick) { Text("중지") }
+        Button(onClick = { actions.onStart(AudioSource.INTERNAL) }) { Text("시작: 내부 오디오") }
+        Button(onClick = { actions.onStart(AudioSource.MICROPHONE) }) { Text("시작: 마이크") }
+        Button(onClick = { actions.onStart(AudioSource.INTERNAL_AND_MICROPHONE) }) { Text("시작: 믹싱") }
+        Button(onClick = { actions.onStart(AudioSource.SILENT) }) { Text("시작: 무음") }
+        Button(onClick = actions.onStartWithLimit) { Text("시작: 30초 제한") }
+        Button(onClick = actions.onPause) { Text("일시정지") }
+        Button(onClick = actions.onResume) { Text("재개") }
+        Button(onClick = actions.onStop) { Text("중지") }
     }
 }

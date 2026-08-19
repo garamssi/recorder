@@ -77,8 +77,14 @@ class RecordingCoordinator(
     override suspend fun start(config: RecordingConfig) {
         check(activeSession == null) { "이미 진행 중인 세션이 있다" }
         val aborted =
-            countdown.run(config.countdown.seconds) { remaining ->
-                mutableState.value = RecordingState.CountingDown(remaining)
+            try {
+                countdown.run(config.countdown.seconds) { remaining ->
+                    mutableState.value = RecordingState.CountingDown(remaining)
+                }
+            } catch (cancellation: kotlinx.coroutines.CancellationException) {
+                // 호출 코루틴이 취소돼도 상태가 CountingDown에 고착되지 않게 복원한다.
+                mutableState.value = RecordingState.Idle
+                throw cancellation
             }
         if (aborted) {
             mutableState.value = RecordingState.Idle

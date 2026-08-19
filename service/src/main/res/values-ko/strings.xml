@@ -4,5 +4,15 @@
     <string name="recording_notification_title">화면 녹화</string>
     <string name="recording_notification_preparing">준비 중…</string>
     <string name="recording_notification_elapsed">녹화 중 %1$s</string>
+    <string name="recording_notification_elapsed_with_limit">녹화 중 %1$s / %2$s</string>
+    <string name="recording_notification_paused">일시정지됨 · %1$s</string>
     <string name="recording_notification_stop">중지</string>
+    <string name="recording_notification_pause">일시정지</string>
+    <string name="recording_notification_resume">재개</string>
+    <string name="recording_notification_time_limit_warning">%1$s 후 종료됩니다</string>
+    <string name="recording_notification_pause_timeout_warning">%1$s 후 자동 중지됩니다 (일시정지 유지)</string>
+    <string name="recording_notification_completed_title">녹화가 완료되었습니다</string>
+    <string name="recording_notification_completed_time_limit">설정한 시간에 도달해 저장했습니다</string>
+    <string name="recording_notification_completed_storage_low">저장 공간이 부족해 안전하게 저장했습니다</string>
+    <string name="recording_notification_completed_pause_timeout">일시정지가 오래 유지되어 저장했습니다</string>
 </resources>
