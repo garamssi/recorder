@@ -31,6 +31,9 @@ import javax.inject.Inject
  *
  * 현재 내용은 Stage 3 파이프라인 실기기 검증용 임시 UI이며,
  * Stage 6에서 기능명세서 2절의 홈 화면으로 대체된다.
+ *
+ * TODO(Stage 6): data 계층 [MediaProjectionTokenHolder] 직접 참조는 기술 부채다.
+ *  홈 화면 구현 시 동의 플로를 presentation 쪽 추상화(예: ProjectionConsentLauncher) 뒤로 옮긴다.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

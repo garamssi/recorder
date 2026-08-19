@@ -18,6 +18,8 @@ class MediaProjectionCaptureSource(
     private val projection: MediaProjection,
     private val densityDpi: Int,
 ) : ScreenCaptureSource {
+    // stop()을 부르는 코루틴 스레드와 onStop 콜백(main)이 함께 접근하므로 가시성을 보장한다.
+    @Volatile
     private var virtualDisplay: VirtualDisplay? = null
     private val mainHandler = Handler(Looper.getMainLooper())
 

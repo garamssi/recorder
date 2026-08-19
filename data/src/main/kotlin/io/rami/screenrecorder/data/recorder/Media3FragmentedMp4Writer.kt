@@ -26,10 +26,11 @@ class Media3FragmentedMp4Writer : MuxerWriter {
         outputStream = stream
         // 샘플 복사 필수: 어댑터는 writeSampleData 직후 코덱 출력 버퍼를 반환하는데,
         // 먹서는 fragment 완성(키프레임 경계 + 2초) 시점까지 샘플을 보관하기 때문이다.
-        muxer = FragmentedMp4Muxer
-            .Builder(stream.channel)
-            .setSampleCopyingEnabled(true)
-            .build()
+        muxer =
+            FragmentedMp4Muxer
+                .Builder(stream.channel)
+                .setSampleCopyingEnabled(true)
+                .build()
     }
 
     @Synchronized
@@ -54,10 +55,13 @@ class Media3FragmentedMp4Writer : MuxerWriter {
 
     @Synchronized
     override fun close() {
-        muxer?.close()
-        muxer = null
-        outputStream?.close()
-        outputStream = null
+        try {
+            muxer?.close()
+        } finally {
+            muxer = null
+            outputStream?.close()
+            outputStream = null
+        }
     }
 
     private fun addTrack(format: MediaFormat): Int =

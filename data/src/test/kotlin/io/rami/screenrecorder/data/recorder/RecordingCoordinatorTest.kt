@@ -11,6 +11,7 @@ import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.session.MonotonicClock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -163,6 +164,7 @@ class RecordingCoordinatorTest {
             displayInfo = { Resolution(2560, 1600) },
             clock = clock,
             scope = backgroundScope,
+            blockingDispatcher = StandardTestDispatcher(testScheduler),
         )
     }
 

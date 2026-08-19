@@ -70,16 +70,25 @@ class MediaStoreRecordingFileStore
                     checkNotNull(
                         resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values),
                     ) { "MediaStore insert 실패: $fileName" }
-                resolver.openOutputStream(uri)?.use { output ->
-                    tempFile.inputStream().use { input -> input.copyTo(output) }
+                try {
+                    val output =
+                        checkNotNull(resolver.openOutputStream(uri)) { "MediaStore 쓰기 스트림 열기 실패: $uri" }
+                    output.use { tempFile.inputStream().use { input -> input.copyTo(it) } }
+                    values.clear()
+                    values.put(MediaStore.Video.Media.IS_PENDING, 0)
+                    resolver.update(uri, values, null, null)
+                } catch (
+                    // 복사 실패 시 IS_PENDING 고아 레코드가 남지 않도록 정리 후 원인을 그대로 전파한다.
+                    @Suppress("TooGenericExceptionCaught") publishFailure: Exception,
+                ) {
+                    resolver.delete(uri, null, null)
+                    throw publishFailure
+                } finally {
+                    tempFile.delete()
                 }
-                values.clear()
-                values.put(MediaStore.Video.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-                tempFile.delete()
 
                 Recording(
-                    id = RecordingId(uri.lastPathSegment?.toLongOrNull() ?: 0L),
+                    id = RecordingId(android.content.ContentUris.parseId(uri)),
                     displayName = fileName,
                     contentUri = uri.toString(),
                     sizeBytes = metadata.sizeBytes,

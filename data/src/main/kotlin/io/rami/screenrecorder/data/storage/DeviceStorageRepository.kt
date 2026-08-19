@@ -21,8 +21,10 @@ class DeviceStorageRepository
     ) : StorageRepository {
         override fun observeAvailableBytes(): Flow<Long> =
             flow {
+                // 녹화물이 저장되는 외부 저장소(MediaStore 볼륨) 기준으로 측정한다 (기능명세서 2.2절).
+                val mediaVolumePath = (context.getExternalFilesDir(null) ?: context.cacheDir).absolutePath
                 while (true) {
-                    emit(StatFs(context.cacheDir.absolutePath).availableBytes)
+                    emit(StatFs(mediaVolumePath).availableBytes)
                     kotlinx.coroutines.delay(POLL_INTERVAL)
                 }
             }.flowOn(Dispatchers.IO)

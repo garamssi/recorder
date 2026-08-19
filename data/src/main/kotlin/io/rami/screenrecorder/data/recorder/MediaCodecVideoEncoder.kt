@@ -18,8 +18,8 @@ import java.util.concurrent.TimeUnit
  * 일시정지는 PARAMETER_KEY_SUSPEND로 입력 프레임 공급을 중단한다 (기능명세서 11.2절).
  */
 class MediaCodecVideoEncoder : VideoEncoder {
-    private lateinit var codec: MediaCodec
-    private lateinit var callbackThread: HandlerThread
+    private var codec: MediaCodec? = null
+    private var callbackThread: HandlerThread? = null
     private val endOfStreamLatch = CountDownLatch(1)
 
     override fun prepare(
@@ -27,15 +27,19 @@ class MediaCodecVideoEncoder : VideoEncoder {
         listener: VideoEncoder.Listener,
     ): Surface {
         val format = createMediaFormat(config)
-        callbackThread = HandlerThread("VideoEncoderCallback").apply { start() }
-        codec = MediaCodec.createEncoderByType(format.getString(MediaFormat.KEY_MIME).orEmpty())
-        codec.setCallback(encoderCallback(listener), Handler(callbackThread.looper))
-        codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        return codec.createInputSurface()
+        val mimeType = requireNotNull(format.getString(MediaFormat.KEY_MIME)) { "비디오 MIME 타입이 없다" }
+        val thread = HandlerThread("VideoEncoderCallback").apply { start() }
+        callbackThread = thread
+        return MediaCodec.createEncoderByType(mimeType).let { createdCodec ->
+            codec = createdCodec
+            createdCodec.setCallback(encoderCallback(listener), Handler(thread.looper))
+            createdCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            createdCodec.createInputSurface()
+        }
     }
 
     override fun start() {
-        codec.start()
+        requireCodec().start()
     }
 
     override fun setSuspended(suspended: Boolean) {
@@ -43,7 +47,7 @@ class MediaCodecVideoEncoder : VideoEncoder {
             Bundle().apply {
                 putInt(MediaCodec.PARAMETER_KEY_SUSPEND, if (suspended) 1 else 0)
             }
-        codec.setParameters(parameters)
+        requireCodec().setParameters(parameters)
     }
 
     override fun requestKeyFrame() {
@@ -51,16 +55,23 @@ class MediaCodecVideoEncoder : VideoEncoder {
             Bundle().apply {
                 putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
             }
-        codec.setParameters(parameters)
+        requireCodec().setParameters(parameters)
     }
 
     override fun stopAndRelease() {
-        codec.signalEndOfInputStream()
-        endOfStreamLatch.await(END_OF_STREAM_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-        codec.stop()
-        codec.release()
-        callbackThread.quitSafely()
+        val activeCodec = requireCodec()
+        try {
+            activeCodec.signalEndOfInputStream()
+            endOfStreamLatch.await(END_OF_STREAM_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            activeCodec.stop()
+        } finally {
+            activeCodec.release()
+            callbackThread?.quitSafely()
+            codec = null
+        }
     }
+
+    private fun requireCodec(): MediaCodec = checkNotNull(codec) { "prepare()가 먼저 호출되어야 한다" }
 
     private fun createMediaFormat(config: VideoEncoderConfig): MediaFormat {
         val mimeType =

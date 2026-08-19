@@ -9,7 +9,9 @@ import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.session.MonotonicClock
 import io.rami.screenrecorder.domain.session.PauseAwareStopwatch
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -17,7 +19,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 녹화 세션 오케스트레이터 — [RecordingSessionRepository]의 구현.
@@ -32,6 +36,8 @@ class RecordingCoordinator(
     private val displayInfo: DisplayInfoProvider,
     private val clock: MonotonicClock,
     private val scope: CoroutineScope,
+    /** 블로킹 어댑터 호출(코덱 정리 대기, 파일 IO)을 위임할 디스패처. */
+    private val blockingDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : RecordingSessionRepository {
     private val mutableState = MutableStateFlow<RecordingState>(RecordingState.Idle)
     private val mutableCompleted = MutableSharedFlow<Recording>(extraBufferCapacity = 1)
@@ -91,25 +97,38 @@ class RecordingCoordinator(
             }
         val fileName = fileNameProvider.nextFileName()
         val tempFile = fileStore.createTempFile(fileName)
-        val muxer = sessionFactory.createMuxer().apply { open(tempFile) }
-        val session =
-            ActiveSession(
-                encoder = sessionFactory.createVideoEncoder(),
-                capture = sessionFactory.createCaptureSource(),
-                muxer = muxer,
-                tempFile = tempFile,
-                fileName = fileName,
-                stopwatch = PauseAwareStopwatch(clock),
-            )
-        val surface =
-            session.encoder.prepare(
-                VideoEncoderConfig(resolution, config.frameRate.fps, bitrateBps, config.codec),
-                session.encoderListener(),
-            )
-        session.encoder.start()
-        session.capture.start(surface, resolution, session.captureListener())
-        session.stopwatch.start()
-        activeSession = session
+        val muxer = sessionFactory.createMuxer()
+        try {
+            withContext(blockingDispatcher) {
+                muxer.open(tempFile)
+                val session =
+                    ActiveSession(
+                        encoder = sessionFactory.createVideoEncoder(),
+                        capture = sessionFactory.createCaptureSource(),
+                        muxer = muxer,
+                        tempFile = tempFile,
+                        fileName = fileName,
+                        stopwatch = PauseAwareStopwatch(clock),
+                    )
+                val surface =
+                    session.encoder.prepare(
+                        VideoEncoderConfig(resolution, config.frameRate.fps, bitrateBps, config.codec),
+                        session.encoderListener(),
+                    )
+                session.encoder.start()
+                session.capture.start(surface, resolution, session.captureListener())
+                session.stopwatch.start()
+                activeSession = session
+            }
+        } catch (
+            // 어떤 시작 실패든 열린 먹서를 정리하고 원인을 그대로 전파한다 (증상 은폐 아님).
+            @Suppress("TooGenericExceptionCaught") startFailure: Exception,
+        ) {
+            muxer.close()
+            mutableState.value = RecordingState.Idle
+            throw startFailure
+        }
+        val session = checkNotNull(activeSession)
         mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
         session.ticker = scope.launch { tickElapsed(session) }
     }
@@ -123,20 +142,36 @@ class RecordingCoordinator(
         }
     }
 
-    /** 어떤 중지 경로(수동/시스템/오류)든 파일을 안전하게 마무리한다 (기능명세서 11.1절). */
+    /**
+     * 어떤 중지 경로(수동/시스템/오류)든 파일을 안전하게 마무리한다 (기능명세서 11.1절).
+     *
+     * [ActiveSession.finalizing] CAS로 동시 진입(onError + onStoppedBySystem 등)을 차단하고,
+     * 중첩 finally로 개별 정리 실패에도 나머지 자원 해제와 상태 복귀를 보장한다.
+     */
     private suspend fun finalizeSession() {
         val session = activeSession ?: return
-        if (session.finalizing) return
-        session.finalizing = true
+        if (!session.finalizing.compareAndSet(false, true)) return
         mutableState.value = RecordingState.Stopping
         session.ticker?.cancel()
-        session.capture.stop()
-        session.encoder.stopAndRelease()
-        session.muxer.close()
-        val recording = fileStore.publish(session.tempFile, session.fileName)
-        activeSession = null
-        mutableCompleted.emit(recording)
-        mutableState.value = RecordingState.Idle
+        try {
+            val recording =
+                withContext(blockingDispatcher) {
+                    try {
+                        session.capture.stop()
+                    } finally {
+                        try {
+                            session.encoder.stopAndRelease()
+                        } finally {
+                            session.muxer.close()
+                        }
+                    }
+                    fileStore.publish(session.tempFile, session.fileName)
+                }
+            mutableCompleted.emit(recording)
+        } finally {
+            activeSession = null
+            mutableState.value = RecordingState.Idle
+        }
     }
 
     private fun nowUs(): Long = clock.elapsedRealtimeMillis() * US_PER_MS
@@ -151,7 +186,7 @@ class RecordingCoordinator(
     ) {
         val pauseOffset = PauseOffsetTracker()
         var ticker: Job? = null
-        var finalizing = false
+        val finalizing = AtomicBoolean(false)
 
         private val videoCorrector = PresentationTimeCorrector(pauseOffset)
         private var videoTrackId: Int? = null
