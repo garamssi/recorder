@@ -29,15 +29,18 @@ class RecordingCoordinatorTest {
     private class FakeEncoder : VideoEncoder {
         val surface = mockk<Surface>()
         var listener: VideoEncoder.Listener? = null
+        var lastConfig: VideoEncoderConfig? = null
+        var prepareError: Throwable? = null
         var started = false
         var suspended: Boolean? = null
         var keyFrameRequests = 0
-        var stopped = false
+        var stopCount = 0
 
         override fun prepare(
             config: VideoEncoderConfig,
             listener: VideoEncoder.Listener,
         ): Surface {
+            prepareError?.let { throw it }
             this.listener = listener
             lastConfig = config
             return surface
@@ -56,11 +59,7 @@ class RecordingCoordinatorTest {
         }
 
         override fun stopAndRelease() {
-            stopped = true
-        }
-
-        companion object {
-            var lastConfig: VideoEncoderConfig? = null
+            stopCount++
         }
     }
 
@@ -87,7 +86,8 @@ class RecordingCoordinatorTest {
         var openedFile: File? = null
         var videoFormat: MediaFormat? = null
         val writtenPts = mutableListOf<Long>()
-        var closed = false
+        var closeCount = 0
+        val closed: Boolean get() = closeCount > 0
 
         override fun open(outputFile: File) {
             openedFile = outputFile
@@ -108,7 +108,7 @@ class RecordingCoordinatorTest {
         }
 
         override fun close() {
-            closed = true
+            closeCount++
         }
     }
 
@@ -235,7 +235,7 @@ class RecordingCoordinatorTest {
         runTest {
             coordinator().start(noCountdownConfig)
 
-            val config = requireNotNull(FakeEncoder.lastConfig)
+            val config = requireNotNull(encoder.lastConfig)
             assertEquals(Resolution.FHD, config.resolution)
             assertEquals(60, config.frameRateFps)
             assertEquals(15_000_000, config.bitrateBps)
@@ -308,7 +308,7 @@ class RecordingCoordinatorTest {
                 assertEquals("Rec_test.mp4", completed.displayName)
             }
             assertTrue(capture.stopped)
-            assertTrue(encoder.stopped)
+            assertEquals(1, encoder.stopCount)
             assertTrue(muxer.closed)
             assertEquals("Rec_test.mp4", fileStore.publishedFileName)
             assertEquals(RecordingState.Idle, coordinator.state.value)
@@ -350,6 +350,63 @@ class RecordingCoordinatorTest {
             assertNull(muxer.openedFile)
             assertNull(fileStore.publishedFileName)
             job.cancel()
+        }
+
+    // --- 오류 / 재진입 경로 ---
+
+    @Test
+    fun `인코더 오류가 발생하면 세션을 안전하게 마무리한다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+            encoder.listener?.onOutputFormatReady(mockk())
+
+            encoder.listener?.onError(RuntimeException("코덱 오류"))
+            runCurrent()
+
+            assertTrue(muxer.closed)
+            assertEquals(RecordingState.Idle, coordinator.state.value)
+        }
+
+    @Test
+    fun `일시정지 상태에서 중지해도 정상 마무리된다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+            encoder.listener?.onOutputFormatReady(mockk())
+            coordinator.pause()
+
+            coordinator.stop()
+
+            assertTrue(muxer.closed)
+            assertEquals("Rec_test.mp4", fileStore.publishedFileName)
+            assertEquals(RecordingState.Idle, coordinator.state.value)
+        }
+
+    @Test
+    fun `중지를 두 번 호출해도 마무리는 한 번만 실행된다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+
+            coordinator.stop()
+            coordinator.stop()
+
+            assertEquals(1, encoder.stopCount)
+            assertEquals(1, muxer.closeCount)
+        }
+
+    @Test
+    fun `파이프라인 시작이 실패하면 먹서를 닫고 유휴 상태로 남는다`() =
+        runTest {
+            encoder.prepareError = IllegalStateException("인코더 초기화 실패")
+            val coordinator = coordinator()
+
+            val result = runCatching { coordinator.start(noCountdownConfig) }
+
+            assertTrue(result.isFailure)
+            assertTrue(muxer.closed) { "실패 시 열린 먹서는 닫혀야 한다" }
+            assertEquals(RecordingState.Idle, coordinator.state.value)
         }
 
     // --- 경과 시간 ---
