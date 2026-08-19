@@ -68,6 +68,13 @@ class PauseAwareStopwatchTest {
     }
 
     @Test
+    fun `이미 시작된 스톱워치를 다시 시작하면 상태 오류다`() {
+        stopwatch.start()
+        org.junit.jupiter.api
+            .assertThrows<IllegalStateException> { stopwatch.start() }
+    }
+
+    @Test
     fun `녹화 중이 아닐 때 pause를 호출하면 상태 오류다`() {
         org.junit.jupiter.api
             .assertThrows<IllegalStateException> { stopwatch.pause() }

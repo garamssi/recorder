@@ -134,6 +134,16 @@ class RecordingSessionUseCaseTest {
         }
 
     @Test
+    fun `이미 중지 처리 중이면 중복 중지를 거부한다`() =
+        runTest {
+            givenState(RecordingState.Stopping)
+            val result = StopRecordingUseCase(sessionRepository)()
+
+            assertTrue(result.exceptionOrNull() is RecordingSessionException.InvalidState)
+            coVerify(exactly = 0) { sessionRepository.stop() }
+        }
+
+    @Test
     fun `카운트다운 중에도 중지할 수 있다`() =
         runTest {
             givenState(RecordingState.CountingDown(remainingSeconds = 2))

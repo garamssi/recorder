@@ -20,6 +20,13 @@ class VideoSettingsTest {
     }
 
     @Test
+    fun `자동 비트레이트는 상한 20Mbps를 넘지 않는다`() {
+        // 4K60은 1080p60의 4배 픽셀 처리량(비례값 60Mbps) -> 20Mbps 클램프
+        val uhd = Resolution(width = 3840, height = 2160)
+        assertEquals(20_000_000, AutoBitratePolicy.bitrateBpsFor(uhd, FrameRate.FPS_60))
+    }
+
+    @Test
     fun `자동 비트레이트는 하한 4Mbps 아래로 내려가지 않는다`() {
         val tiny = Resolution(width = 320, height = 240)
         assertEquals(4_000_000, AutoBitratePolicy.bitrateBpsFor(tiny, FrameRate.FPS_30))
