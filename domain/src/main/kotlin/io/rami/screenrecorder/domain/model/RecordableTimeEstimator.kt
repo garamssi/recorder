@@ -7,8 +7,7 @@ import kotlin.time.Duration.Companion.seconds
  * 저장 공간 기반 녹화 가능 시간 추정 (기능명세서 2.1절 "23.5GB 남음, 약 3시간 녹화 가능").
  */
 object RecordableTimeEstimator {
-    /** 오디오 트랙 + 컨테이너 오버헤드 여유 계수. */
-    /** 오버헤드 배수. 부동소수점 오차를 피하기 위해 백분율 정수 연산을 쓴다 (1.1배 = 110/100). */
+    /** 오디오 트랙 + 컨테이너 오버헤드 여유 계수. 부동소수점 오차를 피하려고 백분율 정수(110/100)를 쓴다. */
     private const val OVERHEAD_PERCENT = 110L
 
     private const val PERCENT_BASE = 100L
