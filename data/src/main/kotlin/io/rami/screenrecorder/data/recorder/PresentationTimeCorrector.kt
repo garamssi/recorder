@@ -19,12 +19,16 @@ class PauseOffsetTracker {
 
     /** [atUs] 시점에 일시정지를 시작한다. */
     fun onPause(atUs: Long) {
-        TODO()
+        check(!isPaused) { "이미 일시정지 상태다" }
+        isPaused = true
+        pauseStartedAtUs = atUs
     }
 
     /** [atUs] 시점에 재개한다. */
     fun onResume(atUs: Long) {
-        TODO()
+        check(isPaused) { "일시정지 상태가 아니다" }
+        totalPausedUs += atUs - pauseStartedAtUs
+        isPaused = false
     }
 }
 
@@ -42,10 +46,18 @@ class PresentationTimeCorrector(
     /** [pauseOffset]으로 위임. */
     fun onResume(atUs: Long) = pauseOffset.onResume(atUs)
 
+    private var lastEmittedUs: Long = Long.MIN_VALUE
+
     /**
      * [rawPtsUs]를 보정한 값을 반환한다.
      *
      * 일시정지 중이거나 보정 결과가 단조 증가를 깨면 null (해당 샘플은 먹싱에서 제외).
      */
-    fun correct(rawPtsUs: Long): Long? = TODO()
+    fun correct(rawPtsUs: Long): Long? {
+        if (pauseOffset.isPaused) return null
+        val corrected = rawPtsUs - pauseOffset.totalPausedUs
+        if (corrected <= lastEmittedUs) return null
+        lastEmittedUs = corrected
+        return corrected
+    }
 }
