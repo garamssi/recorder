@@ -5,7 +5,11 @@ import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.minutes
 
 class RecordingQueryTest {
-    private fun recording(name: String, createdAt: Long, sizeBytes: Long) = Recording(
+    private fun recording(
+        name: String,
+        createdAt: Long,
+        sizeBytes: Long,
+    ) = Recording(
         id = RecordingId(createdAt),
         displayName = name,
         contentUri = "content://media/$createdAt",

@@ -10,10 +10,11 @@ class RecordableTimeEstimatorTest {
     fun `남은 공간과 비트레이트로 녹화 가능 시간을 추정한다`() {
         // 15Mbps 비디오 + 오디오/컨테이너 오버헤드 10% = 16.5Mbps = 2.0625MB/s
         // 7.425GB(= 7425MB) / 2.0625MB/s = 3600초 = 1시간
-        val estimate = RecordableTimeEstimator.estimate(
-            availableBytes = 7_425_000_000L,
-            videoBitrateBps = 15_000_000,
-        )
+        val estimate =
+            RecordableTimeEstimator.estimate(
+                availableBytes = 7_425_000_000L,
+                videoBitrateBps = 15_000_000,
+            )
         assertEquals(1.hours, estimate)
     }
 

@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-private class FakeMonotonicClock(var nowMillis: Long = 0L) : MonotonicClock {
+private class FakeMonotonicClock(
+    var nowMillis: Long = 0L,
+) : MonotonicClock {
     override fun elapsedRealtimeMillis(): Long = nowMillis
 }
 
@@ -67,12 +69,14 @@ class PauseAwareStopwatchTest {
 
     @Test
     fun `녹화 중이 아닐 때 pause를 호출하면 상태 오류다`() {
-        org.junit.jupiter.api.assertThrows<IllegalStateException> { stopwatch.pause() }
+        org.junit.jupiter.api
+            .assertThrows<IllegalStateException> { stopwatch.pause() }
     }
 
     @Test
     fun `일시정지가 아닐 때 resume을 호출하면 상태 오류다`() {
         stopwatch.start()
-        org.junit.jupiter.api.assertThrows<IllegalStateException> { stopwatch.resume() }
+        org.junit.jupiter.api
+            .assertThrows<IllegalStateException> { stopwatch.resume() }
     }
 }

@@ -14,6 +14,17 @@ enum class NameValidation {
  * 확장자 `.mp4`는 UI에서 고정 표시하므로 검사 대상에 포함하지 않는다.
  */
 object RecordingNameValidator {
+    private val FORBIDDEN_CHARACTERS = charArrayOf('/', '\\', ':', '*', '?', '"', '<', '>', '|')
+
+    /** 파일명 최대 길이 (기능명세서 6.3절). */
+    const val MAX_LENGTH = 100
+
     /** [name]의 유효성을 검사한다. */
-    fun validate(name: String): NameValidation = TODO()
+    fun validate(name: String): NameValidation =
+        when {
+            name.isBlank() -> NameValidation.Empty
+            name.any { it in FORBIDDEN_CHARACTERS } -> NameValidation.ForbiddenCharacter
+            name.length > MAX_LENGTH -> NameValidation.TooLong
+            else -> NameValidation.Valid
+        }
 }

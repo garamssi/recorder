@@ -30,11 +30,24 @@ enum class SortOrder {
     ;
 
     /** [recordings]를 이 기준으로 정렬한 새 리스트를 반환한다. */
-    fun sort(recordings: List<Recording>): List<Recording> = TODO()
+    fun sort(recordings: List<Recording>): List<Recording> =
+        when (this) {
+            NEWEST_FIRST -> recordings.sortedByDescending { it.createdAtEpochMillis }
+            OLDEST_FIRST -> recordings.sortedBy { it.createdAtEpochMillis }
+            NAME -> recordings.sortedBy { it.displayName.lowercase() }
+            LARGEST_FIRST -> recordings.sortedByDescending { it.sizeBytes }
+        }
 }
 
 /** 녹화 목록 검색 (기능명세서 7.1절: 파일명 부분 일치). */
 object RecordingSearch {
     /** [query]가 파일명에 부분 일치(대소문자 무시)하는 항목만 반환한다. 빈 검색어는 전체 반환. */
-    fun filter(recordings: List<Recording>, query: String): List<Recording> = TODO()
+    fun filter(
+        recordings: List<Recording>,
+        query: String,
+    ): List<Recording> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return recordings
+        return recordings.filter { it.displayName.contains(trimmed, ignoreCase = true) }
+    }
 }
