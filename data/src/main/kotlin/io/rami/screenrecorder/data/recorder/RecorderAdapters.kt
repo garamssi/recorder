@@ -32,7 +32,10 @@ data class EncodedSample(
 /** MediaCodec 비디오 인코더 어댑터. 세션마다 새로 생성한다. */
 interface VideoEncoder {
     /** 인코더를 구성하고 캡처가 그릴 입력 [Surface]를 반환한다. */
-    fun prepare(config: VideoEncoderConfig, listener: Listener): Surface
+    fun prepare(
+        config: VideoEncoderConfig,
+        listener: Listener,
+    ): Surface
 
     /** 인코딩을 시작한다. */
     fun start()
@@ -62,7 +65,11 @@ interface VideoEncoder {
 /** MediaProjection + VirtualDisplay 캡처 어댑터. 세션마다 새로 생성한다 (Android 14+ 동의 1회성). */
 interface ScreenCaptureSource {
     /** [encoderSurface]로 화면을 캡처하기 시작한다. */
-    fun start(encoderSurface: Surface, resolution: Resolution, listener: Listener)
+    fun start(
+        encoderSurface: Surface,
+        resolution: Resolution,
+        listener: Listener,
+    )
 
     /** 캡처를 중단하고 프로젝션을 해제한다. */
     fun stop()
@@ -73,7 +80,10 @@ interface ScreenCaptureSource {
         fun onStoppedBySystem()
 
         /** 캡처 대상 크기 변화 (회전, 단일 앱 리사이즈). */
-        fun onContentResize(width: Int, height: Int)
+        fun onContentResize(
+            width: Int,
+            height: Int,
+        )
     }
 }
 
@@ -89,7 +99,10 @@ interface MuxerWriter {
     fun addAudioTrack(format: MediaFormat): Int
 
     /** 보정된 타임스탬프의 샘플을 기록한다. */
-    fun writeSample(trackId: Int, sample: EncodedSample)
+    fun writeSample(
+        trackId: Int,
+        sample: EncodedSample,
+    )
 
     /** 파일을 마무리하고 닫는다. */
     fun close()
@@ -116,7 +129,10 @@ interface RecordingFileStore {
     suspend fun existingFileNames(): Set<String>
 
     /** [tempFile]을 MediaStore로 이동(IS_PENDING insert→해제)하고 저장된 녹화본을 반환한다. */
-    suspend fun publish(tempFile: File, fileName: String): io.rami.screenrecorder.domain.model.Recording
+    suspend fun publish(
+        tempFile: File,
+        fileName: String,
+    ): io.rami.screenrecorder.domain.model.Recording
 }
 
 /** 디스플레이 정보 제공자 (기기 최대 해상도 해석용). */
