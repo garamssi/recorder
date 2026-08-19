@@ -4,6 +4,7 @@ import android.media.MediaFormat
 import android.view.Surface
 import app.cash.turbine.test
 import io.mockk.mockk
+import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.CountdownDuration
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingState
@@ -83,10 +84,32 @@ class RecordingCoordinatorTest {
         }
     }
 
+    private class FakeAudioRecorder : AudioRecorder {
+        var listener: AudioRecorder.Listener? = null
+        var suspended: Boolean? = null
+        var stopCount = 0
+
+        override fun start(
+            listener: AudioRecorder.Listener,
+            pauseOffset: PauseOffsetTracker,
+        ) {
+            this.listener = listener
+        }
+
+        override fun setSuspended(suspended: Boolean) {
+            this.suspended = suspended
+        }
+
+        override fun stopAndRelease() {
+            stopCount++
+        }
+    }
+
     private class FakeMuxer : MuxerWriter {
         var openedFile: File? = null
         var videoFormat: MediaFormat? = null
-        val writtenPts = mutableListOf<Long>()
+        val writtenSamples = mutableListOf<Pair<Int, Long>>()
+        val writtenPts: List<Long> get() = writtenSamples.map { it.second }
         var closeCount = 0
         val closed: Boolean get() = closeCount > 0
 
@@ -105,7 +128,7 @@ class RecordingCoordinatorTest {
             trackId: Int,
             sample: EncodedSample,
         ) {
-            writtenPts += sample.presentationTimeUs
+            writtenSamples += trackId to sample.presentationTimeUs
         }
 
         override fun close() {
@@ -146,6 +169,7 @@ class RecordingCoordinatorTest {
     private val capture = FakeCapture()
     private val muxer = FakeMuxer()
     private val fileStore = FakeFileStore()
+    private val audioRecorder = FakeAudioRecorder()
 
     private fun TestScope.coordinator(): RecordingCoordinator {
         val clock = MonotonicClock { testScheduler.currentTime }
@@ -156,6 +180,9 @@ class RecordingCoordinatorTest {
                 override fun createCaptureSource(): ScreenCaptureSource = capture
 
                 override fun createMuxer(): MuxerWriter = muxer
+
+                override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? =
+                    if (config.audioSource == AudioSource.SILENT) null else audioRecorder
             }
         return RecordingCoordinator(
             sessionFactory = factory,
@@ -168,7 +195,11 @@ class RecordingCoordinatorTest {
         )
     }
 
-    private val noCountdownConfig = RecordingConfig.DEFAULT.copy(countdown = CountdownDuration.NONE)
+    // 대부분의 비디오 파이프라인 테스트는 무음 설정으로 단순화한다 (오디오 통합은 별도 테스트).
+    private val noCountdownConfig =
+        RecordingConfig.DEFAULT.copy(countdown = CountdownDuration.NONE, audioSource = AudioSource.SILENT)
+
+    private val audioConfig = RecordingConfig.DEFAULT.copy(countdown = CountdownDuration.NONE)
 
     private fun sample(ptsUs: Long) =
         EncodedSample(
@@ -352,6 +383,61 @@ class RecordingCoordinatorTest {
             assertNull(muxer.openedFile)
             assertNull(fileStore.publishedFileName)
             job.cancel()
+        }
+
+    // --- 오디오 통합 (기능명세서 4.2절, fMP4 트랙 게이팅) ---
+
+    @Test
+    fun `오디오가 있으면 두 트랙이 모두 준비된 후에만 샘플이 기록된다`() =
+        runTest {
+            coordinator().start(audioConfig)
+
+            encoder.listener?.onOutputFormatReady(mockk())
+            encoder.listener?.onSample(sample(ptsUs = 16_666))
+            // 오디오 트랙이 아직 없으므로 기록 보류 (fMP4 헤더는 첫 쓰기 시 트랙 구성 확정)
+            assertEquals(emptyList<Long>(), muxer.writtenPts)
+
+            audioRecorder.listener?.onOutputFormatReady(mockk())
+            audioRecorder.listener?.onSample(sample(ptsUs = 21_333))
+
+            // 게이트 해제 후 보류분 포함 모두 기록
+            assertEquals(listOf(0 to 16_666L, 1 to 21_333L), muxer.writtenSamples)
+        }
+
+    @Test
+    fun `무음 설정이면 오디오 레코더 없이 비디오 트랙만 기록한다`() =
+        runTest {
+            coordinator().start(noCountdownConfig)
+
+            encoder.listener?.onOutputFormatReady(mockk())
+            encoder.listener?.onSample(sample(ptsUs = 16_666))
+
+            assertNull(audioRecorder.listener) { "무음 설정에서는 오디오 레코더가 시작되지 않아야 한다" }
+            assertEquals(listOf(0 to 16_666L), muxer.writtenSamples)
+        }
+
+    @Test
+    fun `일시정지하면 오디오 공급도 함께 중단되고 재개 시 복구된다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(audioConfig)
+
+            coordinator.pause()
+            assertEquals(true, audioRecorder.suspended)
+
+            coordinator.resume()
+            assertEquals(false, audioRecorder.suspended)
+        }
+
+    @Test
+    fun `중지 시 오디오 레코더도 해제된다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(audioConfig)
+
+            coordinator.stop()
+
+            assertEquals(1, audioRecorder.stopCount)
         }
 
     // --- 오류 / 재진입 경로 ---

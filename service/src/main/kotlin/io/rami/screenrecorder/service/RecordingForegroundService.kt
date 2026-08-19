@@ -1,9 +1,5 @@
 package io.rami.screenrecorder.service
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -11,6 +7,7 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.common.time.DurationFormatter
+import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
@@ -41,9 +38,11 @@ class RecordingForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    private val notifications by lazy { RecordingNotifications(this) }
+
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        notifications.createChannel()
     }
 
     override fun onStartCommand(
@@ -52,11 +51,17 @@ class RecordingForegroundService : Service() {
         startId: Int,
     ): Int {
         when (intent?.action) {
-            ACTION_START -> handleStart()
+            ACTION_START -> handleStart(readAudioSource(intent))
             ACTION_STOP -> handleStop()
         }
         return START_NOT_STICKY
     }
+
+    private fun readAudioSource(intent: Intent): AudioSource =
+        intent
+            .getStringExtra(EXTRA_AUDIO_SOURCE)
+            ?.let { runCatching { AudioSource.valueOf(it) }.getOrNull() }
+            ?: AudioSource.INTERNAL
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -65,19 +70,32 @@ class RecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun handleStart() {
+    private fun handleStart(audioSource: AudioSource) {
         startForeground(
-            NOTIFICATION_ID,
-            buildNotification(getString(R.string.recording_notification_preparing)),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+            RecordingNotifications.NOTIFICATION_ID,
+            notifications.build(getString(R.string.recording_notification_preparing)),
+            foregroundServiceTypes(audioSource),
         )
         serviceScope.launch {
-            val result = startRecording(RecordingConfig.DEFAULT)
+            val result = startRecording(RecordingConfig.DEFAULT.copy(audioSource = audioSource))
             if (result.isFailure) {
                 stopSelf()
                 return@launch
             }
             observeStateForNotification()
+        }
+    }
+
+    /** 마이크를 쓰는 세션은 microphone FGS 타입을 함께 선언해야 한다 (Android 14+). */
+    private fun foregroundServiceTypes(audioSource: AudioSource): Int {
+        val usesMicrophone =
+            audioSource == AudioSource.MICROPHONE ||
+                audioSource == AudioSource.INTERNAL_AND_MICROPHONE
+        return if (usesMicrophone) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        } else {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         }
     }
 
@@ -92,7 +110,7 @@ class RecordingForegroundService : Service() {
         observeRecordingState().collectLatest { state ->
             when (state) {
                 is RecordingState.Recording ->
-                    updateNotification(
+                    notifications.update(
                         getString(
                             R.string.recording_notification_elapsed,
                             DurationFormatter.formatElapsed(state.elapsed),
@@ -105,53 +123,19 @@ class RecordingForegroundService : Service() {
         }
     }
 
-    private fun updateNotification(contentText: String) {
-        getSystemService(NotificationManager::class.java)
-            .notify(NOTIFICATION_ID, buildNotification(contentText))
-    }
-
-    private fun buildNotification(contentText: String): Notification {
-        val stopIntent =
-            PendingIntent.getService(
-                this,
-                STOP_REQUEST_CODE,
-                Intent(this, RecordingForegroundService::class.java).setAction(ACTION_STOP),
-                PendingIntent.FLAG_IMMUTABLE,
-            )
-        return Notification
-            .Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.presence_video_online)
-            .setContentTitle(getString(R.string.recording_notification_title))
-            .setContentText(contentText)
-            .setOngoing(true)
-            .addAction(
-                Notification.Action
-                    .Builder(null, getString(R.string.recording_notification_stop), stopIntent)
-                    .build(),
-            ).build()
-    }
-
-    private fun createNotificationChannel() {
-        val channel =
-            NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.recording_notification_channel),
-                NotificationManager.IMPORTANCE_LOW,
-            )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
     companion object {
-        private const val CHANNEL_ID = "recording"
-        private const val NOTIFICATION_ID = 1
-        private const val STOP_REQUEST_CODE = 1
-
         private const val ACTION_START = "io.rami.screenrecorder.action.START_RECORDING"
-        private const val ACTION_STOP = "io.rami.screenrecorder.action.STOP_RECORDING"
+        internal const val ACTION_STOP = "io.rami.screenrecorder.action.STOP_RECORDING"
+        private const val EXTRA_AUDIO_SOURCE = "audio_source"
 
         /** 녹화 시작 인텐트 (동의 토큰은 TokenHolder에 먼저 보관되어 있어야 한다). */
-        fun startIntent(context: Context): Intent =
-            Intent(context, RecordingForegroundService::class.java).setAction(ACTION_START)
+        fun startIntent(
+            context: Context,
+            audioSource: AudioSource = AudioSource.INTERNAL,
+        ): Intent =
+            Intent(context, RecordingForegroundService::class.java)
+                .setAction(ACTION_START)
+                .putExtra(EXTRA_AUDIO_SOURCE, audioSource.name)
 
         /** 녹화 중지 인텐트. */
         fun stopIntent(context: Context): Intent =

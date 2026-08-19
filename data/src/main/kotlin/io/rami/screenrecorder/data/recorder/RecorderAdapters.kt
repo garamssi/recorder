@@ -105,6 +105,38 @@ interface MuxerWriter {
     fun close()
 }
 
+/**
+ * 오디오 캡처+믹싱+AAC 인코딩 통합 어댑터 (기능명세서 4.2절). 세션마다 새로 생성한다.
+ *
+ * 내부 오디오(AudioPlaybackCapture)와 마이크를 설정에 따라 조합하고,
+ * 출력 샘플의 타임스탬프는 비디오와 같은 단조 시계 도메인으로 맞춘다.
+ */
+interface AudioRecorder {
+    /** 캡처와 인코딩을 시작한다. [pauseOffset]은 비디오와 공유하는 일시정지 오프셋이다. */
+    fun start(
+        listener: Listener,
+        pauseOffset: PauseOffsetTracker,
+    )
+
+    /** 일시정지: PCM은 계속 읽되(오버런 방지) 인코더 공급을 중단한다 (기능명세서 11.2절). */
+    fun setSuspended(suspended: Boolean)
+
+    /** 캡처와 인코더를 중지하고 자원을 해제한다. */
+    fun stopAndRelease()
+
+    /** 오디오 출력 콜백. 오디오 스레드에서 호출된다. */
+    interface Listener {
+        /** AAC 출력 포맷 확정 (muxer 오디오 트랙 추가 시점). */
+        fun onOutputFormatReady(format: MediaFormat)
+
+        /** 인코딩된 AAC 샘플. */
+        fun onSample(sample: EncodedSample)
+
+        /** 복구 불가 오디오 오류. */
+        fun onError(error: Throwable)
+    }
+}
+
 /** 세션별 어댑터 생성 팩토리 (MediaCodec/MediaProjection은 세션 간 재사용 불가). */
 interface RecorderSessionFactory {
     /** 새 비디오 인코더를 만든다. */
@@ -115,6 +147,12 @@ interface RecorderSessionFactory {
 
     /** 새 먹서를 만든다. */
     fun createMuxer(): MuxerWriter
+
+    /**
+     * 설정에 맞는 오디오 레코더를 만든다. 무음 설정이면 null.
+     * 내부 오디오 캡처는 [createCaptureSource]가 만든 세션의 MediaProjection을 공유한다.
+     */
+    fun createAudioRecorder(config: io.rami.screenrecorder.domain.model.RecordingConfig): AudioRecorder?
 }
 
 /** 녹화 파일 저장 경계 (임시 파일 + MediaStore 이동, 기능명세서 6.1절). */

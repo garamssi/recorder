@@ -74,6 +74,7 @@ class RecordingCoordinator(
     override suspend fun pause() {
         val session = activeSession ?: return
         session.encoder.setSuspended(true)
+        session.audioRecorder?.setSuspended(true)
         session.pauseOffset.onPause(nowUs())
         session.stopwatch.pause()
         mutableState.value = RecordingState.Paused(session.stopwatch.elapsed())
@@ -84,6 +85,7 @@ class RecordingCoordinator(
         session.pauseOffset.onResume(nowUs())
         session.stopwatch.resume()
         session.encoder.setSuspended(false)
+        session.audioRecorder?.setSuspended(false)
         session.encoder.requestKeyFrame()
         mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
     }
@@ -101,11 +103,17 @@ class RecordingCoordinator(
         try {
             withContext(blockingDispatcher) {
                 muxer.open(tempFile)
+                // 캡처 소스가 세션 MediaProjection을 만들므로 오디오 레코더보다 먼저 생성한다.
+                val captureSource = sessionFactory.createCaptureSource()
                 val session =
                     ActiveSession(
-                        encoder = sessionFactory.createVideoEncoder(),
-                        capture = sessionFactory.createCaptureSource(),
-                        muxer = muxer,
+                        media =
+                            SessionMedia(
+                                encoder = sessionFactory.createVideoEncoder(),
+                                capture = captureSource,
+                                audioRecorder = sessionFactory.createAudioRecorder(config),
+                                muxer = muxer,
+                            ),
                         tempFile = tempFile,
                         fileName = fileName,
                         stopwatch = PauseAwareStopwatch(clock),
@@ -117,6 +125,7 @@ class RecordingCoordinator(
                     )
                 session.encoder.start()
                 session.capture.start(surface, resolution, session.captureListener())
+                session.audioRecorder?.start(session.audioListener(), session.pauseOffset)
                 session.stopwatch.start()
                 activeSession = session
             }
@@ -160,9 +169,13 @@ class RecordingCoordinator(
                         session.capture.stop()
                     } finally {
                         try {
-                            session.encoder.stopAndRelease()
+                            session.audioRecorder?.stopAndRelease()
                         } finally {
-                            session.muxer.close()
+                            try {
+                                session.encoder.stopAndRelease()
+                            } finally {
+                                session.muxer.close()
+                            }
                         }
                     }
                     fileStore.publish(session.tempFile, session.fileName)
@@ -176,31 +189,61 @@ class RecordingCoordinator(
 
     private fun nowUs(): Long = clock.elapsedRealtimeMillis() * US_PER_MS
 
-    private inner class ActiveSession(
+    /** 한 세션의 미디어 파이프라인 구성 요소 묶음. */
+    private class SessionMedia(
         val encoder: VideoEncoder,
         val capture: ScreenCaptureSource,
+        val audioRecorder: AudioRecorder?,
         val muxer: MuxerWriter,
+    )
+
+    private inner class ActiveSession(
+        media: SessionMedia,
         val tempFile: File,
         val fileName: String,
         val stopwatch: PauseAwareStopwatch,
     ) {
+        val encoder = media.encoder
+        val capture = media.capture
+        val audioRecorder = media.audioRecorder
+        val muxer = media.muxer
         val pauseOffset = PauseOffsetTracker()
         var ticker: Job? = null
         val finalizing = AtomicBoolean(false)
 
         private val videoCorrector = PresentationTimeCorrector(pauseOffset)
-        private var videoTrackId: Int? = null
+        private val audioCorrector = PresentationTimeCorrector(pauseOffset)
+        private val trackGate =
+            MuxerTrackGate(
+                muxer = muxer,
+                expectedTrackCount = if (audioRecorder != null) 2 else 1,
+            )
 
         fun encoderListener() =
             object : VideoEncoder.Listener {
                 override fun onOutputFormatReady(format: MediaFormat) {
-                    videoTrackId = muxer.addVideoTrack(format)
+                    trackGate.registerVideoTrack(format)
                 }
 
                 override fun onSample(sample: EncodedSample) {
-                    val trackId = videoTrackId ?: return
                     val correctedPtsUs = videoCorrector.correct(sample.presentationTimeUs) ?: return
-                    muxer.writeSample(trackId, sample.copy(presentationTimeUs = correctedPtsUs))
+                    trackGate.writeVideo(sample.copy(presentationTimeUs = correctedPtsUs))
+                }
+
+                override fun onError(error: Throwable) {
+                    scope.launch { finalizeSession() }
+                }
+            }
+
+        fun audioListener() =
+            object : AudioRecorder.Listener {
+                override fun onOutputFormatReady(format: MediaFormat) {
+                    trackGate.registerAudioTrack(format)
+                }
+
+                override fun onSample(sample: EncodedSample) {
+                    val correctedPtsUs = audioCorrector.correct(sample.presentationTimeUs) ?: return
+                    trackGate.writeAudio(sample.copy(presentationTimeUs = correctedPtsUs))
                 }
 
                 override fun onError(error: Throwable) {

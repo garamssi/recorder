@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.designsystem.theme.ScreenRecorderTheme
 import io.rami.screenrecorder.data.recorder.MediaProjectionTokenHolder
+import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
 import io.rami.screenrecorder.service.RecordingForegroundService
@@ -41,21 +42,27 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var observeRecordingState: ObserveRecordingStateUseCase
 
+    private var pendingAudioSource = AudioSource.INTERNAL
+
     private val consentLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val data = result.data
             if (result.resultCode == RESULT_OK && data != null) {
                 projectionTokenHolder.store(result.resultCode, data)
-                startForegroundService(RecordingForegroundService.startIntent(this))
+                startForegroundService(
+                    RecordingForegroundService.startIntent(this, pendingAudioSource),
+                )
             }
         }
 
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        permissionLauncher.launch(
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.RECORD_AUDIO),
+        )
         setContent {
             ScreenRecorderTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -71,7 +78,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestProjectionConsent() {
+    private fun requestProjectionConsent(audioSource: AudioSource) {
+        pendingAudioSource = audioSource
         val manager = getSystemService(MediaProjectionManager::class.java)
         consentLauncher.launch(manager.createScreenCaptureIntent())
     }
@@ -80,7 +88,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun DebugRecordingControls(
     observeRecordingState: ObserveRecordingStateUseCase,
-    onStartClick: () -> Unit,
+    onStartClick: (AudioSource) -> Unit,
     onStopClick: () -> Unit,
 ) {
     val state by observeRecordingState().collectAsState(initial = RecordingState.Idle)
@@ -90,7 +98,10 @@ private fun DebugRecordingControls(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text = "상태: $state", style = MaterialTheme.typography.titleLarge)
-        Button(onClick = onStartClick) { Text("녹화 시작 (디버그)") }
+        Button(onClick = { onStartClick(AudioSource.INTERNAL) }) { Text("시작: 내부 오디오") }
+        Button(onClick = { onStartClick(AudioSource.MICROPHONE) }) { Text("시작: 마이크") }
+        Button(onClick = { onStartClick(AudioSource.INTERNAL_AND_MICROPHONE) }) { Text("시작: 믹싱") }
+        Button(onClick = { onStartClick(AudioSource.SILENT) }) { Text("시작: 무음") }
         Button(onClick = onStopClick) { Text("중지") }
     }
 }
