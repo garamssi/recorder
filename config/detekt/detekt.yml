@@ -9,3 +9,5 @@ style:
     # 이름 있는 프로퍼티에 값을 정의하는 것은 "상수로 관리"에 해당한다 (예: 디자인 토큰 Color 정의).
     # 인라인 사용은 여전히 금지된다.
     ignorePropertyDeclaration: true
+    # enum 엔트리(FPS_60(60) 등)는 이름이 값을 설명하는 상수 정의다.
+    ignoreEnums: true

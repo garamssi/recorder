@@ -1,9 +1,13 @@
 package io.rami.screenrecorder.domain.model
 
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 
 /** 녹화 시작 카운트다운 선택지 (기능명세서 3절: 없음/3초/5초/10초, 기본 3초). */
-enum class CountdownDuration(val seconds: Int) {
+enum class CountdownDuration(
+    val seconds: Int,
+) {
     NONE(0),
     THREE_SECONDS(3),
     FIVE_SECONDS(5),
@@ -25,7 +29,23 @@ sealed interface TimeLimit {
     data object None : TimeLimit
 
     /** [duration] 경과 시 자동 안전 중지한다. */
-    data class Limited(val duration: Duration) : TimeLimit
+    data class Limited(
+        val duration: Duration,
+    ) : TimeLimit {
+        init {
+            require(duration in MIN_DURATION..MAX_DURATION) {
+                "시간 제한은 $MIN_DURATION~$MAX_DURATION 범위여야 한다: $duration"
+            }
+        }
+    }
+
+    companion object {
+        /** 직접 입력 최소값 (기능명세서 11.4절). */
+        val MIN_DURATION: Duration = 10.seconds
+
+        /** 직접 입력 최대값 (기능명세서 11.4절). */
+        val MAX_DURATION: Duration = 12.hours
+    }
 }
 
 /**
@@ -49,6 +69,22 @@ data class RecordingConfig(
 ) {
     companion object {
         /** 기능명세서 4절의 기본값 조합. */
-        val DEFAULT: RecordingConfig = TODO()
+        val DEFAULT =
+            RecordingConfig(
+                resolution = ResolutionOption.Fixed(Resolution.FHD),
+                frameRate = FrameRate.FPS_60,
+                bitrate = BitrateOption.Auto,
+                codec = VideoCodec.H264,
+                audioSource = AudioSource.INTERNAL,
+                microphoneDevice = MicrophoneDevice.AUTO,
+                microphoneVolume = VolumePercent(DEFAULT_VOLUME_PERCENT),
+                internalVolume = VolumePercent(DEFAULT_VOLUME_PERCENT),
+                countdown = CountdownDuration.THREE_SECONDS,
+                orientationPolicy = OrientationPolicy.FOLLOW_ROTATION,
+                timeLimit = TimeLimit.None,
+                captureMode = CaptureMode.FullScreen,
+            )
+
+        private const val DEFAULT_VOLUME_PERCENT = 100
     }
 }
