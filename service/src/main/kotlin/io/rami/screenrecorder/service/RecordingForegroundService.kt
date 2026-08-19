@@ -77,6 +77,8 @@ class RecordingForegroundService : Service() {
             foregroundServiceTypes(audioSource),
         )
         serviceScope.launch {
+            // TODO(Stage 6): DataStore 설정(해상도/fps/비트레이트/마이크 장치/볼륨 등)을 주입한다.
+            //  현재는 명세 4절 기본값에 오디오 소스만 반영한 임시 구성이다.
             val result = startRecording(RecordingConfig.DEFAULT.copy(audioSource = audioSource))
             if (result.isFailure) {
                 stopSelf()

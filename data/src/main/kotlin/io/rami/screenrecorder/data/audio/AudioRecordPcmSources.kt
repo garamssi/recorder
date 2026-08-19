@@ -21,8 +21,13 @@ import io.rami.screenrecorder.domain.model.MicrophoneDevice
 private class AudioRecordPcmSource(
     private val audioRecord: AudioRecord,
 ) : PcmSource {
+    @Volatile
+    private var released = false
+
     override fun start() {
-        check(audioRecord.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord 초기화 실패" }
+        check(audioRecord.state == AudioRecord.STATE_INITIALIZED) {
+            "AudioRecord 초기화 실패 (samplerate=${audioRecord.sampleRate})"
+        }
         audioRecord.startRecording()
     }
 
@@ -30,13 +35,27 @@ private class AudioRecordPcmSource(
         var offset = 0
         while (offset < buffer.size) {
             val read = audioRecord.read(buffer, offset, buffer.size - offset)
-            if (read <= 0) return
-            offset += read
+            when {
+                read > 0 -> offset += read
+                // 중지(stop) 후 read는 0을 반환한다 — 정상 종료 경로.
+                read == 0 -> return
+                else -> throw java.io.IOException("AudioRecord.read 오류: $read")
+            }
+        }
+    }
+
+    override fun interruptReading() {
+        if (!released && audioRecord.state == AudioRecord.STATE_INITIALIZED) {
+            audioRecord.stop()
         }
     }
 
     override fun release() {
-        audioRecord.stop()
+        if (released) return
+        released = true
+        if (audioRecord.state == AudioRecord.STATE_INITIALIZED) {
+            audioRecord.stop()
+        }
         audioRecord.release()
     }
 }
@@ -86,12 +105,18 @@ private fun pcmFormat(channelMask: Int): AudioFormat =
         .setChannelMask(channelMask)
         .build()
 
-private fun bufferSizeBytes(channelMask: Int): Int =
-    AudioRecord.getMinBufferSize(
-        AacAudioRecorder.SAMPLE_RATE_HZ,
-        channelMask,
-        AudioFormat.ENCODING_PCM_16BIT,
-    ) * BUFFER_SIZE_MULTIPLIER
+private fun bufferSizeBytes(channelMask: Int): Int {
+    val minimumSize =
+        AudioRecord.getMinBufferSize(
+            AacAudioRecorder.SAMPLE_RATE_HZ,
+            channelMask,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+    require(minimumSize > 0) {
+        "지원하지 않는 오디오 포맷: ${AacAudioRecorder.SAMPLE_RATE_HZ}Hz/mask=$channelMask (code=$minimumSize)"
+    }
+    return minimumSize * BUFFER_SIZE_MULTIPLIER
+}
 
 private fun resolvePreferredDevice(
     context: Context,

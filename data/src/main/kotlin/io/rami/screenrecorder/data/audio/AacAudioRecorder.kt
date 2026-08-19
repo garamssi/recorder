@@ -51,6 +51,10 @@ class AacAudioRecorder(
 
     override fun stopAndRelease() {
         running = false
+        // 블로킹 read를 강제로 깨워 워커가 제때 종료되게 한다.
+        // (join 타임아웃 후 워커가 닫힌 muxer/코덱에 접근하는 것을 방지)
+        internalSource?.interruptReading()
+        microphoneSource?.interruptReading()
         workerThread?.join(STOP_JOIN_TIMEOUT_MS)
         workerThread = null
     }
@@ -79,6 +83,8 @@ class AacAudioRecorder(
     ) {
         val internalBuffer = ShortArray(CHUNK_FRAMES * CHANNEL_COUNT)
         val microphoneBuffer = ShortArray(CHUNK_FRAMES)
+        // System.nanoTime() == CLOCK_MONOTONIC. VirtualDisplay 서피스 타임스탬프(비디오 PTS)와
+        // 같은 시계 도메인이다 (실기기 E2E에서 A/V 길이 오차 27ms로 검증됨. 정밀 계측은 Stage 9).
         val anchorUs = System.nanoTime() / NANOS_PER_MICRO
         var framesFed = 0L
         while (running) {
@@ -155,8 +161,12 @@ class AacAudioRecorder(
             val inputIndex = codec.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
             if (inputIndex < 0) return
             val inputBuffer = checkNotNull(codec.getInputBuffer(inputIndex))
+            val requiredBytes = pcm.size * BYTES_PER_SAMPLE
+            check(inputBuffer.capacity() >= requiredBytes) {
+                "인코더 입력 버퍼 부족: capacity=${inputBuffer.capacity()}, 필요=$requiredBytes"
+            }
             inputBuffer.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().put(pcm)
-            codec.queueInputBuffer(inputIndex, 0, pcm.size * BYTES_PER_SAMPLE, ptsUs, 0)
+            codec.queueInputBuffer(inputIndex, 0, requiredBytes, ptsUs, 0)
         }
 
         fun drain() {
@@ -230,6 +240,8 @@ class AacAudioRecorder(
         const val CHANNEL_COUNT = 2
 
         private const val AAC_BITRATE_BPS = 192_000
+
+        /** 청크 프레임 수. AAC-LC의 자연 프레임 크기(1024 PCM 샘플)와 일치시킨다. */
         private const val CHUNK_FRAMES = 1_024
         private const val BYTES_PER_SAMPLE = 2
         private const val DEQUEUE_TIMEOUT_US = 10_000L
@@ -244,9 +256,12 @@ interface PcmSource {
     /** 캡처를 시작한다. */
     fun start()
 
-    /** [buffer]를 가득 채울 때까지 블로킹으로 읽는다. */
+    /** [buffer]를 가득 채울 때까지 블로킹으로 읽는다. 읽기 오류는 예외로 전파한다. */
     fun read(buffer: ShortArray)
 
-    /** 캡처를 중지하고 해제한다. */
+    /** 블로킹 중인 [read]를 강제로 깨운다 (워커 스레드 종료용, 다른 스레드에서 호출). */
+    fun interruptReading()
+
+    /** 캡처를 중지하고 해제한다 (재호출 안전). */
     fun release()
 }
