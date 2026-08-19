@@ -15,7 +15,10 @@ interface MediaLibraryRepository {
     fun observeRecordings(): Flow<List<Recording>>
 
     /** DISPLAY_NAME을 [newName]으로 변경한다 (확장자 제외한 이름). */
-    suspend fun rename(id: RecordingId, newName: String)
+    suspend fun rename(
+        id: RecordingId,
+        newName: String,
+    )
 
     /** 휴지통으로 이동한다 (기능명세서 9절, IS_TRASHED). */
     suspend fun moveToTrash(ids: List<RecordingId>)
