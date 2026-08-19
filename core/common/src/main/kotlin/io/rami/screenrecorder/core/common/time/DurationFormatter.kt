@@ -8,13 +8,19 @@ import kotlin.time.Duration
  * 1시간 미만은 "MM:SS", 1시간 이상은 "HH:MM:SS" 형식이다.
  */
 object DurationFormatter {
-
     /**
      * [duration]을 경과 시간 문자열로 변환한다. 밀리초 이하는 버림.
      *
      * @throws IllegalArgumentException 음수 시간이 주어진 경우
      */
     fun formatElapsed(duration: Duration): String {
-        TODO("[RED] 단계: 아직 구현되지 않음")
+        require(!duration.isNegative()) { "경과 시간은 음수일 수 없다: $duration" }
+        return duration.toComponents { hours, minutes, seconds, _ ->
+            if (hours > 0) {
+                "%02d:%02d:%02d".format(hours, minutes, seconds)
+            } else {
+                "%02d:%02d".format(minutes, seconds)
+            }
+        }
     }
 }

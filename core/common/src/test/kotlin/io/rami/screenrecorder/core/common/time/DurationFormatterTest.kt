@@ -10,7 +10,6 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class DurationFormatterTest {
-
     @Test
     fun `0초는 00_00으로 표시한다`() {
         assertEquals("00:00", DurationFormatter.formatElapsed(Duration.ZERO))
