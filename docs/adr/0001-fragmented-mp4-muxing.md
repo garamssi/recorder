@@ -26,11 +26,18 @@
 - 정상 종료 시 재처리 없이 임시 파일을 MediaStore(`Movies/ScreenRecorder`)로 이동한다.
 - fMP4는 ISO BMFF 표준이며 ExoPlayer·주요 플레이어에서 재생된다.
 
-## 검증 계획 (Stage 3)
+## 검증 결과 (2026-08-20, Lenovo TB710FU / Android 16 실기기)
 
-1. 실기기에서 fMP4 결과물이 갤러리/기본 플레이어/공유 대상 앱에서 재생되는지 확인한다.
-2. 녹화 중 프로세스 강제 종료(adb kill) 후 임시 파일이 직전 fragment까지 재생 가능한지 확인한다.
-3. 호환성 문제가 발견되면 대안 C(정상 종료 시 remux)로 전환을 사용자와 상의한다 — 이 경우에도 기록 포맷은 fMP4를 유지하므로 파이프라인 변경은 없다.
+1. ✅ 갤러리 기본 플레이어에서 재생 확인, ffprobe 파싱 정상 (H.264 1080p).
+2. ✅ 녹화 중 `am force-stop` 후 임시 파일이 moof/mdat fragment 단위로 남아 21.5초 재생 가능.
+3. 발견/수정한 root cause 2건:
+   - fragment flush는 "다음 키프레임 + 2초 경과"에서만 발생 → 정적 화면에서 프레임/키프레임이
+     없으면 전부 메모리에 잔류. 인코더에 `KEY_REPEAT_PREVIOUS_FRAME_AFTER`(0.1초)를 설정해
+     최소 프레임 공급과 키프레임 주기를 보장.
+   - `setSampleCopyingEnabled(true)` 필수: 먹서가 fragment 완성까지 샘플 버퍼 참조를 유지하는데
+     어댑터는 쓰기 직후 코덱 버퍼를 반환하므로 복사가 없으면 데이터 오염.
+4. 참고: fMP4 특성상 MediaStore duration 컬럼은 0으로 기록된다. 라이브러리 화면(Stage 7)에서
+   MediaMetadataRetriever 기반으로 duration을 읽는다.
 
 ## 결과
 

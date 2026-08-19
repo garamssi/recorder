@@ -78,6 +78,13 @@ class MediaCodecVideoEncoder : VideoEncoder {
                 setInteger(MediaFormat.KEY_BIT_RATE, config.bitrateBps)
                 setInteger(MediaFormat.KEY_FRAME_RATE, config.frameRateFps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, I_FRAME_INTERVAL_SECONDS)
+                // 정적 화면에서는 VirtualDisplay가 프레임을 만들지 않아 키프레임 주기가 깨지고
+                // fMP4 fragment가 디스크에 flush되지 않는다 (크래시 복구 요구의 전제).
+                // 마지막 프레임을 재인코딩해 최소 프레임 공급을 보장한다.
+                setLong(
+                    MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER,
+                    REPEAT_PREVIOUS_FRAME_AFTER_US,
+                )
             }
     }
 
@@ -130,5 +137,8 @@ class MediaCodecVideoEncoder : VideoEncoder {
     private companion object {
         const val I_FRAME_INTERVAL_SECONDS = 1
         const val END_OF_STREAM_TIMEOUT_MS = 2_000L
+
+        /** 새 프레임이 없을 때 마지막 프레임을 반복 인코딩하는 간격 (0.1초 = 최소 10fps). */
+        const val REPEAT_PREVIOUS_FRAME_AFTER_US = 100_000L
     }
 }
