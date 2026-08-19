@@ -12,12 +12,13 @@ class PcmMixerTest {
         val internal = shortArrayOf(1000, -2000, 3000)
         val microphone = shortArrayOf(500, 500, -500)
 
-        val mixed = mixer.mix(
-            first = internal,
-            firstGain = VolumePercent(100).asGain(),
-            second = microphone,
-            secondGain = VolumePercent(100).asGain(),
-        )
+        val mixed =
+            mixer.mix(
+                first = internal,
+                firstGain = VolumePercent(100).asGain(),
+                second = microphone,
+                secondGain = VolumePercent(100).asGain(),
+            )
 
         assertArrayEquals(shortArrayOf(1500, -1500, 2500), mixed)
     }
@@ -27,12 +28,13 @@ class PcmMixerTest {
         val internal = shortArrayOf(1000)
         val microphone = shortArrayOf(1000)
 
-        val mixed = mixer.mix(
-            first = internal,
-            firstGain = VolumePercent(50).asGain(),
-            second = microphone,
-            secondGain = VolumePercent(200).asGain(),
-        )
+        val mixed =
+            mixer.mix(
+                first = internal,
+                firstGain = VolumePercent(50).asGain(),
+                second = microphone,
+                secondGain = VolumePercent(200).asGain(),
+            )
 
         assertArrayEquals(shortArrayOf(2500), mixed)
     }
@@ -42,12 +44,13 @@ class PcmMixerTest {
         val loudA = shortArrayOf(30000, -30000)
         val loudB = shortArrayOf(10000, -10000)
 
-        val mixed = mixer.mix(
-            first = loudA,
-            firstGain = 1.0f,
-            second = loudB,
-            secondGain = 1.0f,
-        )
+        val mixed =
+            mixer.mix(
+                first = loudA,
+                firstGain = 1.0f,
+                second = loudB,
+                secondGain = 1.0f,
+            )
 
         assertArrayEquals(shortArrayOf(Short.MAX_VALUE, Short.MIN_VALUE), mixed)
     }

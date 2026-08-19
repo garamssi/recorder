@@ -12,8 +12,24 @@ class PcmMixer {
         firstGain: Float,
         second: ShortArray,
         secondGain: Float,
-    ): ShortArray = TODO()
+    ): ShortArray {
+        val length = maxOf(first.size, second.size)
+        return ShortArray(length) { index ->
+            val firstSample = if (index < first.size) first[index] * firstGain else 0f
+            val secondSample = if (index < second.size) second[index] * secondGain else 0f
+            clipToPcm16(firstSample + secondSample)
+        }
+    }
 
     /** [samples]에 [gain]을 적용한다 (클리핑 포함). */
-    fun applyGain(samples: ShortArray, gain: Float): ShortArray = TODO()
+    fun applyGain(
+        samples: ShortArray,
+        gain: Float,
+    ): ShortArray = ShortArray(samples.size) { index -> clipToPcm16(samples[index] * gain) }
+
+    private fun clipToPcm16(value: Float): Short =
+        value
+            .coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat())
+            .toInt()
+            .toShort()
 }
