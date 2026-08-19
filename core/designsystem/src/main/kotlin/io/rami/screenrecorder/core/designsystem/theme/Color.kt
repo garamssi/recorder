@@ -44,3 +44,9 @@ val RecRedPressed = Color(0xFFC5221F)
 
 /** 스플래시 배경색. 일러스트 원본 배경색과 동일해야 한다. */
 val SplashBackground = Color(0xFF05070F)
+
+/** 홈 히어로 그라디언트 (라이트, 150deg: 시작→55%→끝). */
+val HeroGradientLight = listOf(Color(0xFF0B57D0), Color(0xFF083E96), Color(0xFF062D6E))
+
+/** 홈 히어로 그라디언트 (다크). */
+val HeroGradientDark = listOf(Color(0xFF123A85), Color(0xFF0C2B66), Color(0xFF081D47))

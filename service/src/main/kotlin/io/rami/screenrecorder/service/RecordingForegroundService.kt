@@ -9,7 +9,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.AutoStopReason
-import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.TimeLimit
@@ -25,10 +24,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * mediaProjection 타입 Foreground Service (기능명세서 11절).
@@ -48,6 +47,8 @@ class RecordingForegroundService : Service() {
     @Inject lateinit var resumeRecording: ResumeRecordingUseCase
 
     @Inject lateinit var observeRecordingState: ObserveRecordingStateUseCase
+
+    @Inject lateinit var observeSettings: io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 
     @Inject lateinit var sessionRepository: RecordingSessionRepository
 
@@ -70,7 +71,7 @@ class RecordingForegroundService : Service() {
         startId: Int,
     ): Int {
         when (intent?.action) {
-            ACTION_START -> handleStart(intent)
+            ACTION_START -> handleStart()
             ACTION_STOP -> serviceScope.launch { stopRecording() }
             ACTION_PAUSE -> serviceScope.launch { pauseRecording() }
             ACTION_RESUME -> serviceScope.launch { resumeRecording() }
@@ -85,26 +86,22 @@ class RecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun handleStart(intent: Intent) {
+    private fun handleStart() {
         // 세션 진행 중 중복 START는 무시한다 — 진행 중 녹화를 stopSelf로 죽이는 사고 방지.
         if (stateObserverJob?.isActive == true) return
-        val audioSource =
-            intent
-                .getStringExtra(EXTRA_AUDIO_SOURCE)
-                ?.let { runCatching { AudioSource.valueOf(it) }.getOrNull() }
-                ?: AudioSource.INTERNAL
-        val limitSeconds = intent.getLongExtra(EXTRA_TIME_LIMIT_SECONDS, 0L)
-        timeLimit = if (limitSeconds > 0) TimeLimit.Limited(limitSeconds.seconds) else TimeLimit.None
-        startForeground(
-            RecordingNotifications.NOTIFICATION_ID,
-            notifications.buildOngoing(getString(R.string.recording_notification_preparing), isPaused = false),
-            foregroundServiceTypes(audioSource),
-        )
         serviceScope.launch {
-            // TODO(Stage 6): DataStore 설정(해상도/fps/비트레이트/마이크 장치/볼륨 등)을 주입한다.
-            //  현재는 명세 4절 기본값에 오디오 소스/시간 제한만 반영한 임시 구성이다.
-            val result =
-                startRecording(RecordingConfig.DEFAULT.copy(audioSource = audioSource, timeLimit = timeLimit))
+            // 세션 구성은 설정 저장소가 단일 진실 공급원이다 (기능명세서 2.1절: 마지막 선택 유지).
+            val config = observeSettings().first().recording
+            timeLimit = config.timeLimit
+            startForeground(
+                RecordingNotifications.NOTIFICATION_ID,
+                notifications.buildOngoing(
+                    getString(R.string.recording_notification_preparing),
+                    isPaused = false,
+                ),
+                foregroundServiceTypes(config.audioSource),
+            )
+            val result = startRecording(config)
             if (result.isFailure) {
                 stopSelf()
                 return@launch
@@ -206,19 +203,10 @@ class RecordingForegroundService : Service() {
         internal const val ACTION_STOP = "io.rami.screenrecorder.action.STOP_RECORDING"
         internal const val ACTION_PAUSE = "io.rami.screenrecorder.action.PAUSE_RECORDING"
         internal const val ACTION_RESUME = "io.rami.screenrecorder.action.RESUME_RECORDING"
-        private const val EXTRA_AUDIO_SOURCE = "audio_source"
-        private const val EXTRA_TIME_LIMIT_SECONDS = "time_limit_seconds"
 
-        /** 녹화 시작 인텐트 (동의 토큰은 TokenHolder에 먼저 보관되어 있어야 한다). */
-        fun startIntent(
-            context: Context,
-            audioSource: AudioSource = AudioSource.INTERNAL,
-            timeLimitSeconds: Long = 0L,
-        ): Intent =
-            Intent(context, RecordingForegroundService::class.java)
-                .setAction(ACTION_START)
-                .putExtra(EXTRA_AUDIO_SOURCE, audioSource.name)
-                .putExtra(EXTRA_TIME_LIMIT_SECONDS, timeLimitSeconds)
+        /** 녹화 시작 인텐트 (동의 토큰은 TokenHolder에, 세션 구성은 설정 저장소에 있어야 한다). */
+        fun startIntent(context: Context): Intent =
+            Intent(context, RecordingForegroundService::class.java).setAction(ACTION_START)
 
         /** 녹화 중지 인텐트. */
         fun stopIntent(context: Context): Intent =
