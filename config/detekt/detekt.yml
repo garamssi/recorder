@@ -1,0 +1,11 @@
+# 기본 규칙셋(buildUponDefaultConfig=true) 위에 프로젝트 관례만 보정한다.
+naming:
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+
+style:
+  MagicNumber:
+    ignoreAnnotated: ['Composable']
+    # 이름 있는 프로퍼티에 값을 정의하는 것은 "상수로 관리"에 해당한다 (예: 디자인 토큰 Color 정의).
+    # 인라인 사용은 여전히 금지된다.
+    ignorePropertyDeclaration: true

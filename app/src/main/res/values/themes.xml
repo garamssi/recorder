@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose가 전체 UI를 그리므로 최소한의 플랫폼 테마만 유지한다. 스플래시 테마는 Stage 6에서 구성. -->
+    <style name="Theme.ScreenRecorder" parent="android:Theme.Material.NoActionBar" />
+</resources>

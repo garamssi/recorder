@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# macOS
+.DS_Store
+
+# 서명 키 / 자격 증명 (CLAUDE.md 7절)
+*.jks
+*.keystore
+signing.properties
+
+# 테스트 녹화물 — 개인정보 포함 가능 (CLAUDE.md 7절)
+*.mp4
+
+# Kotlin
+.kotlin/

@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E8EAF0;font-family:'Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#0B57D0;text-decoration:none}a:hover{color:#084298;text-decoration:underline}
+.msym{font-family:'Material Symbols Outlined';font-weight:400;font-style:normal;line-height:1;letter-spacing:0;display:inline-block;user-select:none}
+</style>
+</helmet>
+<section id="2" style="padding:48px 56px 0;display:flex;flex-direction:column;gap:20px">
+<div style="max-width:860px">
+<div style="font-size:13px;font-weight:700;letter-spacing:2px;color:#5F6470;text-transform:uppercase">v2 — 홈 리디자인 &amp; 플로팅 컨트롤</div>
+<div style="margin-top:6px;font-size:15px;color:#5F6470;line-height:1.6">홈은 표현적인 히어로 중심으로 재구성 (<a href="#2a">2a</a>). 백그라운드 녹화용 플로팅 버블: 접힘 (<a href="#2b">2b</a>) → 탭하면 펼침 메뉴 (<a href="#2c">2c</a>).</div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+<!-- 2e 스플래시 -->
+<div id="2e" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#0B57D0;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">2e</span>스플래시 (초기 로딩) · 업로드 일러스트 적용</div>
+<div style="width:1280px;height:800px;background:#05070F;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:36px;position:relative;flex:none;box-shadow:0 12px 40px rgba(26,27,32,.16)">
+  <div style="position:absolute;left:-160px;top:-180px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(110,140,255,.06),transparent 65%)"></div>
+  <div style="position:absolute;right:-120px;bottom:-200px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(255,196,0,.05),transparent 65%)"></div>
+  <div style="display:flex;align-items:center;justify-content:center;position:relative">
+    <img src="uploads/KakaoTalk_Photo_2026-08-19-23-17-48.png" alt="보물을 들고 도망가는 도둑과 쫓아가는 경찰" style="width:690px;display:block">
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;position:relative">
+    <div style="font-size:32px;font-weight:700;color:#fff;letter-spacing:-.3px;line-height:1.2">ScreenRecorder</div>
+    <div style="font-size:15px;font-weight:400;color:rgba(255,255,255,.60);letter-spacing:.3px;line-height:1.5">화면의 순간을 훔쳐 담다</div>
+  </div>
+  <div style="display:flex;gap:10px;position:relative">
+    <span style="width:10px;height:10px;border-radius:5px;background:#fff"></span>
+    <span style="width:10px;height:10px;border-radius:5px;background:rgba(255,255,255,.5)"></span>
+    <span style="width:10px;height:10px;border-radius:5px;background:rgba(255,255,255,.3)"></span>
+  </div>
+  <div style="position:absolute;bottom:28px;font-size:12px;color:rgba(255,255,255,.5)">v1.0 · 오프라인 전용 · 수집 데이터 없음</div>
+</div>
+</div>
+
+<!-- 2a 홈 리디자인 -->
+<div id="2a" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#0B57D0;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">2a</span>홈 리디자인 · 라이트 · 가로 1280×800</div>
+<div style="width:1280px;height:800px;background:#F3F5FC;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none;position:relative">
+  <div style="position:absolute;left:-180px;top:-220px;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(11,87,208,.10),transparent 65%)"></div>
+  <div style="position:absolute;right:-140px;bottom:-260px;width:620px;height:620px;border-radius:50%;background:radial-gradient(circle,rgba(217,48,37,.08),transparent 65%)"></div>
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none;position:relative">
+    <span>14:30</span>
+    <span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span>
+  </div>
+  <div style="height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none;position:relative">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:12px;background:#D93025;display:flex;align-items:center;justify-content:center"><div style="width:14px;height:14px;border-radius:7px;background:#fff"></div></div>
+      <div style="font-size:20px;font-weight:700;color:#1A1B20;letter-spacing:-.3px">ScreenRecorder</div>
+    </div>
+    <div style="display:flex;gap:4px;color:#44464F">
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center" style-hover="background:#E4E7F2"><span class="msym" style="font-size:24px">delete</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center" style-hover="background:#E4E7F2"><span class="msym" style="font-size:24px">settings</span></div>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1.35fr 1fr;gap:20px;padding:8px 32px 32px;min-height:0;position:relative">
+    <div style="background:linear-gradient(150deg,#0B57D0 0%,#083E96 55%,#062D6E 100%);border-radius:32px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px">
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:480px;height:480px;border-radius:50%;border:1px solid rgba(255,255,255,.10)"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:50%;border:1px solid rgba(255,255,255,.14)"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:250px;height:250px;border-radius:50%;border:1px solid rgba(255,255,255,.20)"></div>
+      <div style="position:absolute;left:28px;top:24px;display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.85);font-size:13px;font-weight:500"><span class="msym" style="font-size:16px">storage</span>23.5GB 남음 · 약 3시간 녹화 가능</div>
+      <div style="width:132px;height:132px;border-radius:66px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(6,45,110,.5);cursor:pointer;position:relative">
+        <div style="width:52px;height:52px;border-radius:26px;background:#D93025"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;position:relative">
+        <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-.3px">녹화 시작</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.75)">3초 카운트다운 후 시작됩니다</div>
+      </div>
+      <div style="display:flex;gap:6px;background:rgba(255,255,255,.12);border-radius:24px;padding:5px;position:relative">
+        <div style="padding:9px 22px;border-radius:20px;background:#fff;color:#083E96;font-size:14px;font-weight:700">전체 화면</div>
+        <div style="padding:9px 22px;border-radius:20px;color:rgba(255,255,255,.85);font-size:14px;font-weight:500">단일 앱</div>
+        <div style="padding:9px 22px;border-radius:20px;color:rgba(255,255,255,.85);font-size:14px;font-weight:500">부분 영역</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:16px;padding:9px 18px;color:#fff;font-size:13px;font-weight:500;position:relative;cursor:pointer">
+        <span class="msym" style="font-size:16px">tune</span>1080p · 60fps · 내부 오디오 · 10분 제한
+        <span class="msym" style="font-size:16px;opacity:.7">chevron_right</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 6px 0">
+        <div style="font-size:16px;font-weight:700;color:#1A1B20;letter-spacing:-.2px">최근 녹화</div>
+        <span style="font-size:13px;font-weight:500;color:#0B57D0">전체 보기</span>
+      </div>
+      <div style="flex:1;background:#fff;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:6px;box-shadow:0 2px 12px rgba(26,27,32,.06);min-height:0">
+        <div style="display:flex;align-items:center;gap:14px;padding:8px;border-radius:18px" style-hover="background:#F3F5FC">
+          <div style="width:128px;height:72px;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span><span class="msym" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:24px;color:rgba(255,255,255,.9);font-variation-settings:'FILL' 1">play_arrow</span></div>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+            <div style="font-size:12px;color:#5F6470">오늘 14:30 · 128MB</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:8px;border-radius:18px">
+          <div style="width:128px;height:72px;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+            <div style="font-size:12px;color:#5F6470">어제 16:02 · 402MB</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:8px;border-radius:18px">
+          <div style="width:128px;height:72px;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+            <div style="font-size:12px;color:#5F6470">8월 17일 · 1.4GB</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1;background:#fff;border-radius:20px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 12px rgba(26,27,32,.06)">
+          <div style="font-size:22px;font-weight:700;color:#1A1B20;letter-spacing:-.4px">24개</div>
+          <div style="font-size:12px;color:#5F6470">전체 녹화</div>
+        </div>
+        <div style="flex:1;background:#fff;border-radius:20px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 12px rgba(26,27,32,.06)">
+          <div style="font-size:22px;font-weight:700;color:#1A1B20;letter-spacing:-.4px">3.2GB</div>
+          <div style="font-size:12px;color:#5F6470">사용 중 용량</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 2d 홈 리디자인 다크 -->
+<div id="2d" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#0B57D0;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">2d</span>홈 리디자인 · 다크 · 가로 1280×800</div>
+<div style="width:1280px;height:800px;background:#101116;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.4);flex:none;position:relative">
+  <div style="position:absolute;left:-180px;top:-220px;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(175,198,255,.08),transparent 65%)"></div>
+  <div style="position:absolute;right:-140px;bottom:-260px;width:620px;height:620px;border-radius:50%;background:radial-gradient(circle,rgba(255,84,73,.07),transparent 65%)"></div>
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#C5C6D0;flex:none;position:relative">
+    <span>14:30</span>
+    <span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span>
+  </div>
+  <div style="height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;flex:none;position:relative">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:12px;background:#D93025;display:flex;align-items:center;justify-content:center"><div style="width:14px;height:14px;border-radius:7px;background:#fff"></div></div>
+      <div style="font-size:20px;font-weight:700;color:#E3E2E9;letter-spacing:-.3px">ScreenRecorder</div>
+    </div>
+    <div style="display:flex;gap:4px;color:#C5C6D0">
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center" style-hover="background:#1E1F25"><span class="msym" style="font-size:24px">delete</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center" style-hover="background:#1E1F25"><span class="msym" style="font-size:24px">settings</span></div>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1.35fr 1fr;gap:20px;padding:8px 32px 32px;min-height:0;position:relative">
+    <div style="background:linear-gradient(150deg,#123A85 0%,#0C2B66 55%,#081D47 100%);border-radius:32px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px">
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:480px;height:480px;border-radius:50%;border:1px solid rgba(255,255,255,.08)"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:50%;border:1px solid rgba(255,255,255,.12)"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:250px;height:250px;border-radius:50%;border:1px solid rgba(255,255,255,.18)"></div>
+      <div style="position:absolute;left:28px;top:24px;display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.8);font-size:13px;font-weight:500"><span class="msym" style="font-size:16px">storage</span>23.5GB 남음 · 약 3시간 녹화 가능</div>
+      <div style="width:132px;height:132px;border-radius:66px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(0,0,0,.5);cursor:pointer;position:relative">
+        <div style="width:52px;height:52px;border-radius:26px;background:#D93025"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;position:relative">
+        <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-.3px">녹화 시작</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7)">3초 카운트다운 후 시작됩니다</div>
+      </div>
+      <div style="display:flex;gap:6px;background:rgba(255,255,255,.10);border-radius:24px;padding:5px;position:relative">
+        <div style="padding:9px 22px;border-radius:20px;background:#fff;color:#0C2B66;font-size:14px;font-weight:700">전체 화면</div>
+        <div style="padding:9px 22px;border-radius:20px;color:rgba(255,255,255,.85);font-size:14px;font-weight:500">단일 앱</div>
+        <div style="padding:9px 22px;border-radius:20px;color:rgba(255,255,255,.85);font-size:14px;font-weight:500">부분 영역</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border-radius:16px;padding:9px 18px;color:#fff;font-size:13px;font-weight:500;position:relative;cursor:pointer">
+        <span class="msym" style="font-size:16px">tune</span>1080p · 60fps · 내부 오디오 · 10분 제한
+        <span class="msym" style="font-size:16px;opacity:.7">chevron_right</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 6px 0">
+        <div style="font-size:16px;font-weight:700;color:#E3E2E9;letter-spacing:-.2px">최근 녹화</div>
+        <span style="font-size:13px;font-weight:500;color:#AFC6FF">전체 보기</span>
+      </div>
+      <div style="flex:1;background:#1B1C22;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:6px;box-shadow:0 2px 12px rgba(0,0,0,.3);min-height:0">
+        <div style="display:flex;align-items:center;gap:14px;padding:8px;border-radius:18px" style-hover="background:#26272F">
+          <div style="width:128px;height:72px;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span><span class="msym" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:24px;color:rgba(255,255,255,.9);font-variation-settings:'FILL' 1">play_arrow</span></div>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:14px;font-weight:500;color:#E3E2E9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+            <div style="font-size:12px;color:#8F9099">오늘 14:30 · 128MB</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:8px;border-radius:18px">
+          <div style="width:128px;height:72px;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:14px;font-weight:500;color:#E3E2E9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+            <div style="font-size:12px;color:#8F9099">어제 16:02 · 402MB</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:8px;border-radius:18px">
+          <div style="width:128px;height:72px;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font-size:14px;font-weight:500;color:#E3E2E9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+            <div style="font-size:12px;color:#8F9099">8월 17일 · 1.4GB</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1;background:#1B1C22;border-radius:20px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 12px rgba(0,0,0,.3)">
+          <div style="font-size:22px;font-weight:700;color:#E3E2E9;letter-spacing:-.4px">24개</div>
+          <div style="font-size:12px;color:#8F9099">전체 녹화</div>
+        </div>
+        <div style="flex:1;background:#1B1C22;border-radius:20px;padding:14px 18px;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 12px rgba(0,0,0,.3)">
+          <div style="font-size:22px;font-weight:700;color:#E3E2E9;letter-spacing:-.4px">3.2GB</div>
+          <div style="font-size:12px;color:#8F9099">사용 중 용량</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 2b 플로팅 버블 접힘 -->
+<div id="2b" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#0B57D0;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">2b</span>플로팅 버블 · 접힘 (백그라운드 녹화 중, 다른 앱 위)</div>
+<div style="width:620px;height:800px;background:linear-gradient(160deg,#E8ECF6,#D7DEEE);border-radius:24px;overflow:hidden;position:relative;flex:none;box-shadow:0 12px 40px rgba(26,27,32,.16)">
+  <div style="position:absolute;inset:0;padding:60px 40px;display:flex;flex-direction:column;gap:18px;opacity:.55">
+    <div style="width:55%;height:26px;border-radius:8px;background:#B9C3D9"></div>
+    <div style="width:85%;height:14px;border-radius:7px;background:#C7CFE1"></div>
+    <div style="width:78%;height:14px;border-radius:7px;background:#C7CFE1"></div>
+    <div style="width:100%;height:200px;border-radius:20px;background:#C7CFE1;margin-top:10px"></div>
+    <div style="width:90%;height:14px;border-radius:7px;background:#C7CFE1;margin-top:10px"></div>
+    <div style="width:70%;height:14px;border-radius:7px;background:#C7CFE1"></div>
+  </div>
+  <div style="position:absolute;left:50%;top:24px;transform:translateX(-50%);font-size:12px;font-weight:500;color:#5F6470;background:rgba(255,255,255,.7);border-radius:12px;padding:4px 14px">다른 앱 사용 중</div>
+  <div style="position:absolute;right:20px;top:280px;display:flex;align-items:center;gap:10px;background:rgba(20,21,26,.92);border-radius:32px;padding:8px 18px 8px 12px;box-shadow:0 8px 24px rgba(0,0,0,.35);backdrop-filter:blur(8px)">
+    <div style="width:40px;height:40px;border-radius:20px;background:#D93025;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px rgba(217,48,37,.25)">
+      <div style="width:12px;height:12px;border-radius:6px;background:#fff"></div>
+    </div>
+    <span style="font-size:16px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.3px">03:24</span>
+  </div>
+  <div style="position:absolute;right:20px;top:348px;width:200px;text-align:right;font-size:11px;color:#5F6470;line-height:1.5">드래그로 이동 · 탭하면 펼침 (<a href="#2c">2c</a>) · 화면 가장자리에 자석 스냅</div>
+</div>
+</div>
+
+<!-- 2c 플로팅 버블 펼침 -->
+<div id="2c" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#0B57D0;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">2c</span>플로팅 버블 · 펼침 메뉴 (탭 시)</div>
+<div style="width:620px;height:800px;background:linear-gradient(160deg,#E8ECF6,#D7DEEE);border-radius:24px;overflow:hidden;position:relative;flex:none;box-shadow:0 12px 40px rgba(26,27,32,.16)">
+  <div style="position:absolute;inset:0;padding:60px 40px;display:flex;flex-direction:column;gap:18px;opacity:.35">
+    <div style="width:55%;height:26px;border-radius:8px;background:#B9C3D9"></div>
+    <div style="width:85%;height:14px;border-radius:7px;background:#C7CFE1"></div>
+    <div style="width:78%;height:14px;border-radius:7px;background:#C7CFE1"></div>
+    <div style="width:100%;height:200px;border-radius:20px;background:#C7CFE1;margin-top:10px"></div>
+    <div style="width:90%;height:14px;border-radius:7px;background:#C7CFE1;margin-top:10px"></div>
+  </div>
+  <div style="position:absolute;right:20px;top:200px;width:280px;background:rgba(20,21,26,.94);border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:6px;box-shadow:0 16px 48px rgba(0,0,0,.45);backdrop-filter:blur(12px)">
+    <div style="display:flex;align-items:center;gap:12px;padding:4px 6px 14px;border-bottom:1px solid rgba(255,255,255,.12)">
+      <div style="width:36px;height:36px;border-radius:18px;background:#D93025;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px rgba(217,48,37,.25)"><div style="width:11px;height:11px;border-radius:6px;background:#fff"></div></div>
+      <div style="display:flex;flex-direction:column;gap:1px">
+        <span style="font-size:17px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums">03:24 / 10:00</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.6)">녹화 중 · 1080p 60fps</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:12px 0 8px">
+      <div style="flex:1;height:76px;border-radius:20px;background:rgba(255,255,255,.10);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#fff" style-hover="background:rgba(255,255,255,.18)">
+        <span class="msym" style="font-size:26px">pause</span><span style="font-size:12px;font-weight:500">일시정지</span>
+      </div>
+      <div style="flex:1;height:76px;border-radius:20px;background:#D93025;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#fff">
+        <span class="msym" style="font-size:26px;font-variation-settings:'FILL' 1">stop</span><span style="font-size:12px;font-weight:700">중지 · 저장</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 10px;border-radius:16px;color:#fff" style-hover="background:rgba(255,255,255,.10)">
+      <span class="msym" style="font-size:22px;color:rgba(255,255,255,.8)">open_in_new</span><span style="font-size:14px;font-weight:500">앱으로 가기</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 10px;border-radius:16px;color:#fff">
+      <span class="msym" style="font-size:22px;color:rgba(255,255,255,.8)">settings</span><span style="font-size:14px;font-weight:500">설정</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 10px;border-radius:16px;color:rgba(255,255,255,.65)">
+      <span class="msym" style="font-size:22px">collapse_content</span><span style="font-size:14px;font-weight:500">접기</span>
+    </div>
+  </div>
+  <div style="position:absolute;right:20px;top:640px;width:280px;text-align:right;font-size:11px;color:#5F6470;line-height:1.5">바깥 영역 탭 시 접힘 · 버블은 녹화 영상에 포함됨을 설정에 명시</div>
+</div>
+</div>
+
+</div>
+</section>
+
+<section id="1" style="padding:48px 56px;display:flex;flex-direction:column;gap:56px">
+<div style="max-width:860px">
+<div style="font-size:13px;font-weight:700;letter-spacing:2px;color:#5F6470;text-transform:uppercase">ScreenRecorder · Android 16 Tablet · Material 3</div>
+<h1 style="margin:8px 0 6px;font-size:32px;font-weight:700;color:#1A1B20">화면 목업 v1</h1>
+<div style="font-size:15px;color:#5F6470;line-height:1.6">기능명세서 v1.0 기준. 기본 1280×800 가로, 라이트 테마. 하단에 다크·세로 변형 포함. 프레임 좌측 상단 뱃지(<a href="#1a">1a</a>…)로 참조.</div>
+</div>
+
+<!-- ══ 홈 & 녹화 플로우 ══ -->
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 style="margin:0;font-size:20px;font-weight:700;color:#1A1B20">홈 &amp; 녹화 플로우</h2>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+<!-- 1a 홈 라이트 가로 -->
+<div id="1a" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1a</span>홈 · 라이트 · 가로 1280×800</div>
+<div style="width:1280px;height:800px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none">
+    <span>14:30</span>
+    <span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span>
+  </div>
+  <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex:none">
+    <div style="font-size:22px;font-weight:700;color:#1A1B20;padding-left:8px">ScreenRecorder</div>
+    <div style="display:flex;gap:4px">
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;color:#44464F" style-hover="background:#EEEDF4"><span class="msym" style="font-size:24px">delete</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;color:#44464F" style-hover="background:#EEEDF4"><span class="msym" style="font-size:24px">settings</span></div>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:8px 32px 0;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;height:48px;border:1px solid #757780;border-radius:24px;overflow:hidden">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#DBE2F9;color:#141B2C;font-size:15px;font-weight:500"><span class="msym" style="font-size:18px">check</span>전체 화면</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #757780;color:#44464F;font-size:15px">단일 앱</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #757780;color:#44464F;font-size:15px">부분 영역</div>
+      </div>
+      <div style="background:#EEEDF4;border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:12px;font-weight:500;color:#44464F;letter-spacing:.4px">현재 프리셋</div>
+          <div style="font-size:16px;font-weight:500;color:#1A1B20">1080p · 60fps · 15Mbps · 내부 오디오 · 10분 제한</div>
+        </div>
+        <span class="msym" style="font-size:22px;color:#44464F">tune</span>
+      </div>
+      <div style="border:1px solid #C5C6D0;border-radius:16px;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:#44464F">
+          <span style="display:flex;align-items:center;gap:8px"><span class="msym" style="font-size:18px">storage</span>저장 공간</span>
+          <span style="font-weight:500;color:#1A1B20">23.5GB 남음 · 약 3시간 녹화 가능</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:#E8E7EF;overflow:hidden"><div style="width:63%;height:100%;background:#0B57D0;border-radius:4px"></div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:15px;font-weight:700;color:#1A1B20">최근 녹화</div>
+        <a href="#1f" style="font-size:14px;font-weight:500;color:#0B57D0">전체 보기</a>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="width:200px;display:flex;flex-direction:column;gap:8px">
+          <div style="width:200px;height:112px;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative">
+            <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span>
+          </div>
+          <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+        </div>
+        <div style="width:200px;display:flex;flex-direction:column;gap:8px">
+          <div style="width:200px;height:112px;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative">
+            <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span>
+          </div>
+          <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+        </div>
+        <div style="width:200px;display:flex;flex-direction:column;gap:8px">
+          <div style="width:200px;height:112px;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative">
+            <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span>
+          </div>
+          <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0 36px">
+    <div style="width:96px;height:96px;border-radius:48px;background:#D93025;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(217,48,37,.4);cursor:pointer" style-hover="background:#C5221F">
+      <div style="width:32px;height:32px;border-radius:16px;background:#fff"></div>
+    </div>
+    <div style="font-size:15px;font-weight:500;color:#1A1B20">녹화 시작</div>
+  </div>
+</div>
+</div>
+
+</div>
+</div>
+
+
+<!-- 1b 녹화 옵션 시트 -->
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;margin-top:-16px;padding-left:0">
+<div id="1b" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1b</span>녹화 옵션 시트 (프리셋 카드 탭 시)</div>
+<div style="width:1280px;height:800px;border-radius:24px;overflow:hidden;position:relative;background:#FAF9FE;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="position:absolute;inset:0;padding:34px 32px;display:flex;flex-direction:column;gap:20px;opacity:.5">
+    <div style="height:48px;display:flex;align-items:center;font-size:22px;font-weight:700;color:#1A1B20;padding-left:8px">ScreenRecorder</div>
+    <div style="width:46%;height:48px;border-radius:24px;border:1px solid #C5C6D0"></div>
+    <div style="width:46%;height:76px;border-radius:16px;background:#EEEDF4"></div>
+    <div style="width:46%;height:80px;border-radius:16px;border:1px solid #C5C6D0"></div>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(26,27,32,.42)"></div>
+  <div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:760px;background:#F3F3F9;border-radius:28px 28px 0 0;padding:12px 32px 28px;display:flex;flex-direction:column;gap:20px;box-shadow:0 -8px 32px rgba(0,0,0,.2)">
+    <div style="width:32px;height:4px;border-radius:2px;background:#C5C6D0;align-self:center"></div>
+    <div style="font-size:20px;font-weight:700;color:#1A1B20">녹화 옵션</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:13px;font-weight:500;color:#44464F">해상도</div>
+      <div style="display:flex;gap:8px">
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">기기 최대</div>
+        <div style="padding:8px 18px;border-radius:8px;background:#DBE2F9;font-size:14px;font-weight:500;color:#141B2C;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:16px">check</span>1080p</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">720p</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:13px;font-weight:500;color:#44464F">프레임레이트</div>
+      <div style="display:flex;gap:8px">
+        <div style="padding:8px 18px;border-radius:8px;background:#DBE2F9;font-size:14px;font-weight:500;color:#141B2C;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:16px">check</span>60fps</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">30fps</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:13px;font-weight:500;color:#44464F">오디오 소스</div>
+      <div style="display:flex;gap:8px">
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">무음</div>
+        <div style="padding:8px 18px;border-radius:8px;background:#DBE2F9;font-size:14px;font-weight:500;color:#141B2C;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:16px">check</span>기기 내부</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">마이크</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">내부+마이크</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:13px;font-weight:500;color:#44464F">녹화 시간 제한</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">제한 없음</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">1분</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">5분</div>
+        <div style="padding:8px 18px;border-radius:8px;background:#DBE2F9;font-size:14px;font-weight:500;color:#141B2C;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:16px">check</span>10분</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F">30분</div>
+        <div style="padding:8px 18px;border-radius:8px;border:1px solid #C5C6D0;font-size:14px;color:#44464F;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:16px">edit</span>직접 입력</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px">
+      <a href="#1l" style="font-size:14px;font-weight:500;color:#0B57D0;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:18px">settings</span>전체 설정 열기</a>
+      <div style="padding:10px 28px;border-radius:20px;background:#0B57D0;color:#fff;font-size:14px;font-weight:500">확인</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 1c 카운트다운 -->
+<div id="1c" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1c</span>카운트다운 오버레이 (탭 시 스킵)</div>
+<div style="width:1280px;height:800px;border-radius:24px;overflow:hidden;position:relative;background:#FAF9FE;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="position:absolute;inset:0;background:rgba(10,11,14,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+    <div style="width:220px;height:220px;border-radius:110px;border:4px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center">
+      <div style="font-size:120px;font-weight:700;color:#fff;line-height:1">3</div>
+    </div>
+    <div style="font-size:17px;color:rgba(255,255,255,.85)">화면을 탭하면 바로 시작합니다</div>
+    <div style="margin-top:12px;padding:10px 24px;border-radius:20px;border:1px solid rgba(255,255,255,.45);color:#fff;font-size:14px;font-weight:500">취소</div>
+  </div>
+</div>
+</div>
+
+<!-- 1d 영역 선택 -->
+<div id="1d" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1d</span>부분 영역 선택 오버레이 (최소 320×240)</div>
+<div style="width:1280px;height:800px;border-radius:24px;overflow:hidden;position:relative;background:#FAF9FE;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="position:absolute;inset:0;background:rgba(10,11,14,.55)"></div>
+  <div style="position:absolute;left:280px;top:170px;width:720px;height:405px;background:rgba(250,249,254,.06);border:2px dashed #A8C7FA;box-shadow:0 0 0 9999px rgba(10,11,14,.35)">
+    <div style="position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;right:-7px;top:-7px;width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;left:-7px;bottom:-7px;width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;left:50%;top:-7px;transform:translateX(-50%);width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;left:-7px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);color:#fff;font-size:14px;font-weight:500;padding:6px 14px;border-radius:8px">1280 × 720</div>
+  </div>
+  <div style="position:absolute;left:50%;bottom:48px;transform:translateX(-50%);display:flex;gap:12px;align-items:center">
+    <div style="padding:12px 28px;border-radius:24px;border:1px solid rgba(255,255,255,.5);color:#fff;font-size:15px;font-weight:500">취소</div>
+    <div style="padding:12px 32px;border-radius:24px;background:#0B57D0;color:#fff;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px"><span class="msym" style="font-size:18px">check</span>이 영역으로 녹화</div>
+  </div>
+  <div style="position:absolute;left:50%;top:100px;transform:translateX(-50%);color:rgba(255,255,255,.8);font-size:14px">모서리를 드래그해 녹화할 영역을 조정하세요</div>
+</div>
+</div>
+</div>
+
+<!-- 1e 녹화 중 -->
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1e" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1e</span>녹화 중 — 홈 상태 카드 · 플로팅 버블 · 알림</div>
+<div style="width:1280px;height:800px;background:#FAF9FE;border-radius:24px;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none">
+    <span style="display:flex;align-items:center;gap:8px">14:32<span style="display:flex;align-items:center;gap:5px;background:#D93025;color:#fff;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700"><span style="width:6px;height:6px;border-radius:3px;background:#fff"></span>REC</span></span>
+    <span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span>
+  </div>
+  <div style="height:64px;display:flex;align-items:center;padding:0 32px;font-size:22px;font-weight:700;color:#1A1B20;flex:none">ScreenRecorder</div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center">
+    <div style="width:560px;background:#FCEEEE;border:1px solid #F2B8B5;border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="width:12px;height:12px;border-radius:6px;background:#D93025"></span>
+        <span style="font-size:15px;font-weight:700;color:#8C1D18">녹화 중</span>
+        <span style="margin-left:auto;font-size:13px;color:#8C1D18">1080p · 60fps · 내부 오디오</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;justify-content:center">
+        <span style="font-size:56px;font-weight:700;color:#1A1B20;font-variant-numeric:tabular-nums">03:24</span>
+        <span style="font-size:24px;font-weight:500;color:#5F6470;font-variant-numeric:tabular-nums">/ 10:00</span>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <div style="padding:12px 28px;border-radius:24px;border:1px solid #757780;color:#1A1B20;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px"><span class="msym" style="font-size:20px">pause</span>일시정지</div>
+        <div style="padding:12px 32px;border-radius:24px;background:#D93025;color:#fff;font-size:15px;font-weight:500;display:flex;align-items:center;gap:8px"><span class="msym" style="font-size:20px;font-variation-settings:'FILL' 1">stop</span>중지</div>
+      </div>
+    </div>
+  </div>
+  <div style="position:absolute;right:36px;top:120px;display:flex;align-items:center;gap:10px;background:rgba(26,27,32,.88);border-radius:28px;padding:8px 10px 8px 16px;box-shadow:0 4px 16px rgba(0,0,0,.3)">
+    <span style="width:8px;height:8px;border-radius:4px;background:#FF5449"></span>
+    <span style="font-size:14px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums">03:24 / 10:00</span>
+    <span style="width:36px;height:36px;border-radius:18px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;color:#fff"><span class="msym" style="font-size:18px">pause</span></span>
+    <span style="width:36px;height:36px;border-radius:18px;background:#D93025;display:flex;align-items:center;justify-content:center;color:#fff"><span class="msym" style="font-size:18px;font-variation-settings:'FILL' 1">stop</span></span>
+  </div>
+  <div style="position:absolute;right:36px;top:196px;font-size:11px;color:#5F6470;width:200px;text-align:right">플로팅 버블 (옵션, 기본 끔) — 드래그 이동 가능</div>
+  <div style="position:absolute;left:36px;bottom:36px;width:420px;background:#F3F3F9;border-radius:20px;padding:16px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 24px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#44464F">
+      <span style="width:16px;height:16px;border-radius:4px;background:#D93025;display:flex;align-items:center;justify-content:center"><span style="width:6px;height:6px;border-radius:3px;background:#fff"></span></span>
+      ScreenRecorder · 지금
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="font-size:15px;font-weight:500;color:#1A1B20">녹화 중 · 03:24 / 10:00</div>
+      <div style="font-size:13px;color:#44464F">종료 1분 전에 알려드립니다</div>
+    </div>
+    <div style="display:flex;gap:20px;padding-top:2px">
+      <span style="font-size:14px;font-weight:500;color:#0B57D0">일시정지</span>
+      <span style="font-size:14px;font-weight:500;color:#0B57D0">중지</span>
+    </div>
+  </div>
+  <div style="position:absolute;left:36px;bottom:12px;font-size:11px;color:#5F6470">Foreground Service 알림 (초 단위 갱신)</div>
+</div>
+</div>
+</div>
+
+<!-- ══ Library / 플레이어 / 휴지통 ══ -->
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 style="margin:0;font-size:20px;font-weight:700;color:#1A1B20">녹화 목록 · 플레이어 · 휴지통</h2>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+<!-- 1f Library 리스트 -->
+<div id="1f" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1f</span>녹화 목록 · 리스트형 (기본)</div>
+<div style="width:1280px;height:800px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;flex:none">
+    <span class="msym" style="font-size:24px;color:#44464F;padding:12px">arrow_back</span>
+    <div style="font-size:22px;font-weight:700;color:#1A1B20">녹화 목록</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+      <div style="width:420px;height:48px;border-radius:24px;background:#EEEDF4;display:flex;align-items:center;gap:12px;padding:0 18px;color:#44464F"><span class="msym" style="font-size:20px">search</span><span style="font-size:15px;color:#5F6470">파일명 검색</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;color:#44464F"><span class="msym" style="font-size:22px">grid_view</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 32px 12px;flex:none">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid #C5C6D0;font-size:13px;font-weight:500;color:#44464F"><span class="msym" style="font-size:16px">swap_vert</span>최신순<span class="msym" style="font-size:16px">arrow_drop_down</span></div>
+    <div style="font-size:13px;color:#5F6470;margin-left:auto">24개 항목 · 3.2GB</div>
+  </div>
+  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;padding:0 16px">
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px" style-hover="background:#EEEDF4">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+        <div style="font-size:13px;color:#5F6470">2026-08-19 14:30 · 1080p 60fps · 128MB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#44464F;padding:13px">more_vert</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+        <div style="font-size:13px;color:#5F6470">2026-08-18 16:02 · 1080p 60fps · 402MB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#44464F;padding:13px">more_vert</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+        <div style="font-size:13px;color:#5F6470">2026-08-17 09:12 · 1080p 60fps · 1.4GB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#44464F;padding:13px">more_vert</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#6B5B3A,#37301F);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">08:55</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">게임플레이_compressed</div>
+        <div style="font-size:13px;color:#5F6470">2026-08-16 21:44 · 720p 30fps · 96MB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#44464F;padding:13px">more_vert</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#4A3A6B,#241F37);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">01:12:40</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">강의녹화_수학2_0815</div>
+        <div style="font-size:13px;color:#5F6470">2026-08-15 10:00 · 1080p 30fps · 2.1GB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#44464F;padding:13px">more_vert</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 1g 더보기 메뉴 -->
+<div id="1g" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1g</span>항목 더보기 메뉴</div>
+<div style="width:280px;background:#F3F3F9;border-radius:8px;padding:8px 0;box-shadow:0 8px 24px rgba(0,0,0,.18);display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:15px;color:#1A1B20" style-hover="background:#E8E7EF"><span class="msym" style="font-size:20px;color:#44464F">play_arrow</span>재생</div>
+  <div style="display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:15px;color:#1A1B20"><span class="msym" style="font-size:20px;color:#44464F">edit</span>이름 변경</div>
+  <div style="display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:15px;color:#1A1B20"><span class="msym" style="font-size:20px;color:#44464F">share</span>공유</div>
+  <div style="display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:15px;color:#1A1B20"><span class="msym" style="font-size:20px;color:#44464F">compress</span>압축</div>
+  <div style="display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:15px;color:#1A1B20"><span class="msym" style="font-size:20px;color:#44464F">info</span>상세 정보</div>
+  <div style="height:1px;background:#C5C6D0;margin:8px 0"></div>
+  <div style="display:flex;align-items:center;gap:14px;padding:13px 20px;font-size:15px;color:#BA1A1A"><span class="msym" style="font-size:20px">delete</span>삭제</div>
+</div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;margin-top:-16px">
+<!-- 1h Library 그리드 + 다중 선택 -->
+<div id="1h" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1h</span>녹화 목록 · 그리드형 + 다중 선택 모드 (길게 누르기 진입)</div>
+<div style="width:1280px;height:800px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;flex:none;background:#DBE2F9">
+    <span class="msym" style="font-size:24px;color:#141B2C;padding:12px">close</span>
+    <div style="font-size:20px;font-weight:700;color:#141B2C">3개 선택됨</div>
+    <div style="margin-left:auto;display:flex;gap:4px;color:#141B2C">
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:22px">select_all</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:22px">share</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:22px">delete</span></div>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:20px 32px;align-content:start">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative;outline:3px solid #0B57D0;outline-offset:-3px">
+        <span style="position:absolute;left:8px;top:8px;width:24px;height:24px;border-radius:12px;background:#0B57D0;display:flex;align-items:center;justify-content:center;color:#fff"><span class="msym" style="font-size:16px">check</span></span>
+        <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative;outline:3px solid #0B57D0;outline-offset:-3px">
+        <span style="position:absolute;left:8px;top:8px;width:24px;height:24px;border-radius:12px;background:#0B57D0;display:flex;align-items:center;justify-content:center;color:#fff"><span class="msym" style="font-size:16px">check</span></span>
+        <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative">
+        <span style="position:absolute;left:8px;top:8px;width:24px;height:24px;border-radius:12px;border:2px solid rgba(255,255,255,.9)"></span>
+        <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#6B5B3A,#37301F);position:relative;outline:3px solid #0B57D0;outline-offset:-3px">
+        <span style="position:absolute;left:8px;top:8px;width:24px;height:24px;border-radius:12px;background:#0B57D0;display:flex;align-items:center;justify-content:center;color:#fff"><span class="msym" style="font-size:16px">check</span></span>
+        <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">08:55</span>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">게임플레이_compressed</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#4A3A6B,#241F37);position:relative">
+        <span style="position:absolute;left:8px;top:8px;width:24px;height:24px;border-radius:12px;border:2px solid rgba(255,255,255,.9)"></span>
+        <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">01:12:40</span>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">강의녹화_수학2_0815</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#6B3A4A,#371F26);position:relative">
+        <span style="position:absolute;left:8px;top:8px;width:24px;height:24px;border-radius:12px;border:2px solid rgba(255,255,255,.9)"></span>
+        <span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">00:52</span>
+      </div>
+      <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">버그리포트_짧은클립</div>
+    </div>
+  </div>
+  <div style="flex:none;display:flex;justify-content:center;padding:0 0 24px">
+    <div style="background:#1A1B20;color:#fff;border-radius:8px;padding:14px 24px;font-size:14px;display:flex;align-items:center;gap:24px;box-shadow:0 4px 16px rgba(0,0,0,.25)">3개 항목을 휴지통으로 이동할까요? 30일 후 자동 삭제됩니다<span style="color:#A8C7FA;font-weight:500">이동</span></div>
+  </div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;margin-top:-16px">
+<!-- 1i 플레이어 -->
+<div id="1i" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1i</span>플레이어 (ExoPlayer · 컨트롤 표시 상태)</div>
+<div style="width:1280px;height:800px;background:#0A0B0E;border-radius:24px;overflow:hidden;position:relative;flex:none;box-shadow:0 12px 40px rgba(26,27,32,.16)">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:1280px;height:720px;background:linear-gradient(135deg,#2A3A5B,#141B2C)"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.65) 0%,transparent 22%,transparent 68%,rgba(0,0,0,.75) 100%)"></div>
+  <div style="position:absolute;top:0;left:0;right:0;height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:rgba(255,255,255,.85)"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="position:absolute;top:38px;left:0;right:0;height:56px;display:flex;align-items:center;gap:8px;padding:0 20px;color:#fff">
+    <span class="msym" style="font-size:24px;padding:12px">arrow_back</span>
+    <div style="font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:640px">Rec_20260819_143025.mp4</div>
+    <div style="margin-left:auto;display:flex;gap:2px">
+      <span class="msym" style="font-size:22px;padding:13px">edit</span>
+      <span class="msym" style="font-size:22px;padding:13px">share</span>
+      <span class="msym" style="font-size:22px;padding:13px">info</span>
+      <span class="msym" style="font-size:22px;padding:13px">delete</span>
+    </div>
+  </div>
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:64px;color:#fff">
+    <div style="width:72px;height:72px;border-radius:36px;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:36px">replay_10</span></div>
+    <div style="width:96px;height:96px;border-radius:48px;background:rgba(255,255,255,.16);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:52px;font-variation-settings:'FILL' 1">play_arrow</span></div>
+    <div style="width:72px;height:72px;border-radius:36px;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:36px">forward_10</span></div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:0 28px 24px;display:flex;flex-direction:column;gap:10px;color:#fff">
+    <div style="display:flex;align-items:center;gap:16px;font-size:13px;font-variant-numeric:tabular-nums">
+      <span>04:12</span>
+      <div style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.3);position:relative">
+        <div style="width:35%;height:100%;border-radius:2px;background:#A8C7FA"></div>
+        <div style="position:absolute;left:35%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:7px;background:#A8C7FA"></div>
+      </div>
+      <span style="color:rgba(255,255,255,.7)">12:04</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="padding:8px 16px;border-radius:18px;background:rgba(255,255,255,.14);font-size:14px;font-weight:500">1.0x</span>
+      <span style="font-size:12px;color:rgba(255,255,255,.6)">0.5 / 1 / 1.5 / 2</span>
+      <div style="margin-left:auto;display:flex;gap:2px">
+        <span class="msym" style="font-size:24px;padding:12px">volume_up</span>
+        <span class="msym" style="font-size:24px;padding:12px">screen_rotation</span>
+        <span class="msym" style="font-size:24px;padding:12px">fullscreen</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;margin-top:-16px">
+<!-- 1j 휴지통 -->
+<div id="1j" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1j</span>휴지통 (시스템 휴지통 · 30일 보관)</div>
+<div style="width:1280px;height:800px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;flex:none">
+    <span class="msym" style="font-size:24px;color:#44464F;padding:12px">arrow_back</span>
+    <div style="font-size:22px;font-weight:700;color:#1A1B20">휴지통</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:9px 18px;border-radius:20px;border:1px solid #757780;font-size:14px;font-weight:500;color:#1A1B20"><span class="msym" style="font-size:18px">delete_forever</span>휴지통 비우기</div>
+  </div>
+  <div style="padding:4px 32px 12px;font-size:13px;color:#5F6470;flex:none">항목은 30일 후 자동으로 영구 삭제됩니다 (시스템 정책)</div>
+  <div style="flex:1;display:flex;flex-direction:column;padding:0 16px">
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#5B5B5B,#2A2A2A);position:relative;flex:none;opacity:.8"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">02:18</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20">Rec_20260810_182233</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#5F6470">214MB<span style="background:#FCEEEE;color:#8C1D18;font-weight:500;padding:2px 10px;border-radius:10px">21일 후 삭제</span></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="padding:9px 20px;border-radius:20px;border:1px solid #757780;font-size:14px;font-weight:500;color:#0B57D0;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:18px">restore_from_trash</span>복원</div>
+        <div style="padding:9px 20px;border-radius:20px;font-size:14px;font-weight:500;color:#BA1A1A;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:18px">delete_forever</span>영구 삭제</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#4A5B3A,#242A1F);position:relative;flex:none;opacity:.8"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">15:03</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#1A1B20">테스트_영상_구버전</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#5F6470">890MB<span style="background:#FCEEEE;color:#8C1D18;font-weight:500;padding:2px 10px;border-radius:10px">4일 후 삭제</span></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="padding:9px 20px;border-radius:20px;border:1px solid #757780;font-size:14px;font-weight:500;color:#0B57D0;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:18px">restore_from_trash</span>복원</div>
+        <div style="padding:9px 20px;border-radius:20px;font-size:14px;font-weight:500;color:#BA1A1A;display:flex;align-items:center;gap:6px"><span class="msym" style="font-size:18px">delete_forever</span>영구 삭제</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ══ 설정 ══ -->
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 style="margin:0;font-size:20px;font-weight:700;color:#1A1B20">설정</h2>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+<div id="1k" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1k</span>설정 · 태블릿 2-페인 (녹화 섹션 선택 상태)</div>
+<div style="width:1280px;height:800px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;flex:none">
+    <span class="msym" style="font-size:24px;color:#44464F;padding:12px">arrow_back</span>
+    <div style="font-size:22px;font-weight:700;color:#1A1B20">설정</div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:360px 1fr;gap:0;min-height:0">
+    <div style="padding:8px 16px;display:flex;flex-direction:column;gap:4px;border-right:1px solid #E8E7EF">
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:28px;background:#DBE2F9;color:#141B2C;font-size:15px;font-weight:500"><span class="msym" style="font-size:22px">videocam</span>녹화</div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:28px;color:#44464F;font-size:15px"><span class="msym" style="font-size:22px">mic</span>오디오</div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:28px;color:#44464F;font-size:15px"><span class="msym" style="font-size:22px">folder</span>저장</div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:28px;color:#44464F;font-size:15px"><span class="msym" style="font-size:22px">palette</span>화면</div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:28px;color:#44464F;font-size:15px"><span class="msym" style="font-size:22px">language</span>언어</div>
+      <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-radius:28px;color:#44464F;font-size:15px"><span class="msym" style="font-size:22px">info</span>정보</div>
+    </div>
+    <div style="padding:8px 32px 24px;overflow:hidden;display:flex;flex-direction:column;gap:2px">
+      <div style="font-size:13px;font-weight:700;color:#0B57D0;padding:14px 4px 10px">비디오</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">해상도</span><span style="font-size:13px;color:#5F6470">기기 최대 · 1080p · 720p</span></div>
+        <span style="font-size:14px;font-weight:500;color:#0B57D0">1080p</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">프레임레이트</span><span style="font-size:13px;color:#5F6470">기기 인코더 미지원 조합은 비활성화 + 사유 표시</span></div>
+        <span style="font-size:14px;font-weight:500;color:#0B57D0">60fps</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">비트레이트</span><span style="font-size:13px;color:#5F6470">자동은 해상도×fps 기반 (1080p60 = 15Mbps)</span></div>
+        <span style="font-size:14px;font-weight:500;color:#0B57D0">자동</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">코덱</span><span style="font-size:13px;color:#5F6470">H.265는 기기 지원 시에만 선택 가능</span></div>
+        <span style="font-size:14px;font-weight:500;color:#0B57D0">H.264 (호환성)</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">녹화 시작 카운트다운</span><span style="font-size:13px;color:#5F6470">없음 · 3초 · 5초 · 10초</span></div>
+        <span style="font-size:14px;font-weight:500;color:#0B57D0">3초</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">화면 회전 처리</span><span style="font-size:13px;color:#5F6470">회전 따라가기 · 시작 방향 고정</span></div>
+        <span style="font-size:14px;font-weight:500;color:#0B57D0">회전 따라가기</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">터치 표시</span><span style="font-size:13px;color:#5F6470">터치 지점을 원으로 표시합니다</span></div>
+        <div style="width:52px;height:32px;border-radius:16px;background:#E8E7EF;border:2px solid #757780;position:relative"><span style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:8px;background:#757780"></span></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 4px">
+        <div style="display:flex;flex-direction:column;gap:3px"><span style="font-size:16px;color:#1A1B20">플로팅 컨트롤 표시</span><span style="font-size:13px;color:#5F6470">버블은 녹화 영상에 포함됩니다 (오버레이 특성)</span></div>
+        <div style="width:52px;height:32px;border-radius:16px;background:#E8E7EF;border:2px solid #757780;position:relative"><span style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:8px;background:#757780"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ══ 다이얼로그 ══ -->
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 style="margin:0;font-size:20px;font-weight:700;color:#1A1B20">다이얼로그</h2>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+<!-- 1l 이름 변경 -->
+<div id="1l" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1l</span>이름 변경</div>
+<div style="width:620px;height:460px;border-radius:24px;background:rgba(26,27,32,.42);display:flex;align-items:center;justify-content:center;flex:none">
+  <div style="width:440px;background:#F3F3F9;border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:18px;box-shadow:0 16px 40px rgba(0,0,0,.3)">
+    <div style="font-size:22px;font-weight:500;color:#1A1B20">이름 변경</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;border:2px solid #0B57D0;border-radius:8px;padding:0 4px 0 16px;height:56px;background:#FAF9FE">
+        <span style="flex:1;font-size:16px;color:#1A1B20">회의_데모_최종본</span>
+        <span style="font-size:16px;color:#5F6470;padding-right:12px">.mp4</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#5F6470;padding:0 16px">
+        <span>사용 불가 문자: / \ : * ? " &lt; &gt; |</span><span>9 / 100</span>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px">
+      <span style="padding:10px 20px;border-radius:20px;font-size:14px;font-weight:500;color:#0B57D0">취소</span>
+      <span style="padding:10px 24px;border-radius:20px;background:#0B57D0;color:#fff;font-size:14px;font-weight:500">저장</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 1m 압축 -->
+<div id="1m" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1m</span>압축 (트랜스코딩)</div>
+<div style="width:620px;height:640px;border-radius:24px;background:rgba(26,27,32,.42);display:flex;align-items:center;justify-content:center;flex:none">
+  <div style="width:480px;background:#F3F3F9;border-radius:28px;padding:28px;display:flex;flex-direction:column;gap:16px;box-shadow:0 16px 40px rgba(0,0,0,.3)">
+    <div style="font-size:22px;font-weight:500;color:#1A1B20">압축</div>
+    <div style="font-size:13px;color:#5F6470;line-height:1.5">재인코딩으로 용량을 줄입니다. 화질이 일부 낮아질 수 있습니다. 원본은 유지되며 <span style="font-weight:500;color:#44464F">회의_데모_0818_compressed.mp4</span>로 저장됩니다.</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="border:2px solid #0B57D0;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px;background:#FAF9FE">
+        <span style="width:20px;height:20px;border-radius:10px;border:6px solid #0B57D0;flex:none"></span>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;font-weight:500;color:#1A1B20">고효율 변환 (HEVC)</span>
+          <span style="font-size:13px;color:#5F6470">동일 해상도 · 화질 유사 · 용량 약 30~50% ↓</span>
+        </div>
+      </div>
+      <div style="border:1px solid #C5C6D0;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px">
+        <span style="width:20px;height:20px;border-radius:10px;border:2px solid #757780;flex:none"></span>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;font-weight:500;color:#1A1B20">표준 압축</span>
+          <span style="font-size:13px;color:#5F6470">동일 해상도 · 비트레이트 50% · 용량 약 50% ↓</span>
+        </div>
+      </div>
+      <div style="border:1px solid #C5C6D0;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px">
+        <span style="width:20px;height:20px;border-radius:10px;border:2px solid #757780;flex:none"></span>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:15px;font-weight:500;color:#1A1B20">최대 압축</span>
+          <span style="font-size:13px;color:#5F6470">720p 다운스케일 · 용량 약 70% 이상 ↓</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#5F6470">402MB → 예상 약 220MB · 백그라운드 진행, 취소 가능</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <span style="padding:10px 20px;border-radius:20px;font-size:14px;font-weight:500;color:#0B57D0">취소</span>
+      <span style="padding:10px 24px;border-radius:20px;background:#0B57D0;color:#fff;font-size:14px;font-weight:500">압축 시작</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 1n 상세 정보 -->
+<div id="1n" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1n</span>상세 정보 시트</div>
+<div style="width:620px;height:640px;border-radius:24px;background:rgba(26,27,32,.42);display:flex;align-items:flex-end;justify-content:center;flex:none;overflow:hidden">
+  <div style="width:520px;background:#F3F3F9;border-radius:28px 28px 0 0;padding:12px 32px 28px;display:flex;flex-direction:column;gap:14px">
+    <div style="width:32px;height:4px;border-radius:2px;background:#C5C6D0;align-self:center"></div>
+    <div style="font-size:20px;font-weight:700;color:#1A1B20">상세 정보</div>
+    <div style="display:grid;grid-template-columns:110px 1fr;row-gap:12px;column-gap:16px;font-size:14px">
+      <span style="color:#5F6470">파일명</span><span style="color:#1A1B20;font-weight:500">회의_데모_0818.mp4</span>
+      <span style="color:#5F6470">경로</span><span style="color:#1A1B20">Movies/ScreenRecorder</span>
+      <span style="color:#5F6470">해상도</span><span style="color:#1A1B20">1920 × 1080</span>
+      <span style="color:#5F6470">프레임레이트</span><span style="color:#1A1B20">60fps</span>
+      <span style="color:#5F6470">코덱</span><span style="color:#1A1B20">H.264 (AVC)</span>
+      <span style="color:#5F6470">비트레이트</span><span style="color:#1A1B20">15.2Mbps</span>
+      <span style="color:#5F6470">길이</span><span style="color:#1A1B20">03:41</span>
+      <span style="color:#5F6470">크기</span><span style="color:#1A1B20">402MB</span>
+      <span style="color:#5F6470">생성일시</span><span style="color:#1A1B20">2026-08-18 16:02:14</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 1o 저장 직후 스낵바 -->
+<div id="1o" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1o</span>저장 직후 (즉시 이름 변경 진입)</div>
+<div style="width:620px;height:220px;border-radius:24px;background:#FAF9FE;display:flex;align-items:flex-end;justify-content:center;padding-bottom:24px;flex:none;box-shadow:0 12px 40px rgba(26,27,32,.12)">
+  <div style="background:#1A1B20;color:#fff;border-radius:8px;padding:14px 20px;font-size:14px;display:flex;align-items:center;gap:20px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:540px">
+    <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">저장됨 · Rec_20260819_143025.mp4</span>
+    <span style="color:#A8C7FA;font-weight:500;flex:none">이름 변경</span>
+    <span style="color:#A8C7FA;font-weight:500;flex:none">보기</span>
+  </div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ══ 다크 테마 ══ -->
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 style="margin:0;font-size:20px;font-weight:700;color:#1A1B20">다크 테마 <span style="font-weight:400;font-size:14px;color:#5F6470">— 대표 화면 2종, 나머지는 동일 토큰 매핑</span></h2>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+<!-- 1p 홈 다크 -->
+<div id="1p" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1p</span>홈 · 다크 · 가로</div>
+<div style="width:1280px;height:800px;background:#121318;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.3);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#C5C6D0;flex:none">
+    <span>14:30</span>
+    <span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span>
+  </div>
+  <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex:none">
+    <div style="font-size:22px;font-weight:700;color:#E3E2E9;padding-left:8px">ScreenRecorder</div>
+    <div style="display:flex;gap:4px;color:#C5C6D0">
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:24px">delete</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:24px">settings</span></div>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:8px 32px 0;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;height:48px;border:1px solid #8F9099;border-radius:24px;overflow:hidden">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#3F4759;color:#DBE2F9;font-size:15px;font-weight:500"><span class="msym" style="font-size:18px">check</span>전체 화면</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #8F9099;color:#C5C6D0;font-size:15px">단일 앱</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #8F9099;color:#C5C6D0;font-size:15px">부분 영역</div>
+      </div>
+      <div style="background:#1E1F25;border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="font-size:12px;font-weight:500;color:#C5C6D0;letter-spacing:.4px">현재 프리셋</div>
+          <div style="font-size:16px;font-weight:500;color:#E3E2E9">1080p · 60fps · 15Mbps · 내부 오디오 · 10분 제한</div>
+        </div>
+        <span class="msym" style="font-size:22px;color:#C5C6D0">tune</span>
+      </div>
+      <div style="border:1px solid #44464F;border-radius:16px;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:#C5C6D0">
+          <span style="display:flex;align-items:center;gap:8px"><span class="msym" style="font-size:18px">storage</span>저장 공간</span>
+          <span style="font-weight:500;color:#E3E2E9">23.5GB 남음 · 약 3시간 녹화 가능</span>
+        </div>
+        <div style="height:8px;border-radius:4px;background:#292A31;overflow:hidden"><div style="width:63%;height:100%;background:#AFC6FF;border-radius:4px"></div></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:15px;font-weight:700;color:#E3E2E9">최근 녹화</div>
+        <span style="font-size:14px;font-weight:500;color:#AFC6FF">전체 보기</span>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="width:200px;display:flex;flex-direction:column;gap:8px">
+          <div style="width:200px;height:112px;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span></div>
+          <div style="font-size:13px;font-weight:500;color:#E3E2E9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+        </div>
+        <div style="width:200px;display:flex;flex-direction:column;gap:8px">
+          <div style="width:200px;height:112px;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+          <div style="font-size:13px;font-weight:500;color:#E3E2E9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+        </div>
+        <div style="width:200px;display:flex;flex-direction:column;gap:8px">
+          <div style="width:200px;height:112px;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+          <div style="font-size:13px;font-weight:500;color:#E3E2E9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0 36px">
+    <div style="width:96px;height:96px;border-radius:48px;background:#D93025;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 24px rgba(217,48,37,.5)">
+      <div style="width:32px;height:32px;border-radius:16px;background:#fff"></div>
+    </div>
+    <div style="font-size:15px;font-weight:500;color:#E3E2E9">녹화 시작</div>
+  </div>
+</div>
+</div>
+
+<!-- 1q Library 다크 -->
+<div id="1q" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1q</span>녹화 목록 · 다크 · 가로</div>
+<div style="width:1280px;height:800px;background:#121318;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.3);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#C5C6D0;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;flex:none">
+    <span class="msym" style="font-size:24px;color:#C5C6D0;padding:12px">arrow_back</span>
+    <div style="font-size:22px;font-weight:700;color:#E3E2E9">녹화 목록</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+      <div style="width:420px;height:48px;border-radius:24px;background:#1E1F25;display:flex;align-items:center;gap:12px;padding:0 18px;color:#C5C6D0"><span class="msym" style="font-size:20px">search</span><span style="font-size:15px;color:#8F9099">파일명 검색</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;color:#C5C6D0"><span class="msym" style="font-size:22px">grid_view</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 32px 12px;flex:none">
+    <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid #44464F;font-size:13px;font-weight:500;color:#C5C6D0"><span class="msym" style="font-size:16px">swap_vert</span>최신순<span class="msym" style="font-size:16px">arrow_drop_down</span></div>
+    <div style="font-size:13px;color:#8F9099;margin-left:auto">24개 항목 · 3.2GB</div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;padding:0 16px">
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px;background:#1E1F25">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#E3E2E9">Rec_20260819_143025</div>
+        <div style="font-size:13px;color:#8F9099">2026-08-19 14:30 · 1080p 60fps · 128MB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#C5C6D0;padding:13px">more_vert</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#E3E2E9">회의_데모_0818</div>
+        <div style="font-size:13px;color:#8F9099">2026-08-18 16:02 · 1080p 60fps · 402MB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#C5C6D0;padding:13px">more_vert</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;padding:10px 16px;border-radius:16px">
+      <div style="width:168px;height:94px;border-radius:10px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative;flex:none"><span style="position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:16px;font-weight:500;color:#E3E2E9">Rec_20260817_091200</div>
+        <div style="font-size:13px;color:#8F9099">2026-08-17 09:12 · 1080p 60fps · 1.4GB</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#C5C6D0;padding:13px">more_vert</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ══ 세로 방향 ══ -->
+<div style="display:flex;flex-direction:column;gap:20px">
+<h2 style="margin:0;font-size:20px;font-weight:700;color:#1A1B20">세로 방향 (800×1280) <span style="font-weight:400;font-size:14px;color:#5F6470">— 홈은 단일 컬럼 스택, 목록은 리스트 유지</span></h2>
+<div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+<!-- 1r 홈 세로 -->
+<div id="1r" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1r</span>홈 · 라이트 · 세로</div>
+<div style="width:800px;height:1280px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex:none">
+    <div style="font-size:22px;font-weight:700;color:#1A1B20;padding-left:8px">ScreenRecorder</div>
+    <div style="display:flex;gap:4px;color:#44464F">
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:24px">delete</span></div>
+      <div style="width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center"><span class="msym" style="font-size:24px">settings</span></div>
+    </div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;gap:16px;padding:12px 32px 0">
+    <div style="display:flex;height:48px;border:1px solid #757780;border-radius:24px;overflow:hidden">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#DBE2F9;color:#141B2C;font-size:15px;font-weight:500"><span class="msym" style="font-size:18px">check</span>전체 화면</div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #757780;color:#44464F;font-size:15px">단일 앱</div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;border-left:1px solid #757780;color:#44464F;font-size:15px">부분 영역</div>
+    </div>
+    <div style="background:#EEEDF4;border-radius:16px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:12px;font-weight:500;color:#44464F;letter-spacing:.4px">현재 프리셋</div>
+        <div style="font-size:15px;font-weight:500;color:#1A1B20">1080p · 60fps · 15Mbps · 내부 오디오 · 10분 제한</div>
+      </div>
+      <span class="msym" style="font-size:22px;color:#44464F">tune</span>
+    </div>
+    <div style="border:1px solid #C5C6D0;border-radius:16px;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:#44464F">
+        <span style="display:flex;align-items:center;gap:8px"><span class="msym" style="font-size:18px">storage</span>저장 공간</span>
+        <span style="font-weight:500;color:#1A1B20">23.5GB · 약 3시간</span>
+      </div>
+      <div style="height:8px;border-radius:4px;background:#E8E7EF;overflow:hidden"><div style="width:63%;height:100%;background:#0B57D0;border-radius:4px"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px">
+      <div style="font-size:15px;font-weight:700;color:#1A1B20">최근 녹화</div>
+      <span style="font-size:14px;font-weight:500;color:#0B57D0">전체 보기</span>
+    </div>
+    <div style="display:flex;gap:12px">
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+        <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span></div>
+        <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+        <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+        <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+        <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+        <div style="font-size:13px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:none;display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 0 56px">
+    <div style="width:112px;height:112px;border-radius:56px;background:#D93025;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(217,48,37,.4)">
+      <div style="width:36px;height:36px;border-radius:18px;background:#fff"></div>
+    </div>
+    <div style="font-size:15px;font-weight:500;color:#1A1B20">녹화 시작</div>
+  </div>
+</div>
+</div>
+
+<!-- 1s Library 세로 -->
+<div id="1s" style="display:flex;flex-direction:column;gap:10px">
+<div style="font-size:13px;color:#5F6470"><span style="background:#1A1B20;color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;margin-right:8px">1s</span>녹화 목록 · 라이트 · 세로 (그리드 2열)</div>
+<div style="width:800px;height:1280px;background:#FAF9FE;border-radius:24px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,27,32,.16);flex:none">
+  <div style="height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;font-weight:500;color:#44464F;flex:none"><span>14:30</span><span style="display:flex;gap:8px;align-items:center"><span class="msym" style="font-size:16px">wifi</span><span class="msym" style="font-size:16px">battery_full</span></span></div>
+  <div style="height:64px;display:flex;align-items:center;gap:8px;padding:0 24px;flex:none">
+    <span class="msym" style="font-size:24px;color:#44464F;padding:12px">arrow_back</span>
+    <div style="font-size:22px;font-weight:700;color:#1A1B20">녹화 목록</div>
+    <div style="margin-left:auto;width:48px;height:48px;border-radius:24px;display:flex;align-items:center;justify-content:center;color:#44464F"><span class="msym" style="font-size:22px">view_list</span></div>
+  </div>
+  <div style="padding:0 24px 12px;flex:none">
+    <div style="height:48px;border-radius:24px;background:#EEEDF4;display:flex;align-items:center;gap:12px;padding:0 18px;color:#44464F"><span class="msym" style="font-size:20px">search</span><span style="font-size:15px;color:#5F6470">파일명 검색</span></div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:8px 24px;align-content:start">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#3A4A6B,#1F2637);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">12:04</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260819_143025</div>
+          <div style="font-size:12px;color:#5F6470">08-19 · 128MB</div>
+        </div>
+        <span class="msym" style="font-size:20px;color:#44464F;padding:8px;flex:none">more_vert</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#5B4A6B,#2A2137);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">03:41</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">회의_데모_0818</div>
+          <div style="font-size:12px;color:#5F6470">08-18 · 402MB</div>
+        </div>
+        <span class="msym" style="font-size:20px;color:#44464F;padding:8px;flex:none">more_vert</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#3A6B5B,#1F372A);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">45:12</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rec_20260817_091200</div>
+          <div style="font-size:12px;color:#5F6470">08-17 · 1.4GB</div>
+        </div>
+        <span class="msym" style="font-size:20px;color:#44464F;padding:8px;flex:none">more_vert</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="aspect-ratio:16/9;border-radius:12px;background:linear-gradient(135deg,#6B5B3A,#37301F);position:relative"><span style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:500;padding:2px 6px;border-radius:4px">08:55</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="min-width:0;display:flex;flex-direction:column;gap:2px">
+          <div style="font-size:14px;font-weight:500;color:#1A1B20;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">게임플레이_compressed</div>
+          <div style="font-size:12px;color:#5F6470">08-16 · 96MB</div>
+        </div>
+        <span class="msym" style="font-size:20px;color:#44464F;padding:8px;flex:none">more_vert</span>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</x-dc>
+</body>
+</html>
