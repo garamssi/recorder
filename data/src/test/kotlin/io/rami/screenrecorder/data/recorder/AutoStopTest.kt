@@ -186,6 +186,27 @@ class AutoStopTest {
         }
 
     @Test
+    fun `정확히 1분 제한은 1분 전 예고 없이 10초 전 예고만 발생한다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.sessionEvents.test {
+                coordinator.start(config(TimeLimit.Limited(1.minutes)))
+
+                testScheduler.advanceTimeBy(61_000)
+                runCurrent()
+
+                assertEquals(
+                    RecordingSessionEvent.TimeLimitWarning(10.seconds),
+                    awaitItem(),
+                )
+                assertEquals(
+                    RecordingSessionEvent.AutoStopped(AutoStopReason.TIME_LIMIT_REACHED),
+                    awaitItem(),
+                )
+            }
+        }
+
+    @Test
     fun `일시정지 중에는 타이머가 진행되지 않는다`() =
         runTest {
             val coordinator = coordinator()

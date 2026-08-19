@@ -56,6 +56,8 @@ class RecordingForegroundService : Service() {
     private val notifications by lazy { RecordingNotifications(this) }
 
     private var timeLimit: TimeLimit = TimeLimit.None
+    private var stateObserverJob: kotlinx.coroutines.Job? = null
+    private var eventObserverJob: kotlinx.coroutines.Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -84,6 +86,8 @@ class RecordingForegroundService : Service() {
     }
 
     private fun handleStart(intent: Intent) {
+        // 세션 진행 중 중복 START는 무시한다 — 진행 중 녹화를 stopSelf로 죽이는 사고 방지.
+        if (stateObserverJob?.isActive == true) return
         val audioSource =
             intent
                 .getStringExtra(EXTRA_AUDIO_SOURCE)
@@ -106,8 +110,8 @@ class RecordingForegroundService : Service() {
                 return@launch
             }
         }
-        serviceScope.launch { observeStateForNotification() }
-        serviceScope.launch { observeSessionEvents() }
+        stateObserverJob = serviceScope.launch { observeStateForNotification() }
+        eventObserverJob = serviceScope.launch { observeSessionEvents() }
     }
 
     /** 마이크를 쓰는 세션은 microphone FGS 타입을 함께 선언해야 한다 (Android 14+). */

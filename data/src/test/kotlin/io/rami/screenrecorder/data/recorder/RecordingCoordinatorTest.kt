@@ -490,6 +490,22 @@ class RecordingCoordinatorTest {
         }
 
     @Test
+    fun `인코더 오류와 시스템 중지가 동시에 와도 마무리는 한 번만 실행된다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+            encoder.listener?.onOutputFormatReady(mockk())
+
+            encoder.listener?.onError(RuntimeException("코덱 오류"))
+            capture.listener?.onStoppedBySystem()
+            runCurrent()
+
+            assertEquals(1, muxer.closeCount)
+            assertEquals(1, encoder.stopCount)
+            assertEquals(RecordingState.Idle, coordinator.state.value)
+        }
+
+    @Test
     fun `파이프라인 시작이 실패하면 먹서를 닫고 유휴 상태로 남는다`() =
         runTest {
             encoder.prepareError = IllegalStateException("인코더 초기화 실패")

@@ -55,6 +55,8 @@ internal class TimeLimitWatcher(
         limit: Duration,
         remaining: Duration,
     ): Boolean =
+        // 제한이 60초 이하이면 시작 직후 예고가 뜨는 셈이라 무의미하므로,
+        // 1분 전 예고는 제한 > 60초일 때만 보낸다 (기능명세서 11.4절 "1분 이하 설정 시 10초 전 예고만").
         !firstWarningSent &&
             limit > TimeLimitWarningPolicy.FIRST_WARNING_BEFORE &&
             remaining <= TimeLimitWarningPolicy.FIRST_WARNING_BEFORE &&
