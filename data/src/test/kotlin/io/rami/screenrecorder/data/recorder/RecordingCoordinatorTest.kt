@@ -1,0 +1,345 @@
+package io.rami.screenrecorder.data.recorder
+
+import android.media.MediaFormat
+import android.view.Surface
+import app.cash.turbine.test
+import io.mockk.mockk
+import io.rami.screenrecorder.domain.model.CountdownDuration
+import io.rami.screenrecorder.domain.model.RecordingConfig
+import io.rami.screenrecorder.domain.model.RecordingState
+import io.rami.screenrecorder.domain.model.Resolution
+import io.rami.screenrecorder.domain.session.MonotonicClock
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.io.File
+import java.nio.ByteBuffer
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class RecordingCoordinatorTest {
+    // --- 페이크 어댑터 ---
+
+    private class FakeEncoder : VideoEncoder {
+        val surface = mockk<Surface>()
+        var listener: VideoEncoder.Listener? = null
+        var started = false
+        var suspended: Boolean? = null
+        var keyFrameRequests = 0
+        var stopped = false
+
+        override fun prepare(config: VideoEncoderConfig, listener: VideoEncoder.Listener): Surface {
+            this.listener = listener
+            lastConfig = config
+            return surface
+        }
+
+        override fun start() {
+            started = true
+        }
+
+        override fun setSuspended(suspended: Boolean) {
+            this.suspended = suspended
+        }
+
+        override fun requestKeyFrame() {
+            keyFrameRequests++
+        }
+
+        override fun stopAndRelease() {
+            stopped = true
+        }
+
+        companion object {
+            var lastConfig: VideoEncoderConfig? = null
+        }
+    }
+
+    private class FakeCapture : ScreenCaptureSource {
+        var startedWith: Surface? = null
+        var listener: ScreenCaptureSource.Listener? = null
+        var stopped = false
+
+        override fun start(
+            encoderSurface: Surface,
+            resolution: Resolution,
+            listener: ScreenCaptureSource.Listener,
+        ) {
+            startedWith = encoderSurface
+            this.listener = listener
+        }
+
+        override fun stop() {
+            stopped = true
+        }
+    }
+
+    private class FakeMuxer : MuxerWriter {
+        var openedFile: File? = null
+        var videoFormat: MediaFormat? = null
+        val writtenPts = mutableListOf<Long>()
+        var closed = false
+
+        override fun open(outputFile: File) {
+            openedFile = outputFile
+        }
+
+        override fun addVideoTrack(format: MediaFormat): Int {
+            videoFormat = format
+            return 0
+        }
+
+        override fun addAudioTrack(format: MediaFormat): Int = 1
+
+        override fun writeSample(trackId: Int, sample: EncodedSample) {
+            writtenPts += sample.presentationTimeUs
+        }
+
+        override fun close() {
+            closed = true
+        }
+    }
+
+    private class FakeFileStore : RecordingFileStore {
+        var publishedFileName: String? = null
+
+        override fun createTempFile(fileName: String): File = File("build/tmp/fake/$fileName")
+
+        override suspend fun existingFileNames(): Set<String> = emptySet()
+
+        override suspend fun publish(tempFile: File, fileName: String) =
+            io.rami.screenrecorder.domain.model
+                .Recording(
+                    id = io.rami.screenrecorder.domain.model.RecordingId(42),
+                    displayName = fileName,
+                    contentUri = "content://media/42",
+                    sizeBytes = 1_000,
+                    duration = kotlin.time.Duration.ZERO,
+                    resolution = Resolution.FHD,
+                    frameRate = 60,
+                    codec = io.rami.screenrecorder.domain.model.VideoCodec.H264,
+                    createdAtEpochMillis = 0,
+                    bitrateBps = null,
+                ).also { publishedFileName = fileName }
+    }
+
+    // --- 테스트 픽스처 ---
+
+    private val encoder = FakeEncoder()
+    private val capture = FakeCapture()
+    private val muxer = FakeMuxer()
+    private val fileStore = FakeFileStore()
+
+    private fun TestScope.coordinator(): RecordingCoordinator {
+        val clock = MonotonicClock { testScheduler.currentTime }
+        val factory = object : RecorderSessionFactory {
+            override fun createVideoEncoder(): VideoEncoder = encoder
+
+            override fun createCaptureSource(): ScreenCaptureSource = capture
+
+            override fun createMuxer(): MuxerWriter = muxer
+        }
+        return RecordingCoordinator(
+            sessionFactory = factory,
+            fileStore = fileStore,
+            fileNameProvider = { "Rec_test.mp4" },
+            displayInfo = { Resolution(2560, 1600) },
+            clock = clock,
+            dispatcher = UnconfinedTestDispatcher(testScheduler),
+        )
+    }
+
+    private val noCountdownConfig = RecordingConfig.DEFAULT.copy(countdown = CountdownDuration.NONE)
+
+    private fun sample(ptsUs: Long) = EncodedSample(
+        buffer = ByteBuffer.allocate(4),
+        presentationTimeUs = ptsUs,
+        isKeyFrame = false,
+    )
+
+    // --- 시작 ---
+
+    @Test
+    fun `시작하면 인코더 서피스로 캡처를 시작하고 먹서를 연다`() = runTest {
+        val coordinator = coordinator()
+
+        coordinator.start(noCountdownConfig)
+
+        assertTrue(encoder.started)
+        assertEquals(encoder.surface, capture.startedWith)
+        assertNotNull(muxer.openedFile)
+        assertTrue(coordinator.state.value is RecordingState.Recording)
+    }
+
+    @Test
+    fun `카운트다운이 초 단위로 진행된 후 녹화가 시작된다`() = runTest {
+        val coordinator = coordinator()
+        val observed = mutableListOf<Int>()
+        val job = launch {
+            coordinator.state.collect {
+                if (it is RecordingState.CountingDown) observed += it.remainingSeconds
+            }
+        }
+
+        coordinator.start(RecordingConfig.DEFAULT) // 카운트다운 3초
+
+        assertEquals(listOf(3, 2, 1), observed)
+        assertTrue(coordinator.state.value is RecordingState.Recording)
+        // 인코딩은 카운트다운 종료 후에만 시작 (명세 3절: 카운트다운은 영상에 미포함)
+        job.cancel()
+    }
+
+    @Test
+    fun `카운트다운을 스킵하면 즉시 녹화가 시작된다`() = runTest {
+        val coordinator = coordinator()
+        val job = launch {
+            coordinator.state.collect {
+                if (it is RecordingState.CountingDown && it.remainingSeconds == 3) {
+                    coordinator.skipCountdown()
+                }
+            }
+        }
+
+        coordinator.start(RecordingConfig.DEFAULT)
+
+        assertTrue(coordinator.state.value is RecordingState.Recording)
+        assertTrue(testScheduler.currentTime < 3_000) { "스킵했으므로 3초를 기다리지 않아야 한다" }
+        job.cancel()
+    }
+
+    @Test
+    fun `설정 해상도와 자동 비트레이트가 인코더에 전달된다`() = runTest {
+        coordinator().start(noCountdownConfig)
+
+        val config = requireNotNull(FakeEncoder.lastConfig)
+        assertEquals(Resolution.FHD, config.resolution)
+        assertEquals(60, config.frameRateFps)
+        assertEquals(15_000_000, config.bitrateBps)
+    }
+
+    // --- 인코더 출력 -> 먹서 ---
+
+    @Test
+    fun `출력 포맷이 준비되면 비디오 트랙을 추가하고 샘플을 기록한다`() = runTest {
+        coordinator().start(noCountdownConfig)
+        val format = mockk<MediaFormat>()
+
+        encoder.listener?.onOutputFormatReady(format)
+        encoder.listener?.onSample(sample(ptsUs = 16_666))
+
+        assertEquals(format, muxer.videoFormat)
+        assertEquals(listOf(16_666L), muxer.writtenPts)
+    }
+
+    // --- 일시정지 / 재개 ---
+
+    @Test
+    fun `일시정지하면 인코더를 중단하고 상태가 Paused가 된다`() = runTest {
+        val coordinator = coordinator()
+        coordinator.start(noCountdownConfig)
+        encoder.listener?.onOutputFormatReady(mockk())
+
+        coordinator.pause()
+
+        assertEquals(true, encoder.suspended)
+        assertTrue(coordinator.state.value is RecordingState.Paused)
+    }
+
+    @Test
+    fun `재개하면 키프레임을 강제하고 일시정지 구간이 타임스탬프에서 제외된다`() = runTest {
+        val coordinator = coordinator()
+        coordinator.start(noCountdownConfig)
+        encoder.listener?.onOutputFormatReady(mockk())
+        encoder.listener?.onSample(sample(ptsUs = 1_000_000))
+
+        coordinator.pause()
+        testScheduler.advanceTimeBy(5_000) // 5초 일시정지
+        coordinator.resume()
+
+        assertEquals(1, encoder.keyFrameRequests)
+        assertEquals(false, encoder.suspended)
+        assertTrue(coordinator.state.value is RecordingState.Recording)
+
+        encoder.listener?.onSample(sample(ptsUs = 6_100_000))
+        // 6.1s - 5s 일시정지 = 1.1s
+        assertEquals(listOf(1_000_000L, 1_100_000L), muxer.writtenPts)
+    }
+
+    // --- 중지 ---
+
+    @Test
+    fun `중지하면 캡처-인코더-먹서 순서로 정리하고 저장 완료 이벤트를 낸다`() = runTest {
+        val coordinator = coordinator()
+        coordinator.start(noCountdownConfig)
+        encoder.listener?.onOutputFormatReady(mockk())
+
+        coordinator.completedRecordings.test {
+            coordinator.stop()
+
+            val completed = awaitItem()
+            assertEquals("Rec_test.mp4", completed.displayName)
+        }
+        assertTrue(capture.stopped)
+        assertTrue(encoder.stopped)
+        assertTrue(muxer.closed)
+        assertEquals("Rec_test.mp4", fileStore.publishedFileName)
+        assertEquals(RecordingState.Idle, coordinator.state.value)
+    }
+
+    @Test
+    fun `시스템이 캡처를 중단해도 파일이 안전하게 마무리된다`() = runTest {
+        val coordinator = coordinator()
+        coordinator.start(noCountdownConfig)
+        encoder.listener?.onOutputFormatReady(mockk())
+
+        coordinator.completedRecordings.test {
+            capture.listener?.onStoppedBySystem()
+            runCurrent()
+
+            assertNotNull(awaitItem())
+        }
+        assertTrue(muxer.closed)
+        assertEquals(RecordingState.Idle, coordinator.state.value)
+    }
+
+    @Test
+    fun `카운트다운 중 중지하면 파일 없이 유휴 상태로 돌아간다`() = runTest {
+        val coordinator = coordinator()
+        val job = launch {
+            coordinator.state.collect {
+                if (it is RecordingState.CountingDown && it.remainingSeconds == 3) {
+                    coordinator.stop()
+                }
+            }
+        }
+
+        coordinator.start(RecordingConfig.DEFAULT)
+
+        assertEquals(RecordingState.Idle, coordinator.state.value)
+        assertNull(muxer.openedFile)
+        assertNull(fileStore.publishedFileName)
+        job.cancel()
+    }
+
+    // --- 경과 시간 ---
+
+    @Test
+    fun `녹화 중 경과 시간이 1초 단위로 갱신된다`() = runTest {
+        val coordinator = coordinator()
+        coordinator.start(noCountdownConfig)
+
+        testScheduler.advanceTimeBy(3_500)
+        runCurrent()
+
+        val state = coordinator.state.value as RecordingState.Recording
+        assertEquals(3, state.elapsed.inWholeSeconds)
+        coordinator.stop()
+    }
+}

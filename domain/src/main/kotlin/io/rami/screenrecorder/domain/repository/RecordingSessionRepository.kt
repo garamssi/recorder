@@ -25,6 +25,9 @@ interface RecordingSessionRepository {
     /** [config]로 새 녹화 세션을 시작한다 (카운트다운 포함). */
     suspend fun start(config: RecordingConfig)
 
+    /** 진행 중인 카운트다운을 건너뛰고 즉시 녹화를 시작한다 (기능명세서 3절: 탭=스킵). */
+    fun skipCountdown()
+
     /** 세션을 중지하고 파일을 안전하게 마무리한다. */
     suspend fun stop()
 
