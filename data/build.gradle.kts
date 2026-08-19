@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.media3.muxer)
     implementation(libs.media3.common)
     implementation(libs.hilt.android)
