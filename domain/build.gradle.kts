@@ -1,9 +1,21 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
     jvmToolchain(17)
+}
+
+// CLAUDE.md 5절: domain 커버리지 90% 이상을 빌드 게이트로 강제한다.
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(90)
+            }
+        }
+    }
 }
 
 dependencies {
