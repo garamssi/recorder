@@ -216,10 +216,38 @@ class TranscodeWorker(
             source =
                 CompressionSource(
                     resolution = Resolution(width, height),
-                    bitrateBps = estimateBitrate(sizeBytes, durationMs),
+                    bitrateBps = probeBitrate(uriString, sizeBytes, durationMs),
                     codec = VideoCodec.H264,
                 ),
         )
+    }
+
+    /**
+     * 실제 비트레이트를 컨테이너에서 읽는다. fMP4는 MediaStore duration이 0이므로
+     * (ADR-0001) retriever가 단일 진실 공급원이고, 크기/시간 추정은 최후 폴백이다.
+     */
+    private fun probeBitrate(
+        uriString: String,
+        sizeBytes: Long,
+        mediaStoreDurationMs: Long,
+    ): Int {
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(applicationContext, android.net.Uri.parse(uriString))
+            retriever
+                .extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                ?.toIntOrNull()
+                ?.takeIf { it > 0 }
+                ?.let { return it }
+            val durationMs =
+                retriever
+                    .extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull()
+                    ?.takeIf { it > 0 } ?: mediaStoreDurationMs
+            return estimateBitrate(sizeBytes, durationMs)
+        } finally {
+            retriever.release()
+        }
     }
 
     companion object {
