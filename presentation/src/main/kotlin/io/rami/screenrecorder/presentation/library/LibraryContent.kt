@@ -3,12 +3,14 @@ package io.rami.screenrecorder.presentation.library
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -145,7 +147,7 @@ private fun ListRow(
     }
 }
 
-/** 그리드 카드 (DESIGN_GUIDE 1h: 16:9 r12, 선택 시 체크). */
+/** 그리드 카드 (DESIGN_GUIDE 1h: 16:9 r12, 선택 시 체크). 모든 카드가 동일 규격이 되도록 구성한다. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GridCard(
@@ -156,29 +158,60 @@ private fun GridCard(
 ) {
     Column(
         modifier =
-            Modifier.combinedClickable(
-                onClick = {
-                    if (uiState.isSelectionMode) {
-                        viewModel.onItemLongPress(recording.id)
-                    } else {
-                        actions.onPlay(recording)
-                    }
-                },
-                onLongClick = { viewModel.onItemLongPress(recording.id) },
-            ),
+            Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = {
+                        if (uiState.isSelectionMode) {
+                            viewModel.onItemLongPress(recording.id)
+                        } else {
+                            actions.onPlay(recording)
+                        }
+                    },
+                    onLongClick = { viewModel.onItemLongPress(recording.id) },
+                ),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box {
-            Thumbnail(
-                recording,
+        // 썸네일은 항상 16:9로 고정하고 프레임을 Crop해 채운다 → 원본 비율과 무관하게 균일한 규격.
+        Box(
+            modifier =
                 Modifier
                     .fillMaxWidth()
-                    .aspectRatio(GRID_ASPECT_RATIO),
-            )
+                    .aspectRatio(GRID_ASPECT_RATIO)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        ) {
+            Thumbnail(recording, Modifier.fillMaxSize())
             if (recording.id in uiState.selectedIds) {
-                Checkbox(checked = true, onCheckedChange = null, modifier = Modifier.align(Alignment.TopEnd))
+                Checkbox(
+                    checked = true,
+                    onCheckedChange = null,
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp),
+                )
             }
         }
-        Text(text = recording.displayName, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+        Text(
+            text = recording.displayName,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+        Text(
+            text =
+                stringResource(
+                    R.string.library_item_info_format,
+                    formatDateTime(recording.createdAtEpochMillis),
+                    recording.resolution.height,
+                    formatMegabytes(recording.sizeBytes),
+                ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -199,8 +232,11 @@ private fun Thumbnail(
                     .videoFrameMillis(THUMBNAIL_FRAME_MILLIS)
                     .build(),
             contentDescription = null,
-            modifier = Modifier.fillMaxWidth(),
+            // 주어진 박스를 균일하게 채운다 — 원본 프레임 비율과 무관하게 크롭.
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
         )
+        // 밝은 프레임 위에서도 읽히도록 반투명 어두운 배경 위에 표시한다.
         Text(
             text = DurationFormatter.formatElapsed(recording.duration),
             color = androidx.compose.ui.graphics.Color.White,
@@ -208,7 +244,10 @@ private fun Thumbnail(
             modifier =
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(4.dp),
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(DURATION_BADGE_SCRIM)
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
         )
     }
 }
@@ -302,3 +341,8 @@ private const val GRID_MAX_COLUMNS = 4
 private const val GRID_ASPECT_RATIO = 16f / 9f
 private const val THUMBNAIL_FRAME_MILLIS = 1_000L
 private const val SHARE_MIME_TYPE = "video/mp4"
+
+/** 재생시간 뱃지 배경 (반투명 검정) — 밝은 프레임 위 가독성 확보. */
+private val DURATION_BADGE_SCRIM =
+    androidx.compose.ui.graphics
+        .Color(0x99000000)
