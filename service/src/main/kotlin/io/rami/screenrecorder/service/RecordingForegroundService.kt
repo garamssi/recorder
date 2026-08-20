@@ -59,7 +59,11 @@ class RecordingForegroundService : Service() {
 
     private val notifications by lazy { RecordingNotifications(this) }
 
+    private val floatingBubble by lazy { FloatingControlBubble(this) }
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private var timeLimit: TimeLimit = TimeLimit.None
+    private var bubbleEnabled = false
     private var stateObserverJob: kotlinx.coroutines.Job? = null
     private var eventObserverJob: kotlinx.coroutines.Job? = null
 
@@ -85,6 +89,7 @@ class RecordingForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        mainHandler.post { floatingBubble.dismiss() }
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -97,6 +102,19 @@ class RecordingForegroundService : Service() {
             val settings = observeSettings().first()
             val config = settings.recording.copy(captureMode = captureMode(settings, region))
             timeLimit = config.timeLimit
+            // 플로팅 컨트롤은 오버레이 권한이 있을 때만 표시한다 (기능명세서 11.1절 [결정]).
+            bubbleEnabled =
+                settings.showFloatingBubble &&
+                android.provider.Settings.canDrawOverlays(this@RecordingForegroundService)
+            if (bubbleEnabled) {
+                mainHandler.post {
+                    floatingBubble.show(
+                        onPause = { serviceScope.launch { pauseRecording() } },
+                        onResume = { serviceScope.launch { resumeRecording() } },
+                        onStop = { serviceScope.launch { stopRecording() } },
+                    )
+                }
+            }
             startForeground(
                 RecordingNotifications.NOTIFICATION_ID,
                 notifications.buildOngoing(
@@ -132,16 +150,28 @@ class RecordingForegroundService : Service() {
         // 세션 시작 전의 초기 Idle은 종료 신호가 아니다 (병렬 구독 레이스 방지).
         observeRecordingState().dropWhile { it is RecordingState.Idle }.collectLatest { state ->
             when (state) {
-                is RecordingState.Recording ->
+                is RecordingState.Recording -> {
                     notifications.updateOngoing(elapsedText(state.elapsed), isPaused = false)
+                    if (bubbleEnabled) {
+                        mainHandler.post { floatingBubble.update(elapsedText(state.elapsed), false) }
+                    }
+                }
 
-                is RecordingState.Paused ->
+                is RecordingState.Paused -> {
                     notifications.updateOngoing(
                         getString(R.string.recording_notification_paused, elapsedText(state.elapsed)),
                         isPaused = true,
                     )
+                    if (bubbleEnabled) {
+                        mainHandler.post { floatingBubble.update(elapsedText(state.elapsed), true) }
+                    }
+                }
 
-                is RecordingState.Idle -> stopSelf()
+                is RecordingState.Idle -> {
+                    if (bubbleEnabled) mainHandler.post { floatingBubble.dismiss() }
+                    stopSelf()
+                }
+
                 else -> Unit
             }
         }

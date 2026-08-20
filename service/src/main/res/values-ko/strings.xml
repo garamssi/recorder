@@ -16,4 +16,7 @@
     <string name="recording_notification_completed_storage_low">저장 공간이 부족해 안전하게 저장했습니다</string>
     <string name="recording_notification_completed_pause_timeout">일시정지가 오래 유지되어 저장했습니다</string>
     <string name="recording_notification_region_rotated">화면이 회전되었습니다. 영역을 다시 지정하거나 중지하세요.</string>
+    <string name="floating_pause">일시정지</string>
+    <string name="floating_resume">재개</string>
+    <string name="floating_stop">중지</string>
 </resources>
