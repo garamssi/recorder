@@ -30,6 +30,7 @@ import io.rami.screenrecorder.presentation.R
 internal fun SidePanel(
     uiState: HomeUiState,
     onOpenLibrary: () -> Unit,
+    onPlay: (io.rami.screenrecorder.domain.model.Recording) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -63,6 +64,7 @@ internal fun SidePanel(
                             text = recording.displayName,
                             style = MaterialTheme.typography.bodyLarge,
                             maxLines = 1,
+                            modifier = Modifier.clickable { onPlay(recording) },
                         )
                     }
                 }

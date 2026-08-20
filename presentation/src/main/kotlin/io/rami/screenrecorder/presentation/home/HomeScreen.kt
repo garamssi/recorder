@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,13 +59,36 @@ import io.rami.screenrecorder.presentation.R
 @Composable
 fun HomeScreen(
     actions: HomeActions,
+    onPlay: (io.rami.screenrecorder.domain.model.Recording) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showOptionsSheet by androidx.compose.runtime.saveable
         .rememberSaveable { mutableStateOf(false) }
+    val snackbarHost = remember { androidx.compose.material3.SnackbarHostState() }
+    var renameTarget by remember {
+        mutableStateOf<io.rami.screenrecorder.domain.model.Recording?>(null)
+    }
+
+    // 저장 직후 스낵바 + 이름 변경 진입 (기능명세서 6.2절 [결정]).
+    val savedMessage = stringResource(R.string.saved_snackbar)
+    val renameAction = stringResource(R.string.saved_snackbar_rename)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.completedRecordings.collect { completed ->
+            val result =
+                snackbarHost.showSnackbar(
+                    message = savedMessage,
+                    actionLabel = renameAction,
+                    duration = androidx.compose.material3.SnackbarDuration.Long,
+                )
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                renameTarget = completed
+            }
+        }
+    }
 
     Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.home_app_title)) },
@@ -103,6 +127,7 @@ fun HomeScreen(
             SidePanel(
                 uiState = uiState,
                 onOpenLibrary = actions.onOpenLibrary,
+                onPlay = onPlay,
                 modifier = Modifier.weight(SIDE_WEIGHT),
             )
         }
@@ -114,6 +139,14 @@ fun HomeScreen(
         showOptionsSheet = showOptionsSheet,
         onDismissSheet = { showOptionsSheet = false },
     )
+
+    renameTarget?.let { target ->
+        io.rami.screenrecorder.presentation.library.RenameDialog(
+            initialName = target.displayName,
+            onConfirm = { newName -> viewModel.onRenameConfirmed(target.id, newName) },
+            onDismiss = { renameTarget = null },
+        )
+    }
 }
 
 /** 옵션 시트와 카운트다운 오버레이 (기능명세서 2.1, 3절). */

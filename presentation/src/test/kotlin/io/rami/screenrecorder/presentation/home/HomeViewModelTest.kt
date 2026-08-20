@@ -97,12 +97,21 @@ class HomeViewModelTest {
 
     private fun viewModel(): HomeViewModel =
         HomeViewModel(
-            observeSettings = ObserveSettingsUseCase(settingsRepository),
-            updateSettings = UpdateSettingsUseCase(settingsRepository),
-            observeRecordingState = ObserveRecordingStateUseCase(sessionRepository),
-            skipCountdown = SkipCountdownUseCase(sessionRepository),
+            useCases =
+                HomeUseCases(
+                    observeSettings = ObserveSettingsUseCase(settingsRepository),
+                    updateSettings = UpdateSettingsUseCase(settingsRepository),
+                    observeRecordingState = ObserveRecordingStateUseCase(sessionRepository),
+                    skipCountdown = SkipCountdownUseCase(sessionRepository),
+                    getRecordings = GetRecordingsUseCase(libraryRepository),
+                    observeCompletedRecording =
+                        io.rami.screenrecorder.domain.usecase
+                            .ObserveCompletedRecordingUseCase(sessionRepository),
+                    renameRecording =
+                        io.rami.screenrecorder.domain.usecase
+                            .RenameRecordingUseCase(libraryRepository),
+                ),
             storageRepository = StorageRepository { availableBytes },
-            getRecordings = GetRecordingsUseCase(libraryRepository),
         )
 
     @BeforeEach

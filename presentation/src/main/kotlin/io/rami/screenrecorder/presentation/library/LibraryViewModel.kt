@@ -116,7 +116,10 @@ class LibraryViewModel
 
         /** 전체 선택. */
         fun onSelectAll() {
-            selectedIds.value = uiState.value.recordings.map { it.id }.toSet()
+            selectedIds.value =
+                uiState.value.recordings
+                    .map { it.id }
+                    .toSet()
         }
 
         /** 선택 해제. */
@@ -130,6 +133,13 @@ class LibraryViewModel
             selectedIds.value = emptySet()
             viewModelScope.launch {
                 moveToTrash(targets).onFailure { mutableEvents.emit(LibraryEvent.OperationFailed) }
+            }
+        }
+
+        /** 단일 항목 삭제 확정 (더보기 메뉴 경로, 확인 다이얼로그 이후). */
+        fun onDeleteSingleConfirmed(id: RecordingId) {
+            viewModelScope.launch {
+                moveToTrash(listOf(id)).onFailure { mutableEvents.emit(LibraryEvent.OperationFailed) }
             }
         }
 

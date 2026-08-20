@@ -7,6 +7,11 @@ complexity:
   LongParameterList:
     # 기본값이 있는 파라미터(테스트 주입용 디스패처 등)는 호출부 부담이 없다.
     ignoreDefaultParameters: true
+    # 컴포저블은 상태·콜백을 파라미터로 받는 것이 관례다 (상태 호이스팅).
+    ignoreAnnotated: ['Composable']
+  LongMethod:
+    # 선언형 UI 트리는 함수 길이 규칙과 목적이 다르다. 로직 함수에는 여전히 적용된다.
+    ignoreAnnotated: ['Composable']
 
 style:
   ReturnCount:
