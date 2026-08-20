@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 부분 영역 선택 오버레이 (기능명세서 2.2절) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- 최소 권한 원칙 (CLAUDE.md 7절): WorkManager가 병합하는 재부팅 재스케줄 권한 제거
+         (압축 작업은 재부팅 후 자동 재개 대신 사용자 재시도로 충분하다) -->
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED"
+        tools:node="remove" />
 
     <application
         android:name=".ScreenRecorderApplication"
