@@ -167,4 +167,5 @@
     <string name="options_time_unit_minutes">Min</string>
     <string name="options_time_unit_seconds">Sec</string>
     <string name="settings_show_touches_unsupported">Not supported on this device (requires system permission)</string>
+    <string name="settings_storage_location_custom_planned">Custom folder (SAF) is planned for a future update.</string>
 </resources>

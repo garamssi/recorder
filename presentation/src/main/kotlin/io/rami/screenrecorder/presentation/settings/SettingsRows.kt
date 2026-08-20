@@ -153,6 +153,7 @@ internal val bitrateSettingChoices =
 internal fun LabeledValue(
     title: String,
     value: String,
+    hint: String? = null,
 ) {
     Column {
         Text(text = title, style = MaterialTheme.typography.bodyLarge)
@@ -161,5 +162,12 @@ internal fun LabeledValue(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (hint != null) {
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

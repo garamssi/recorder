@@ -192,9 +192,11 @@ internal fun StorageSection(
     update: ((AppSettings) -> AppSettings) -> Unit,
 ) {
     FilePrefixField(current = settings.fileNamePrefix, update = update)
+    // 사용자 지정 폴더(SAF)는 2차 이터레이션 보류 (기능명세서 6.1절 [결정]).
     LabeledValue(
         title = stringResource(R.string.settings_storage_location),
         value = stringResource(R.string.settings_storage_location_default),
+        hint = stringResource(R.string.settings_storage_location_custom_planned),
     )
     LabeledValue(
         title = stringResource(R.string.settings_trash_retention),
