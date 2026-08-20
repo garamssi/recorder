@@ -45,6 +45,7 @@ class CompressViewModelTest {
     ) : TranscodeRepository {
         var enqueued: Pair<RecordingId, CompressionPreset>? = null
         var cancelled = false
+        var cleared = false
 
         override fun observeJob(): Flow<TranscodeJob?> = jobFlow
 
@@ -57,6 +58,12 @@ class CompressViewModelTest {
 
         override suspend fun cancel() {
             cancelled = true
+        }
+
+        override suspend fun clearCompleted() {
+            cleared = true
+            // 실제 pruneWork처럼 완료 작업을 제거해 프롬프트가 재발생하지 않게 한다.
+            jobFlow.value = null
         }
     }
 
@@ -110,6 +117,9 @@ class CompressViewModelTest {
                     transcodeRepository = transcodeRepository,
                 ),
             cancelTranscode = CancelTranscodeUseCase(transcodeRepository),
+            clearCompletedTranscode =
+                io.rami.screenrecorder.domain.usecase
+                    .ClearCompletedTranscodeUseCase(transcodeRepository),
             moveToTrash = MoveToTrashUseCase(libraryRepository),
         )
 
@@ -177,12 +187,16 @@ class CompressViewModelTest {
         }
 
     @Test
-    fun `완료되면 원본 휴지통 프롬프트를 띄우고 확정 시 이동한다`() =
+    fun `사용자가 시작한 압축이 완료되면 프롬프트를 띄우고 확정 시 이동한다`() =
         runTest {
             val viewModel = viewModel()
             viewModel.uiState.test {
                 skipItems(1)
 
+                // 사용자가 이 화면에서 압축을 시작한다.
+                viewModel.onCompressConfirmed(RecordingId(1), CompressionPreset.STANDARD)
+                advanceUntilIdle()
+                // 완료되면 그 대상에 프롬프트가 뜬다.
                 jobFlow.value = job(TranscodeStatus.SUCCEEDED)
                 assertEquals(RecordingId(1), awaitItem().trashPromptFor)
 
@@ -191,26 +205,43 @@ class CompressViewModelTest {
 
                 assertNull(expectMostRecentItem().trashPromptFor) { "확정 후 프롬프트가 닫힌다" }
                 assertEquals(listOf(RecordingId(1)), libraryRepository.trashedIds)
+                assertTrue(transcodeRepository.cleared) { "완료 작업 정리(pruneWork) 호출" }
             }
         }
 
     @Test
-    fun `프롬프트를 닫으면 재표시하지 않되 새 작업이 시작되면 초기화된다`() =
+    fun `화면 재진입 시 이미 완료된 과거 작업은 프롬프트를 띄우지 않는다`() =
+        runTest {
+            // 이전 세션에서 완료돼 WorkManager에 남아 있는 SUCCEEDED 작업.
+            jobFlow.value = job(TranscodeStatus.SUCCEEDED)
+            // 사용자가 이 화면에서 압축을 시작하지 않았으므로(awaitingCompletion null) 프롬프트는 뜨지 않는다.
+            val viewModel = viewModel()
+            viewModel.uiState.test {
+                assertNull(awaitItem().trashPromptFor) { "초기 상태" }
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `프롬프트를 닫으면 재표시하지 않되 새 압축이 완료되면 다시 뜬다`() =
         runTest {
             val viewModel = viewModel()
             viewModel.uiState.test {
                 skipItems(1)
+                viewModel.onCompressConfirmed(RecordingId(1), CompressionPreset.STANDARD)
+                advanceUntilIdle()
                 jobFlow.value = job(TranscodeStatus.SUCCEEDED)
                 skipItems(1)
 
-                viewModel.onTrashPromptDismissed(RecordingId(1))
-                assertNull(awaitItem().trashPromptFor)
+                viewModel.onTrashPromptDismissed()
+                advanceUntilIdle()
+                assertNull(expectMostRecentItem().trashPromptFor)
 
-                // 같은 파일 재압축 → 완료 시 프롬프트 다시 표시 (검수 #4 회귀)
-                // (null 작업 상태는 이전 상태와 동일해 StateFlow가 중복 제거한다)
-                jobFlow.value = null
+                // 같은 파일 재압축을 시작하면 완료 시 프롬프트가 다시 표시된다.
                 viewModel.onCompressConfirmed(RecordingId(1), CompressionPreset.STANDARD)
                 advanceUntilIdle()
+                jobFlow.value = job(TranscodeStatus.RUNNING)
+                skipItems(1)
                 jobFlow.value = job(TranscodeStatus.SUCCEEDED)
 
                 assertEquals(RecordingId(1), awaitItem().trashPromptFor)

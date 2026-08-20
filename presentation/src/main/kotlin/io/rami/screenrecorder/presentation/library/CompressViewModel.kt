@@ -8,6 +8,7 @@ import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.TranscodeJob
 import io.rami.screenrecorder.domain.model.TranscodeStatus
 import io.rami.screenrecorder.domain.usecase.CancelTranscodeUseCase
+import io.rami.screenrecorder.domain.usecase.ClearCompletedTranscodeUseCase
 import io.rami.screenrecorder.domain.usecase.CompressRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.CompressionBlockedException
 import io.rami.screenrecorder.domain.usecase.MoveToTrashUseCase
@@ -50,6 +51,7 @@ class CompressViewModel
         observeTranscodeJob: ObserveTranscodeJobUseCase,
         private val compressRecording: CompressRecordingUseCase,
         private val cancelTranscode: CancelTranscodeUseCase,
+        private val clearCompletedTranscode: ClearCompletedTranscodeUseCase,
         private val moveToTrash: MoveToTrashUseCase,
     ) : ViewModel() {
         private val mutableEvents = MutableSharedFlow<CompressEvent>(extraBufferCapacity = 4)
@@ -57,18 +59,19 @@ class CompressViewModel
         /** 일회성 이벤트 스트림. */
         val events: SharedFlow<CompressEvent> = mutableEvents
 
-        /** 완료 안내를 이미 처리한 작업 (재프롬프트 방지). */
-        private val dismissedPrompt = MutableStateFlow<RecordingId?>(null)
+        // 이번 화면에서 사용자가 직접 시작해 완료를 기다리는 압축 대상.
+        // 완료 프롬프트는 오직 이 대상에만 띄운다 → 화면 재진입·앱 재시작 시 남아 있는
+        // WorkManager 완료 기록이 프롬프트를 다시 띄우지 않는다 (근본 재발 방지).
+        private val awaitingCompletion = MutableStateFlow<RecordingId?>(null)
 
         val uiState: StateFlow<CompressUiState> =
-            combine(observeTranscodeJob(), dismissedPrompt) { job, dismissed ->
+            combine(observeTranscodeJob(), awaitingCompletion) { job, awaiting ->
                 CompressUiState(
                     runningJob = job?.takeIf { it.status == TranscodeStatus.RUNNING },
                     trashPromptFor =
                         job
-                            ?.takeIf { it.status == TranscodeStatus.SUCCEEDED }
-                            ?.recordingId
-                            ?.takeIf { it != dismissed },
+                            ?.takeIf { it.status == TranscodeStatus.SUCCEEDED && it.recordingId == awaiting }
+                            ?.recordingId,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -89,8 +92,8 @@ class CompressViewModel
                 }
                 compressRecording(id, preset)
                     .onSuccess {
-                        // 새 작업이 시작되면 이전 완료 프롬프트 처리 이력을 초기화한다 (검수 #4).
-                        dismissedPrompt.value = null
+                        // 사용자가 이 대상의 압축을 시작했음을 기록 → 완료 시 이 대상에만 프롬프트.
+                        awaitingCompletion.value = id
                     }.onFailure { failure ->
                         val event =
                             if (failure is CompressionBlockedException) {
@@ -110,15 +113,18 @@ class CompressViewModel
 
         /** 완료 후 원본 휴지통 이동 확정 (명세 8절 [결정]). */
         fun onTrashOriginalConfirmed(id: RecordingId) {
-            dismissedPrompt.value = id
+            awaitingCompletion.value = null
             viewModelScope.launch {
                 moveToTrash(listOf(id)).onFailure { mutableEvents.emit(CompressEvent.Failed) }
+                clearCompletedTranscode()
             }
         }
 
         /** 완료 안내 닫기 (원본 유지). */
-        fun onTrashPromptDismissed(id: RecordingId) {
-            dismissedPrompt.value = id
+        fun onTrashPromptDismissed() {
+            awaitingCompletion.value = null
+            // 완료 작업 기록도 정리해 둔다 (WorkManager DB 위생).
+            viewModelScope.launch { clearCompletedTranscode() }
         }
 
         private companion object {

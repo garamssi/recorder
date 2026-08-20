@@ -57,6 +57,11 @@ class WorkManagerTranscodeRepository
             workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
         }
 
+        override suspend fun clearCompleted() {
+            // 완료(terminal) 작업 기록을 제거한다 → observeJob이 null을 내보내 프롬프트가 재발생하지 않는다.
+            workManager.pruneWork()
+        }
+
         private fun WorkInfo.toJob(): TranscodeJob? {
             val recordingId =
                 RecordingId(

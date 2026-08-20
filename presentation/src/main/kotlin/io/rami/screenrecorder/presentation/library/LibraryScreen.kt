@@ -158,7 +158,7 @@ fun LibraryScreen(
     compressState.trashPromptFor?.let { originalId ->
         TrashOriginalDialog(
             onConfirm = { compressViewModel.onTrashOriginalConfirmed(originalId) },
-            onDismiss = { compressViewModel.onTrashPromptDismissed(originalId) },
+            onDismiss = { compressViewModel.onTrashPromptDismissed() },
         )
     }
 }

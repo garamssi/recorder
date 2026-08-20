@@ -22,3 +22,12 @@ class CancelTranscodeUseCase
     ) {
         suspend operator fun invoke() = transcodeRepository.cancel()
     }
+
+/** 완료된 압축 작업 기록을 정리한다 (완료 프롬프트 처리 후, 기능명세서 8절). */
+class ClearCompletedTranscodeUseCase
+    @Inject
+    constructor(
+        private val transcodeRepository: TranscodeRepository,
+    ) {
+        suspend operator fun invoke() = transcodeRepository.clearCompleted()
+    }

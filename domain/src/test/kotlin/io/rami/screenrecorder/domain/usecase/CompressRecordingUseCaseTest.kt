@@ -56,6 +56,8 @@ class CompressRecordingUseCaseTest {
         override suspend fun cancel() {
             cancelled = true
         }
+
+        override suspend fun clearCompleted() = Unit
     }
 
     private val transcodeRepository = FakeTranscodeRepository()

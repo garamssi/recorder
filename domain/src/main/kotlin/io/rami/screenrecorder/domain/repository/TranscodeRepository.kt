@@ -23,4 +23,12 @@ interface TranscodeRepository {
 
     /** 진행 중인 작업을 취소한다. */
     suspend fun cancel()
+
+    /**
+     * 완료(성공/실패/취소)된 작업 기록을 정리한다.
+     *
+     * 완료 안내(원본 휴지통 이동 프롬프트)를 처리한 뒤 호출해, 다음에 화면을 열 때
+     * 같은 완료 작업이 프롬프트를 다시 띄우지 않게 한다 (기능명세서 8절).
+     */
+    suspend fun clearCompleted()
 }
