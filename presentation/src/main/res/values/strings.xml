@@ -135,4 +135,6 @@
     <string name="detail_codec">Codec</string>
     <string name="detail_bitrate">Bitrate</string>
     <string name="player_fullscreen">Full screen</string>
+    <string name="region_confirm">Confirm</string>
+    <string name="region_overlay_permission_needed">Overlay permission is required to select a region. Enable it in settings.</string>
 </resources>

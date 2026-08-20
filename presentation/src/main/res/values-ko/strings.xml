@@ -135,4 +135,6 @@
     <string name="detail_codec">코덱</string>
     <string name="detail_bitrate">비트레이트</string>
     <string name="player_fullscreen">전체 화면</string>
+    <string name="region_confirm">확인</string>
+    <string name="region_overlay_permission_needed">영역 선택에는 오버레이 권한이 필요합니다. 설정에서 허용해 주세요.</string>
 </resources>

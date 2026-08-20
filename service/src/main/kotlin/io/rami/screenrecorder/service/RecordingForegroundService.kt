@@ -9,6 +9,9 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.AutoStopReason
+import io.rami.screenrecorder.domain.model.CaptureMode
+import io.rami.screenrecorder.domain.model.CaptureModeKind
+import io.rami.screenrecorder.domain.model.CaptureRegion
 import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.TimeLimit
@@ -71,7 +74,7 @@ class RecordingForegroundService : Service() {
         startId: Int,
     ): Int {
         when (intent?.action) {
-            ACTION_START -> handleStart()
+            ACTION_START -> handleStart(readRegion(intent))
             ACTION_STOP -> serviceScope.launch { stopRecording() }
             ACTION_PAUSE -> serviceScope.launch { pauseRecording() }
             ACTION_RESUME -> serviceScope.launch { resumeRecording() }
@@ -86,12 +89,13 @@ class RecordingForegroundService : Service() {
         super.onDestroy()
     }
 
-    private fun handleStart() {
+    private fun handleStart(region: CaptureRegion?) {
         // 세션 진행 중 중복 START는 무시한다 — 진행 중 녹화를 stopSelf로 죽이는 사고 방지.
         if (stateObserverJob?.isActive == true) return
         serviceScope.launch {
             // 세션 구성은 설정 저장소가 단일 진실 공급원이다 (기능명세서 2.1절: 마지막 선택 유지).
-            val config = observeSettings().first().recording
+            val settings = observeSettings().first()
+            val config = settings.recording.copy(captureMode = captureMode(settings, region))
             timeLimit = config.timeLimit
             startForeground(
                 RecordingNotifications.NOTIFICATION_ID,
@@ -206,14 +210,57 @@ class RecordingForegroundService : Service() {
         }
 
     companion object {
+        /** 홈에서 선택한 모드 + (부분 영역이면) 오버레이에서 지정한 영역을 세션 모드로 해석한다. */
+        internal fun captureMode(
+            settings: io.rami.screenrecorder.domain.model.AppSettings,
+            region: CaptureRegion?,
+        ): CaptureMode =
+            when (settings.selectedCaptureMode) {
+                CaptureModeKind.FULL_SCREEN -> CaptureMode.FullScreen
+                CaptureModeKind.SINGLE_APP -> CaptureMode.SingleApp
+                CaptureModeKind.REGION ->
+                    if (region != null) {
+                        CaptureMode.Region(region)
+                    } else {
+                        // 영역 없이 시작되면(비정상 경로) 몰래 전체 화면으로 대체하지 않는다.
+                        error("부분 영역 모드인데 선택 영역이 없다")
+                    }
+            }
+
+        internal fun readRegion(intent: Intent): CaptureRegion? {
+            if (!intent.hasExtra(EXTRA_REGION_WIDTH)) return null
+            return CaptureRegion(
+                x = intent.getIntExtra(EXTRA_REGION_X, 0),
+                y = intent.getIntExtra(EXTRA_REGION_Y, 0),
+                width = intent.getIntExtra(EXTRA_REGION_WIDTH, CaptureRegion.MIN_WIDTH),
+                height = intent.getIntExtra(EXTRA_REGION_HEIGHT, CaptureRegion.MIN_HEIGHT),
+            )
+        }
+
         private const val ACTION_START = "io.rami.screenrecorder.action.START_RECORDING"
         internal const val ACTION_STOP = "io.rami.screenrecorder.action.STOP_RECORDING"
         internal const val ACTION_PAUSE = "io.rami.screenrecorder.action.PAUSE_RECORDING"
         internal const val ACTION_RESUME = "io.rami.screenrecorder.action.RESUME_RECORDING"
+        private const val EXTRA_REGION_X = "region_x"
+        private const val EXTRA_REGION_Y = "region_y"
+        private const val EXTRA_REGION_WIDTH = "region_width"
+        private const val EXTRA_REGION_HEIGHT = "region_height"
 
         /** 녹화 시작 인텐트 (동의 토큰은 TokenHolder에, 세션 구성은 설정 저장소에 있어야 한다). */
-        fun startIntent(context: Context): Intent =
-            Intent(context, RecordingForegroundService::class.java).setAction(ACTION_START)
+        fun startIntent(
+            context: Context,
+            region: CaptureRegion? = null,
+        ): Intent =
+            Intent(context, RecordingForegroundService::class.java)
+                .setAction(ACTION_START)
+                .apply {
+                    if (region != null) {
+                        putExtra(EXTRA_REGION_X, region.x)
+                        putExtra(EXTRA_REGION_Y, region.y)
+                        putExtra(EXTRA_REGION_WIDTH, region.width)
+                        putExtra(EXTRA_REGION_HEIGHT, region.height)
+                    }
+                }
 
         /** 녹화 중지 인텐트. */
         fun stopIntent(context: Context): Intent =
