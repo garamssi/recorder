@@ -6,6 +6,9 @@ build/
 # Android Studio / IntelliJ
 .idea/
 *.iml
+*.ipr
+*.iws
+out/
 local.properties
 captures/
 .externalNativeBuild/
@@ -19,9 +22,22 @@ captures/
 *.keystore
 debug.keystore
 signing.properties
+keystore.properties
+.env
 
-# 테스트 녹화물 — 개인정보 포함 가능 (CLAUDE.md 7절)
+# 캡처 산출물 — 개인정보 포함 가능 (CLAUDE.md 7절)
+# 검증 스크립트(-k)나 adb pull 로 저장소에 떨어질 수 있다.
 *.mp4
+*.m4a
+
+# 빌드 산출물이 저장소로 복사되는 사고 방지 (정상 경로는 build/ 안이다)
+*.apk
+*.aab
+*.aar
+
+# 진단 덤프 / 로그
+*.hprof
+*.log
 
 # Kotlin
 .kotlin/
