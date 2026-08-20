@@ -2,6 +2,7 @@ package io.rami.screenrecorder.domain.model
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /** 녹화 시작 카운트다운 선택지 (기능명세서 3절: 없음/3초/5초/10초, 기본 3초). */
@@ -45,7 +46,39 @@ sealed interface TimeLimit {
 
         /** 직접 입력 최대값 (기능명세서 11.4절). */
         val MAX_DURATION: Duration = 12.hours
+
+        /**
+         * 시/분/초 입력을 검증해 [TimeLimitInput]으로 반환한다 (기능명세서 11.4절 직접 입력).
+         *
+         * 범위(10초~12시간)를 벗어나면 입력 단계에서 사유와 함께 차단한다.
+         */
+        fun fromHoursMinutesSeconds(
+            hours: Int,
+            minutes: Int,
+            seconds: Int,
+        ): TimeLimitInput {
+            val total = hours.hours + minutes.minutes + seconds.seconds
+            return when {
+                total < MIN_DURATION -> TimeLimitInput.TooShort
+                total > MAX_DURATION -> TimeLimitInput.TooLong
+                else -> TimeLimitInput.Valid(Limited(total))
+            }
+        }
     }
+}
+
+/** 타이머 직접 입력 검증 결과 (기능명세서 11.4절). */
+sealed interface TimeLimitInput {
+    /** 유효한 시간 제한. */
+    data class Valid(
+        val timeLimit: TimeLimit.Limited,
+    ) : TimeLimitInput
+
+    /** 최소값(10초) 미만. */
+    data object TooShort : TimeLimitInput
+
+    /** 최대값(12시간) 초과. */
+    data object TooLong : TimeLimitInput
 }
 
 /**

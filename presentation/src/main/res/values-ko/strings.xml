@@ -159,4 +159,11 @@
     <string name="recovery_restore">복구</string>
     <string name="recovery_delete">삭제</string>
     <string name="recovery_failed">복구에 실패했습니다. 잠시 후 다시 시도해 주세요.</string>
+    <string name="options_time_limit_custom">직접 입력</string>
+    <string name="options_time_limit_custom_title">시간 제한 직접 입력</string>
+    <string name="options_time_limit_too_short">최소 10초입니다.</string>
+    <string name="options_time_limit_too_long">최대 12시간입니다.</string>
+    <string name="options_time_unit_hours">시</string>
+    <string name="options_time_unit_minutes">분</string>
+    <string name="options_time_unit_seconds">초</string>
 </resources>

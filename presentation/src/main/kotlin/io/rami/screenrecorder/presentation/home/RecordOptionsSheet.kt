@@ -2,7 +2,6 @@ package io.rami.screenrecorder.presentation.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -12,6 +11,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -84,12 +87,18 @@ fun RecordOptionsSheet(
     }
 }
 
-/** 시간 제한 선택 행 (기능명세서 11.4절 프리셋). */
+/** 시간 제한 선택 행 (기능명세서 11.4절 프리셋 + 직접 입력). */
 @Composable
 private fun TimeLimitRow(
     preset: RecordingConfig,
     onPresetChanged: ((RecordingConfig) -> RecordingConfig) -> Unit,
 ) {
+    var showCustomInput by remember { mutableStateOf(false) }
+    // 프리셋 목록에 없는 Limited 값이면 직접 입력한 것으로 본다.
+    val isCustom =
+        preset.timeLimit is TimeLimit.Limited &&
+            (preset.timeLimit as TimeLimit.Limited).duration !in timeLimitChoices
+
     OptionRow(label = stringResource(R.string.options_time_limit)) {
         FilterChip(
             selected = preset.timeLimit is TimeLimit.None,
@@ -103,9 +112,33 @@ private fun TimeLimitRow(
                 label = { Text(DurationFormatter.formatElapsed(duration)) },
             )
         }
+        FilterChip(
+            selected = isCustom,
+            onClick = { showCustomInput = true },
+            label = {
+                Text(
+                    if (isCustom) {
+                        DurationFormatter.formatElapsed((preset.timeLimit as TimeLimit.Limited).duration)
+                    } else {
+                        stringResource(R.string.options_time_limit_custom)
+                    },
+                )
+            },
+        )
+    }
+
+    if (showCustomInput) {
+        CustomTimeLimitDialog(
+            onConfirm = { limit ->
+                onPresetChanged { it.copy(timeLimit = limit) }
+                showCustomInput = false
+            },
+            onDismiss = { showCustomInput = false },
+        )
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun OptionRow(
     label: String,
@@ -113,9 +146,11 @@ private fun OptionRow(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = label, style = MaterialTheme.typography.bodyMedium)
-        Row(
+        // 칩이 많으면(예: 시간 제한 9개) 줄바꿈되도록 FlowRow를 쓴다.
+        androidx.compose.foundation.layout.FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             content()
         }

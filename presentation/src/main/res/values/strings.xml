@@ -159,4 +159,11 @@
     <string name="recovery_restore">Restore</string>
     <string name="recovery_delete">Delete</string>
     <string name="recovery_failed">Recovery failed. Please try again later.</string>
+    <string name="options_time_limit_custom">Custom</string>
+    <string name="options_time_limit_custom_title">Custom time limit</string>
+    <string name="options_time_limit_too_short">Minimum is 10 seconds.</string>
+    <string name="options_time_limit_too_long">Maximum is 12 hours.</string>
+    <string name="options_time_unit_hours">Hours</string>
+    <string name="options_time_unit_minutes">Min</string>
+    <string name="options_time_unit_seconds">Sec</string>
 </resources>
