@@ -77,14 +77,24 @@ internal fun ToggleRow(
     checked: Boolean,
     onChanged: (Boolean) -> Unit,
     hint: String? = null,
+    enabled: Boolean = true,
 ) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
-            Switch(checked = checked, onCheckedChange = onChanged)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color =
+                    if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+            Switch(checked = checked, onCheckedChange = onChanged, enabled = enabled)
         }
         if (hint != null) {
             Text(

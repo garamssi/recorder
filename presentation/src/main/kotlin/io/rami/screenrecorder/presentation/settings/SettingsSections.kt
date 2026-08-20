@@ -118,10 +118,13 @@ private fun RecordingBehaviorRows(
             update { it.copy(recording = it.recording.copy(orientationPolicy = policy)) }
         },
     )
+    // 터치 표시는 시스템 권한(WRITE_SECURE_SETTINGS) 제약으로 1차 범위 보류 (기능명세서 4.1절 [결정]).
     ToggleRow(
         title = stringResource(R.string.settings_show_touches),
-        checked = settings.showTouches,
-        onChanged = { enabled -> update { it.copy(showTouches = enabled) } },
+        hint = stringResource(R.string.settings_show_touches_unsupported),
+        checked = false,
+        onChanged = {},
+        enabled = false,
     )
     ToggleRow(
         title = stringResource(R.string.settings_floating_bubble),

@@ -166,4 +166,5 @@
     <string name="options_time_unit_hours">Hours</string>
     <string name="options_time_unit_minutes">Min</string>
     <string name="options_time_unit_seconds">Sec</string>
+    <string name="settings_show_touches_unsupported">Not supported on this device (requires system permission)</string>
 </resources>
