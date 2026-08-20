@@ -181,6 +181,22 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun `녹화 중에는 임시 파일을 고아로 오인하지 않고 중지 후 조회한다`() =
+        runTest {
+            // 서비스가 녹화 중인 채로 ViewModel이 재생성된 상황 (활성 temp 파일 = 고아 아님).
+            stateFlow.value = RecordingState.Recording(elapsed = 1.minutes)
+            val viewModel = viewModel()
+            viewModel.pendingRecoveries.test {
+                assertEquals(emptyList<Any>(), awaitItem()) // 녹화 중에는 빈 목록 유지
+                expectNoEvents()
+
+                // 녹화가 끝나 finalize가 활성 temp를 정리한 뒤 Idle이 되면 그때 조회한다.
+                stateFlow.value = RecordingState.Idle
+                assertEquals(listOf("t.mp4"), awaitItem().map { it.id })
+            }
+        }
+
+    @Test
     fun `복구를 확정하면 저장소에 위임하고 목록에서 제거한다`() =
         runTest {
             val viewModel = viewModel()

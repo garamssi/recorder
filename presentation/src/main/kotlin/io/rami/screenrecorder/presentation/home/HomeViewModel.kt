@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -93,6 +94,10 @@ class HomeViewModel
 
         init {
             viewModelScope.launch {
+                // 녹화가 진행 중이 아닐 때만 고아 임시 파일을 조회한다.
+                // 서비스가 녹화 중인 채로 Activity가 재생성되면 활성 temp 파일을 고아로 오인하기 때문이다.
+                // finalize는 임시 파일을 정리한 뒤 Idle로 전이하므로, Idle 시점의 조회는 활성 파일을 포함하지 않는다.
+                observeRecordingState().first { it is RecordingState.Idle }
                 mutablePendingRecoveries.value = useCases.getPendingRecoveries()
             }
         }
