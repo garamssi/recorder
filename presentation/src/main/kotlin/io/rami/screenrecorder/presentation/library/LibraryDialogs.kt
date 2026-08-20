@@ -86,6 +86,31 @@ fun DeleteConfirmDialog(
     )
 }
 
+/** 중복 이름 확인 다이얼로그 (기능명세서 6.3절: 순번 자동 부여 여부를 물어본다). */
+@Composable
+fun DuplicateNameDialog(
+    suggestedName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rename_duplicate_title)) },
+        text = { Text(stringResource(R.string.rename_duplicate_message, suggestedName)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm()
+                    onDismiss()
+                },
+            ) { Text(stringResource(R.string.rename_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
+
 /** 상세 정보 다이얼로그 (기능명세서 7.2절 5번). */
 @Composable
 fun DetailDialog(
@@ -106,6 +131,17 @@ fun DetailDialog(
                     stringResource(R.string.detail_duration),
                     DurationFormatter.formatElapsed(recording.duration),
                 )
+                DetailRow(stringResource(R.string.detail_path), recording.contentUri)
+                if (recording.frameRate > 0) {
+                    DetailRow(stringResource(R.string.detail_fps), "${recording.frameRate}fps")
+                }
+                DetailRow(stringResource(R.string.detail_codec), recording.codec.name)
+                recording.bitrateBps?.let { bitrate ->
+                    DetailRow(
+                        stringResource(R.string.detail_bitrate),
+                        "${bitrate / BITS_PER_MEGABIT}Mbps",
+                    )
+                }
                 DetailRow(stringResource(R.string.detail_size), formatMegabytes(recording.sizeBytes))
                 DetailRow(
                     stringResource(R.string.detail_created),
@@ -136,4 +172,5 @@ fun formatDateTime(epochMillis: Long): String =
 
 private val DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 private const val BYTES_PER_MB = 1_000_000f
+private const val BITS_PER_MEGABIT = 1_000_000
 private const val MP4_EXTENSION = ".mp4"

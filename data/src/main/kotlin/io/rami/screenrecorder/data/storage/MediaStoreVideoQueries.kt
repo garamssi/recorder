@@ -70,13 +70,14 @@ internal class MediaStoreVideoQueries(
         val queryArgs =
             Bundle().apply {
                 putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_ONLY)
+                // 휴지통 이동 시 RELATIVE_PATH가 바뀔 수 있으므로 소유 패키지로 필터한다.
                 putString(
                     ContentResolver.QUERY_ARG_SQL_SELECTION,
-                    "${MediaStore.Video.Media.RELATIVE_PATH} = ?",
+                    "${MediaStore.Video.Media.OWNER_PACKAGE_NAME} = ?",
                 )
                 putStringArray(
                     ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
-                    arrayOf("$RELATIVE_PATH/"),
+                    arrayOf(context.packageName),
                 )
             }
         context.contentResolver

@@ -1,5 +1,7 @@
 package io.rami.screenrecorder.presentation.player
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,11 +24,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -81,6 +85,9 @@ private fun PlayerContent(
 ) {
     val context = LocalContext.current
     var playbackSpeed by rememberSaveable { mutableFloatStateOf(DEFAULT_SPEED) }
+    // 회전(컴포지션 재생성) 시 재생 위치를 복원한다 (기능명세서 10절 회전 대응).
+    var savedPositionMs by rememberSaveable { mutableLongStateOf(0L) }
+    var isFullscreen by rememberSaveable { mutableStateOf(false) }
     val player =
         remember {
             ExoPlayer
@@ -91,16 +98,24 @@ private fun PlayerContent(
                 .apply {
                     setMediaItem(MediaItem.fromUri(recording.contentUri.toUri()))
                     prepare()
+                    seekTo(savedPositionMs)
                     playWhenReady = true
                 }
         }
     DisposableEffect(Unit) {
-        onDispose { player.release() }
+        onDispose {
+            savedPositionMs = player.currentPosition
+            player.release()
+        }
     }
     LaunchedEffect(playbackSpeed) { player.setPlaybackSpeed(playbackSpeed) }
 
     Scaffold(
-        topBar = { PlayerTopBar(recording, viewModel, onBack) },
+        topBar = {
+            if (!isFullscreen) {
+                PlayerTopBar(recording, viewModel, onBack)
+            }
+        },
     ) { padding ->
         Column(
             modifier =
@@ -108,29 +123,100 @@ private fun PlayerContent(
                     .fillMaxSize()
                     .padding(padding),
         ) {
-            AndroidView(
-                factory = { viewContext ->
-                    PlayerView(viewContext).apply {
-                        this.player = player
-                        setShowNextButton(false)
-                        setShowPreviousButton(false)
-                    }
-                },
+            PlayerSurface(
+                player = player,
                 modifier = Modifier.weight(1f),
             )
-            // 배속 선택 (기능명세서 10절: 0.5x / 1x / 1.5x / 2x)
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                PLAYBACK_SPEEDS.forEach { speed ->
-                    FilterChip(
-                        selected = playbackSpeed == speed,
-                        onClick = { playbackSpeed = speed },
-                        label = {
-                            Text(stringResource(R.string.player_speed_format, formatSpeed(speed)))
-                        },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                }
+            if (!isFullscreen) {
+                SpeedAndFullscreenRow(
+                    playbackSpeed = playbackSpeed,
+                    onSpeedSelected = { playbackSpeed = it },
+                    onFullscreen = { isFullscreen = true },
+                )
             }
+        }
+    }
+    if (isFullscreen) {
+        // 전체 화면에서 뒤로가기는 일반 모드 복귀 (기능명세서 10절 전체 화면 토글).
+        androidx.activity.compose.BackHandler { isFullscreen = false }
+    }
+}
+
+/** 재생 서피스 + 더블 탭 ±10초 (기능명세서 10절). */
+@Composable
+private fun PlayerSurface(
+    player: ExoPlayer,
+    modifier: Modifier = Modifier,
+) {
+    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    Box(modifier = modifier) {
+        AndroidView(
+            factory = { viewContext ->
+                PlayerView(viewContext).apply {
+                    this.player = player
+                    setShowNextButton(false)
+                    setShowPreviousButton(false)
+                    playerViewRef = this
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        // 좌/우 반면 더블 탭 = 뒤로/앞으로 10초, 단일 탭 = 컨트롤러 토글 위임.
+        Row(modifier = Modifier.fillMaxSize()) {
+            DoubleTapArea(
+                onDoubleTap = { player.seekBack() },
+                onSingleTap = { playerViewRef?.performClick() },
+                modifier = Modifier.weight(1f),
+            )
+            DoubleTapArea(
+                onDoubleTap = { player.seekForward() },
+                onSingleTap = { playerViewRef?.performClick() },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DoubleTapArea(
+    onDoubleTap: () -> Unit,
+    onSingleTap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { onDoubleTap() },
+                        onTap = { onSingleTap() },
+                    )
+                },
+    )
+}
+
+/** 배속 칩 + 전체 화면 토글 (기능명세서 10절). */
+@Composable
+private fun SpeedAndFullscreenRow(
+    playbackSpeed: Float,
+    onSpeedSelected: (Float) -> Unit,
+    onFullscreen: () -> Unit,
+) {
+    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        PLAYBACK_SPEEDS.forEach { speed ->
+            FilterChip(
+                selected = playbackSpeed == speed,
+                onClick = { onSpeedSelected(speed) },
+                label = {
+                    Text(stringResource(R.string.player_speed_format, formatSpeed(speed)))
+                },
+                modifier = Modifier.padding(end = 8.dp),
+            )
+        }
+        // material-icons-core에는 Fullscreen 아이콘이 없어 텍스트 버튼으로 제공한다.
+        androidx.compose.material3.TextButton(onClick = onFullscreen) {
+            Text(stringResource(R.string.player_fullscreen))
         }
     }
 }

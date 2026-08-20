@@ -9,6 +9,7 @@ import io.rami.screenrecorder.domain.model.SortOrder
 import io.rami.screenrecorder.domain.model.TrashItem
 import io.rami.screenrecorder.domain.model.VideoCodec
 import io.rami.screenrecorder.domain.repository.MediaLibraryRepository
+import io.rami.screenrecorder.domain.usecase.DuplicateRecordingNameException
 import io.rami.screenrecorder.domain.usecase.GetRecordingsUseCase
 import io.rami.screenrecorder.domain.usecase.MoveToTrashUseCase
 import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
@@ -38,6 +39,7 @@ class LibraryViewModelTest {
     ) : MediaLibraryRepository {
         val trashedIds = mutableListOf<RecordingId>()
         var renamedTo: Pair<RecordingId, String>? = null
+        var duplicateSuggestion: String? = null
 
         override fun observeRecordings(): Flow<List<Recording>> = recordingsFlow
 
@@ -45,6 +47,7 @@ class LibraryViewModelTest {
             id: RecordingId,
             newName: String,
         ) {
+            duplicateSuggestion?.let { throw DuplicateRecordingNameException(it) }
             renamedTo = id to newName
         }
 
@@ -167,6 +170,21 @@ class LibraryViewModelTest {
                     NameValidation.ForbiddenCharacter,
                     (event as LibraryEvent.RenameRejected).reason,
                 )
+            }
+        }
+
+    @Test
+    fun `중복 이름은 순번 제안 이벤트를 낸다`() =
+        runTest {
+            repository.duplicateSuggestion = "새 이름_1"
+            val viewModel = viewModel()
+            viewModel.events.test {
+                viewModel.onRenameConfirmed(RecordingId(7), "새 이름")
+
+                val event = awaitItem()
+                assertTrue(event is LibraryEvent.RenameNeedsSuffix)
+                assertEquals("새 이름_1", (event as LibraryEvent.RenameNeedsSuffix).suggestedName)
+                assertEquals(RecordingId(7), event.id)
             }
         }
 

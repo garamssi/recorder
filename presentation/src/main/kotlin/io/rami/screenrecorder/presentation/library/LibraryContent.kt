@@ -39,10 +39,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import coil3.video.VideoFrameDecoder
 import coil3.video.videoFrameMillis
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.Recording
@@ -60,13 +58,17 @@ internal fun LibraryContent(
 ) {
     val actions = ItemActions(onPlay, onRename, onDetail, onDelete)
     if (uiState.isGrid) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = GRID_MIN_CELL_DP.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(uiState.recordings, key = { it.id.value }) { recording ->
-                GridCard(recording, uiState, viewModel, actions)
+        // 명세 7.1절: 그리드는 화면 폭 반응형이되 2~4열로 제한한다.
+        androidx.compose.foundation.layout.BoxWithConstraints {
+            val columns = (maxWidth / GRID_MIN_CELL_DP.dp).toInt().coerceIn(GRID_MIN_COLUMNS, GRID_MAX_COLUMNS)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(uiState.recordings, key = { it.id.value }) { recording ->
+                    GridCard(recording, uiState, viewModel, actions)
+                }
             }
         }
     } else {
@@ -185,8 +187,8 @@ private fun Thumbnail(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val imageLoader = remember(context) { videoImageLoader(context) }
     Box(modifier = modifier.clip(RoundedCornerShape(10.dp))) {
+        // 전역 싱글턴 로더(Application의 SingletonImageLoader.Factory)가 비디오 프레임을 디코딩한다.
         AsyncImage(
             model =
                 ImageRequest
@@ -194,7 +196,6 @@ private fun Thumbnail(
                     .data(recording.contentUri.toUri())
                     .videoFrameMillis(THUMBNAIL_FRAME_MILLIS)
                     .build(),
-            imageLoader = imageLoader,
             contentDescription = null,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -255,6 +256,26 @@ private fun MenuItem(
     DropdownMenuItem(text = { Text(stringResource(labelRes)) }, onClick = onClick)
 }
 
+/** 다중 공유 (기능명세서 7.3절: 선택 모드 상단 공유). */
+internal fun shareRecordings(
+    context: Context,
+    recordings: List<Recording>,
+) {
+    if (recordings.isEmpty()) return
+    if (recordings.size == 1) {
+        shareRecording(context, recordings.first())
+        return
+    }
+    val uris = ArrayList(recordings.map { it.contentUri.toUri() })
+    val sendIntent =
+        Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = SHARE_MIME_TYPE
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    context.startActivity(Intent.createChooser(sendIntent, null))
+}
+
 /** 공유 (기능명세서 7.2절: ACTION_SEND + 읽기 권한 부여). */
 internal fun shareRecording(
     context: Context,
@@ -269,13 +290,9 @@ internal fun shareRecording(
     context.startActivity(Intent.createChooser(sendIntent, null))
 }
 
-private fun videoImageLoader(context: Context): ImageLoader =
-    ImageLoader
-        .Builder(context)
-        .components { add(VideoFrameDecoder.Factory()) }
-        .build()
-
 private const val GRID_MIN_CELL_DP = 280
+private const val GRID_MIN_COLUMNS = 2
+private const val GRID_MAX_COLUMNS = 4
 private const val GRID_ASPECT_RATIO = 16f / 9f
 private const val THUMBNAIL_FRAME_MILLIS = 1_000L
 private const val SHARE_MIME_TYPE = "video/mp4"

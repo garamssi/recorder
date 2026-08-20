@@ -43,6 +43,12 @@ sealed interface LibraryEvent {
         val reason: NameValidation,
     ) : LibraryEvent
 
+    /** 중복 이름 — 순번 제안으로 저장 여부를 물어본다 (기능명세서 6.3절). */
+    data class RenameNeedsSuffix(
+        val id: RecordingId,
+        val suggestedName: String,
+    ) : LibraryEvent
+
     /** 저장소 작업 실패. */
     data object OperationFailed : LibraryEvent
 }
@@ -151,10 +157,12 @@ class LibraryViewModel
             viewModelScope.launch {
                 renameRecording(id, newName).onFailure { failure ->
                     val event =
-                        if (failure is InvalidRecordingNameException) {
-                            LibraryEvent.RenameRejected(failure.reason)
-                        } else {
-                            LibraryEvent.OperationFailed
+                        when (failure) {
+                            is InvalidRecordingNameException -> LibraryEvent.RenameRejected(failure.reason)
+                            is io.rami.screenrecorder.domain.usecase.DuplicateRecordingNameException ->
+                                LibraryEvent.RenameNeedsSuffix(id, failure.suggestedName)
+
+                            else -> LibraryEvent.OperationFailed
                         }
                     mutableEvents.emit(event)
                 }

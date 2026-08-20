@@ -127,4 +127,12 @@
     <string name="saved_snackbar">Recording saved</string>
     <string name="saved_snackbar_rename">Rename</string>
     <string name="operation_failed">Something went wrong</string>
+    <string name="rename_duplicate_title">Name already exists</string>
+    <string name="rename_duplicate_message">Save as "%1$s" instead?</string>
+    <string name="library_empty_go_home">Go to Home</string>
+    <string name="detail_path">Path</string>
+    <string name="detail_fps">Frame rate</string>
+    <string name="detail_codec">Codec</string>
+    <string name="detail_bitrate">Bitrate</string>
+    <string name="player_fullscreen">Full screen</string>
 </resources>

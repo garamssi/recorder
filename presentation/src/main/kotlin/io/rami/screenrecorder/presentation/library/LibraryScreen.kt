@@ -10,6 +10,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,8 +53,11 @@ fun LibraryScreen(
     var detailTarget by remember { mutableStateOf<Recording?>(null) }
     var deleteSingleTarget by remember { mutableStateOf<RecordingId?>(null) }
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    var duplicateSuggestion by remember {
+        mutableStateOf<LibraryEvent.RenameNeedsSuffix?>(null)
+    }
 
-    ObserveLibraryEvents(viewModel, snackbarHost)
+    ObserveLibraryEvents(viewModel, snackbarHost) { duplicateSuggestion = it }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHost) },
@@ -81,11 +85,18 @@ fun LibraryScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
             if (uiState.recordings.isEmpty() && !uiState.isLoading) {
-                Text(
-                    text = stringResource(R.string.home_recent_empty),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(top = 32.dp),
-                )
+                Column(modifier = Modifier.padding(top = 32.dp)) {
+                    Text(
+                        text = stringResource(R.string.home_recent_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    androidx.compose.material3.Button(
+                        onClick = onBack,
+                        modifier = Modifier.padding(top = 16.dp),
+                    ) {
+                        Text(stringResource(R.string.library_empty_go_home))
+                    }
+                }
             } else {
                 LibraryContent(
                     uiState = uiState,
@@ -123,12 +134,20 @@ fun LibraryScreen(
             onDismiss = { deleteSingleTarget = null },
         )
     }
+    duplicateSuggestion?.let { suggestion ->
+        DuplicateNameDialog(
+            suggestedName = suggestion.suggestedName,
+            onConfirm = { viewModel.onRenameConfirmed(suggestion.id, suggestion.suggestedName) },
+            onDismiss = { duplicateSuggestion = null },
+        )
+    }
 }
 
 @Composable
 private fun ObserveLibraryEvents(
     viewModel: LibraryViewModel,
     snackbarHost: SnackbarHostState,
+    onDuplicate: (LibraryEvent.RenameNeedsSuffix) -> Unit,
 ) {
     val invalidNameMessage = stringResource(R.string.rename_invalid)
     val failedMessage = stringResource(R.string.operation_failed)
@@ -137,6 +156,7 @@ private fun ObserveLibraryEvents(
             when (event) {
                 is LibraryEvent.RenameRejected -> snackbarHost.showSnackbar(invalidNameMessage)
                 is LibraryEvent.OperationFailed -> snackbarHost.showSnackbar(failedMessage)
+                is LibraryEvent.RenameNeedsSuffix -> onDuplicate(event)
             }
         }
     }
@@ -160,6 +180,20 @@ private fun LibraryTopBar(
                 }
             },
             actions = {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                IconButton(
+                    onClick = {
+                        shareRecordings(
+                            context,
+                            uiState.recordings.filter { it.id in uiState.selectedIds },
+                        )
+                    },
+                ) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = stringResource(R.string.menu_share),
+                    )
+                }
                 IconButton(onClick = viewModel::onSelectAll) {
                     Icon(
                         Icons.Default.Menu,

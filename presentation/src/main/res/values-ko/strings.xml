@@ -127,4 +127,12 @@
     <string name="saved_snackbar">녹화가 저장되었습니다</string>
     <string name="saved_snackbar_rename">이름 변경</string>
     <string name="operation_failed">작업에 실패했습니다</string>
+    <string name="rename_duplicate_title">이미 있는 이름입니다</string>
+    <string name="rename_duplicate_message">"%1$s"(으)로 저장할까요?</string>
+    <string name="library_empty_go_home">홈으로 이동</string>
+    <string name="detail_path">경로</string>
+    <string name="detail_fps">프레임레이트</string>
+    <string name="detail_codec">코덱</string>
+    <string name="detail_bitrate">비트레이트</string>
+    <string name="player_fullscreen">전체 화면</string>
 </resources>

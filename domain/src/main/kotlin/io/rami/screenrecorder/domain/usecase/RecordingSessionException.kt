@@ -23,3 +23,8 @@ sealed class RecordingSessionException(
 class InvalidRecordingNameException(
     val reason: NameValidation,
 ) : Exception("유효하지 않은 이름: $reason")
+
+/** 중복 이름 감지 — 순번을 붙인 [suggestedName]으로 저장할지 UI가 확인한다 (기능명세서 6.3절). */
+class DuplicateRecordingNameException(
+    val suggestedName: String,
+) : Exception("중복 이름, 제안: $suggestedName")
