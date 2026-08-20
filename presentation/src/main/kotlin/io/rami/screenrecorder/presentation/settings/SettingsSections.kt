@@ -269,8 +269,10 @@ internal fun AboutSection() {
 @Composable
 private fun appVersionName(): String {
     val context = androidx.compose.ui.platform.LocalContext.current
-    return context.packageManager
-        .getPackageInfo(context.packageName, 0)
-        .versionName
-        ?: ""
+    return androidx.compose.runtime.remember(context) {
+        context.packageManager
+            .getPackageInfo(context.packageName, 0)
+            .versionName
+            ?: ""
+    }
 }

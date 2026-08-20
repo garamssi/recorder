@@ -148,6 +148,12 @@ fun HomeScreen(
         )
     }
 
+    // 복구/삭제 실패 안내 (MediaStore 오류 등 — 앱이 해결 못 하는 외부 오류).
+    val recoveryFailedMessage = stringResource(R.string.recovery_failed)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.recoveryFailed.collect { snackbarHost.showSnackbar(recoveryFailedMessage) }
+    }
+
     // 크래시로 발행되지 못한 임시 파일을 한 건씩 복구/삭제 제안한다 (기능명세서 6.1절).
     val pendingRecoveries by viewModel.pendingRecoveries.collectAsState()
     pendingRecoveries.firstOrNull()?.let { recovery ->
@@ -190,8 +196,15 @@ private fun RecoveryDialog(
     )
 }
 
-private fun formatRecoverySize(bytes: Long): String = "%.1fMB".format(bytes / BYTES_PER_MB)
+/** 1MB 미만은 KB로 표시해 작은 잔여 파일도 크기를 알아볼 수 있게 한다 (n2). */
+private fun formatRecoverySize(bytes: Long): String =
+    if (bytes < BYTES_PER_MB) {
+        "%.0fKB".format(bytes / BYTES_PER_KB)
+    } else {
+        "%.1fMB".format(bytes / BYTES_PER_MB)
+    }
 
+private const val BYTES_PER_KB = 1_000f
 private const val BYTES_PER_MB = 1_000_000f
 
 /** 옵션 시트와 카운트다운 오버레이 (기능명세서 2.1, 3절). */

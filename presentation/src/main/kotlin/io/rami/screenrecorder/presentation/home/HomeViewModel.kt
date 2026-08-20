@@ -26,6 +26,7 @@ import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -91,6 +92,11 @@ class HomeViewModel
 
         /** 크래시로 발행되지 못한 임시 녹화 목록 (기능명세서 6.1절: 복구/삭제 제안). */
         val pendingRecoveries: StateFlow<List<PendingRecovery>> = mutablePendingRecoveries.asStateFlow()
+
+        private val mutableRecoveryFailed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+        /** 복구/삭제가 실패했을 때 한 번 발생하는 이벤트 (스낵바 안내용). */
+        val recoveryFailed: Flow<Unit> = mutableRecoveryFailed
 
         init {
             viewModelScope.launch {
@@ -159,17 +165,40 @@ class HomeViewModel
 
         /** 임시 파일 복구 확정 (기능명세서 6.1절). MediaStore로 발행하고 목록에서 제거한다. */
         fun onRecoverConfirmed(id: String) {
-            viewModelScope.launch {
-                recoverRecording(id)
-                removePending(id)
-            }
+            runRecoveryAction(id) { recoverRecording(id) }
         }
 
         /** 임시 파일 삭제 (기능명세서 6.1절). */
         fun onDiscardRecovery(id: String) {
+            runRecoveryAction(id) { discardRecovery(id) }
+        }
+
+        /**
+         * 복구/삭제를 실행하고 목록에서 제거한다.
+         *
+         * MediaStore 실패 등 앱이 해결할 수 없는 외부 오류는 크래시 대신 안내한다.
+         * 임시 파일은 남겨 두어 다음 실행에서 다시 시도할 수 있게 한다(증상 은폐가 아니라 외부 오류 처리).
+         */
+        private fun runRecoveryAction(
+            id: String,
+            action: suspend () -> Unit,
+        ) {
             viewModelScope.launch {
-                discardRecovery(id)
-                removePending(id)
+                val succeeded =
+                    try {
+                        action()
+                        true
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") failure: Exception,
+                    ) {
+                        android.util.Log.w(LOG_TAG, "임시 파일 복구/삭제 실패: $id", failure)
+                        false
+                    }
+                if (succeeded) {
+                    removePending(id)
+                } else {
+                    mutableRecoveryFailed.emit(Unit)
+                }
             }
         }
 
@@ -189,5 +218,6 @@ class HomeViewModel
             const val RECENT_RECORDING_COUNT = 3
             const val STOP_SHARING_TIMEOUT_MS = 5_000L
             const val BPS_PER_MBPS = 1_000_000
+            const val LOG_TAG = "HomeViewModel"
         }
     }

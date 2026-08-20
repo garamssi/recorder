@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -105,9 +106,13 @@ class HomeViewModelTest {
             val discarded = mutableListOf<String>()
             val recovered = mutableListOf<String>()
 
+            /** true면 복구가 MediaStore 실패를 흉내내 예외를 던진다. */
+            var recoverThrows = false
+
             override suspend fun pendingRecoveries() = pending
 
             override suspend fun recover(id: String): Recording? {
+                check(!recoverThrows) { "MediaStore insert 실패" }
                 recovered += id
                 return null
             }
@@ -224,6 +229,22 @@ class HomeViewModelTest {
                 assertEquals(emptyList<Any>(), awaitItem())
                 assertEquals(listOf("t.mp4"), recoveryRepository.discarded)
             }
+        }
+
+    @Test
+    fun `복구 실패 시 크래시 대신 실패 이벤트를 내고 목록을 유지한다`() =
+        runTest {
+            recoveryRepository.recoverThrows = true
+            val viewModel = viewModel()
+            advanceUntilIdle() // init의 복구 목록 로드 완료
+
+            viewModel.recoveryFailed.test {
+                viewModel.onRecoverConfirmed("t.mp4")
+
+                awaitItem() // 실패 이벤트 발생 (예외로 크래시하지 않음)
+            }
+            // 실패했으므로 임시 파일은 목록에 남아 다음에 재시도할 수 있다.
+            assertEquals(listOf("t.mp4"), viewModel.pendingRecoveries.value.map { it.id })
         }
 
     @Test

@@ -20,6 +20,8 @@ android {
 
     testOptions {
         unitTests.all { it.useJUnitPlatform() }
+        // android.util.Log 등 프레임워크 스텁이 예외 대신 기본값을 반환하게 한다 (JVM 단위 테스트).
+        unitTests.isReturnDefaultValues = true
     }
 }
 

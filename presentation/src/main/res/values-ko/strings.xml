@@ -158,4 +158,5 @@
     <string name="recovery_message">예기치 않게 종료되어 저장되지 못한 녹화(%1$s)가 있습니다. 복구할까요, 삭제할까요?</string>
     <string name="recovery_restore">복구</string>
     <string name="recovery_delete">삭제</string>
+    <string name="recovery_failed">복구에 실패했습니다. 잠시 후 다시 시도해 주세요.</string>
 </resources>
