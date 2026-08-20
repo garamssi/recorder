@@ -256,7 +256,7 @@ internal fun LanguageSection(
 internal fun AboutSection() {
     LabeledValue(
         title = stringResource(R.string.settings_about_version),
-        value = APP_VERSION_NAME,
+        value = appVersionName(),
     )
     Text(
         text = stringResource(R.string.settings_about_privacy),
@@ -265,5 +265,12 @@ internal fun AboutSection() {
     )
 }
 
-// TODO(Stage 10): BuildConfig 버전으로 대체한다.
-private const val APP_VERSION_NAME = "0.1.0"
+/** 설치된 패키지의 versionName을 그대로 표시한다 (app 모듈 버전과 항상 일치). */
+@Composable
+private fun appVersionName(): String {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return context.packageManager
+        .getPackageInfo(context.packageName, 0)
+        .versionName
+        ?: ""
+}
