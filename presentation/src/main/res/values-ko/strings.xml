@@ -137,4 +137,20 @@
     <string name="player_fullscreen">전체 화면</string>
     <string name="region_confirm">확인</string>
     <string name="region_overlay_permission_needed">영역 선택에는 오버레이 권한이 필요합니다. 설정에서 허용해 주세요.</string>
+    <string name="menu_compress">압축</string>
+    <string name="compress_title">영상 압축</string>
+    <string name="compress_notice">재인코딩으로 용량을 줄입니다. 화질이 일부 낮아질 수 있습니다.</string>
+    <string name="compress_start">시작</string>
+    <string name="compress_preset_high_efficiency">고효율 변환 (HEVC)</string>
+    <string name="compress_preset_high_efficiency_desc">동일 해상도, 화질 유사, 용량 약 30~50% 감소</string>
+    <string name="compress_preset_standard">표준 압축</string>
+    <string name="compress_preset_standard_desc">동일 해상도, 비트레이트 50%, 용량 약 50% 감소</string>
+    <string name="compress_preset_maximum">최대 압축</string>
+    <string name="compress_preset_maximum_desc">720p 다운스케일, 용량 약 70% 이상 감소</string>
+    <string name="compress_in_progress">압축 중… %1$d%%</string>
+    <string name="compress_blocked_recording">녹화 중에는 압축을 시작할 수 없습니다.</string>
+    <string name="compress_done_title">압축 완료</string>
+    <string name="compress_done_trash_prompt">원본을 휴지통으로 이동할까요?</string>
+    <string name="compress_trash_original">휴지통으로 이동</string>
+    <string name="compress_keep_original">유지</string>
 </resources>

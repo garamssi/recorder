@@ -68,6 +68,7 @@ media3-ui-compose = { group = "androidx.media3", name = "media3-ui-compose", ver
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 coil-video = { group = "io.coil-kt.coil3", name = "coil-video", version.ref = "coil" }
 media3-transformer = { group = "androidx.media3", name = "media3-transformer", version.ref = "media3" }
+media3-effect = { group = "androidx.media3", name = "media3-effect", version.ref = "media3" }
 media3-muxer = { group = "androidx.media3", name = "media3-muxer", version.ref = "media3" }
 media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
 

@@ -30,6 +30,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.media3.muxer)
     implementation(libs.media3.common)
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.androidx.work.runtime)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 

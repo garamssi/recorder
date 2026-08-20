@@ -55,8 +55,9 @@ internal fun LibraryContent(
     onRename: (Recording) -> Unit,
     onDetail: (Recording) -> Unit,
     onDelete: (Recording) -> Unit,
+    onCompress: (Recording) -> Unit,
 ) {
-    val actions = ItemActions(onPlay, onRename, onDetail, onDelete)
+    val actions = ItemActions(onPlay, onRename, onDetail, onDelete, onCompress)
     if (uiState.isGrid) {
         // 명세 7.1절: 그리드는 화면 폭 반응형이되 2~4열로 제한한다.
         androidx.compose.foundation.layout.BoxWithConstraints {
@@ -86,6 +87,7 @@ internal class ItemActions(
     val onRename: (Recording) -> Unit,
     val onDetail: (Recording) -> Unit,
     val onDelete: (Recording) -> Unit,
+    val onCompress: (Recording) -> Unit,
 )
 
 /** 리스트 행 (DESIGN_GUIDE 1f: 썸네일 168x94 + 제목 + 보조 + more_vert). */
@@ -239,6 +241,10 @@ private fun ItemMenu(
             MenuItem(R.string.menu_details) {
                 expanded = false
                 actions.onDetail(recording)
+            }
+            MenuItem(R.string.menu_compress) {
+                expanded = false
+                actions.onCompress(recording)
             }
             MenuItem(R.string.menu_delete) {
                 expanded = false

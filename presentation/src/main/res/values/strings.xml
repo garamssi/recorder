@@ -137,4 +137,20 @@
     <string name="player_fullscreen">Full screen</string>
     <string name="region_confirm">Confirm</string>
     <string name="region_overlay_permission_needed">Overlay permission is required to select a region. Enable it in settings.</string>
+    <string name="menu_compress">Compress</string>
+    <string name="compress_title">Compress video</string>
+    <string name="compress_notice">Re-encodes the video to reduce file size. Quality may decrease slightly.</string>
+    <string name="compress_start">Start</string>
+    <string name="compress_preset_high_efficiency">High-efficiency (HEVC)</string>
+    <string name="compress_preset_high_efficiency_desc">Same resolution, similar quality, ~30-50% smaller</string>
+    <string name="compress_preset_standard">Standard</string>
+    <string name="compress_preset_standard_desc">Same resolution, 50% bitrate, ~50% smaller</string>
+    <string name="compress_preset_maximum">Maximum</string>
+    <string name="compress_preset_maximum_desc">720p downscale, ~70%+ smaller</string>
+    <string name="compress_in_progress">Compressing… %1$d%%</string>
+    <string name="compress_blocked_recording">Cannot compress while recording.</string>
+    <string name="compress_done_title">Compression complete</string>
+    <string name="compress_done_trash_prompt">Move the original to the trash?</string>
+    <string name="compress_trash_original">Move to trash</string>
+    <string name="compress_keep_original">Keep</string>
 </resources>

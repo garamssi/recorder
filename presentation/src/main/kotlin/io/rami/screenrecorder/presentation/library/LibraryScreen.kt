@@ -46,8 +46,11 @@ fun LibraryScreen(
     onBack: () -> Unit,
     onPlay: (Recording) -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
+    compressViewModel: CompressViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val compressState by compressViewModel.uiState.collectAsState()
+    var compressTarget by remember { mutableStateOf<Recording?>(null) }
     val snackbarHost = remember { SnackbarHostState() }
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
     var detailTarget by remember { mutableStateOf<Recording?>(null) }
@@ -58,6 +61,7 @@ fun LibraryScreen(
     }
 
     ObserveLibraryEvents(viewModel, snackbarHost) { duplicateSuggestion = it }
+    ObserveCompressEvents(compressViewModel, snackbarHost)
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHost) },
@@ -98,6 +102,9 @@ fun LibraryScreen(
                     }
                 }
             } else {
+                compressState.runningJob?.let { job ->
+                    CompressProgressBar(job = job, onCancel = compressViewModel::onCancelTranscode)
+                }
                 LibraryContent(
                     uiState = uiState,
                     viewModel = viewModel,
@@ -105,6 +112,7 @@ fun LibraryScreen(
                     onRename = { renameTarget = it },
                     onDetail = { detailTarget = it },
                     onDelete = { deleteSingleTarget = it.id },
+                    onCompress = { compressTarget = it },
                 )
             }
         }
@@ -140,6 +148,35 @@ fun LibraryScreen(
             onConfirm = { viewModel.onRenameConfirmed(suggestion.id, suggestion.suggestedName) },
             onDismiss = { duplicateSuggestion = null },
         )
+    }
+    compressTarget?.let { target ->
+        CompressDialog(
+            onConfirm = { preset -> compressViewModel.onCompressConfirmed(target.id, preset) },
+            onDismiss = { compressTarget = null },
+        )
+    }
+    compressState.trashPromptFor?.let { originalId ->
+        TrashOriginalDialog(
+            onConfirm = { compressViewModel.onTrashOriginalConfirmed(originalId) },
+            onDismiss = { compressViewModel.onTrashPromptDismissed(originalId) },
+        )
+    }
+}
+
+@Composable
+private fun ObserveCompressEvents(
+    viewModel: CompressViewModel,
+    snackbarHost: SnackbarHostState,
+) {
+    val blockedMessage = stringResource(R.string.compress_blocked_recording)
+    val failedMessage = stringResource(R.string.operation_failed)
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is CompressEvent.BlockedByRecording -> snackbarHost.showSnackbar(blockedMessage)
+                is CompressEvent.Failed -> snackbarHost.showSnackbar(failedMessage)
+            }
+        }
     }
 }
 
