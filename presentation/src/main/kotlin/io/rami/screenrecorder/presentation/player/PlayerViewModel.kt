@@ -17,6 +17,20 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** 플레이어 재생 대상 상태. */
+sealed interface PlayerTarget {
+    /** 목록 로딩 중. */
+    data object Loading : PlayerTarget
+
+    /** 재생 대상 확보. */
+    data class Found(
+        val recording: Recording,
+    ) : PlayerTarget
+
+    /** 대상 없음 — 삭제(휴지통 이동) 등. 목록 복귀 신호다 (기능명세서 10절). */
+    data object Missing : PlayerTarget
+}
+
 /** 플레이어 화면 ViewModel (기능명세서 10절). */
 @HiltViewModel
 class PlayerViewModel
@@ -30,14 +44,16 @@ class PlayerViewModel
         private val recordingId =
             RecordingId(checkNotNull(savedStateHandle.get<Long>(ARG_RECORDING_ID)))
 
-        /** 재생 대상 녹화본. 삭제되면 null (목록 복귀 신호). */
-        val recording: StateFlow<Recording?> =
+        /** 재생 대상 상태. 로딩과 부재(삭제됨)를 구분한다. */
+        val target: StateFlow<PlayerTarget> =
             getRecordings(query = "", sortOrder = SortOrder.NEWEST_FIRST)
-                .map { recordings -> recordings.firstOrNull { it.id == recordingId } }
-                .stateIn(
+                .map { recordings ->
+                    val found = recordings.firstOrNull { it.id == recordingId }
+                    if (found != null) PlayerTarget.Found(found) else PlayerTarget.Missing
+                }.stateIn(
                     scope = viewModelScope,
                     started = SharingStarted.WhileSubscribed(STOP_SHARING_TIMEOUT_MS),
-                    initialValue = null,
+                    initialValue = PlayerTarget.Loading,
                 )
 
         /** 이름 변경 (기능명세서 6.3절). */

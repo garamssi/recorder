@@ -51,7 +51,7 @@ fun PlayerScreen(
     onBack: () -> Unit,
     viewModel: PlayerViewModel = hiltViewModel(),
 ) {
-    val recording by viewModel.recording.collectAsState()
+    val target by viewModel.target.collectAsState()
 
     // 재생 중 화면 꺼짐 방지 (기능명세서 10절: KEEP_SCREEN_ON).
     val view = LocalView.current
@@ -60,13 +60,16 @@ fun PlayerScreen(
         onDispose { view.keepScreenOn = false }
     }
 
-    val current = recording
-    if (current == null) {
-        // 삭제(휴지통 이동) 등으로 대상이 사라지면 목록으로 복귀한다 (기능명세서 10절).
-        LaunchedEffect(Unit) { onBack() }
-        return
+    when (val current = target) {
+        is PlayerTarget.Loading -> Unit
+
+        is PlayerTarget.Missing ->
+            // 삭제(휴지통 이동) 등으로 대상이 사라지면 목록으로 복귀한다 (기능명세서 10절).
+            LaunchedEffect(Unit) { onBack() }
+
+        is PlayerTarget.Found ->
+            PlayerContent(recording = current.recording, viewModel = viewModel, onBack = onBack)
     }
-    PlayerContent(recording = current, viewModel = viewModel, onBack = onBack)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
