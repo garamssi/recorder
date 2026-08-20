@@ -1,73 +1,68 @@
 package io.rami.screenrecorder.core.designsystem.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 
-private val LightColors =
-    lightColorScheme(
-        primary = LightPrimary,
-        onPrimary = LightOnPrimary,
-        primaryContainer = LightPrimaryContainer,
-        secondaryContainer = LightSecondaryContainer,
-        onSecondaryContainer = LightOnSecondaryContainer,
-        surface = LightSurface,
-        surfaceContainer = LightSurfaceContainer,
-        surfaceContainerLow = LightSurfaceContainerLow,
-        surfaceContainerHigh = LightSurfaceContainerHigh,
-        onSurface = LightOnSurface,
-        onSurfaceVariant = LightOnSurfaceVariant,
-        outline = LightOutline,
-        outlineVariant = LightOutlineVariant,
-        error = LightError,
-        errorContainer = LightErrorContainer,
-        onErrorContainer = LightOnErrorContainer,
-    )
-
-private val DarkColors =
+private val KineticColors =
     darkColorScheme(
-        primary = DarkPrimary,
-        secondaryContainer = DarkSecondaryContainer,
-        onSecondaryContainer = DarkOnSecondaryContainer,
-        surface = DarkSurface,
-        surfaceContainer = DarkSurfaceContainer,
-        surfaceContainerHigh = DarkSurfaceContainerHigh,
-        onSurface = DarkOnSurface,
-        onSurfaceVariant = DarkOnSurfaceVariant,
-        outline = DarkOutline,
-        outlineVariant = DarkOutlineVariant,
+        primary = RecRed,
+        onPrimary = KineticForeground,
+        primaryContainer = KineticPrimaryContainer,
+        onPrimaryContainer = KineticOnPrimaryContainer,
+        secondary = KineticMutedForeground,
+        onSecondary = KineticBackground,
+        secondaryContainer = KineticSecondary,
+        onSecondaryContainer = KineticForeground,
+        tertiary = KineticMutedForeground,
+        onTertiary = KineticBackground,
+        background = KineticBackground,
+        onBackground = KineticForeground,
+        surface = KineticBackground,
+        onSurface = KineticForeground,
+        surfaceVariant = KineticSecondary,
+        onSurfaceVariant = KineticMutedForeground,
+        surfaceContainerLowest = KineticBackground,
+        surfaceContainerLow = KineticCard,
+        surfaceContainer = KineticCard,
+        surfaceContainerHigh = KineticSecondary,
+        surfaceContainerHighest = KineticAccent,
+        inverseSurface = KineticForeground,
+        inverseOnSurface = KineticCard,
+        outline = KineticAccent,
+        outlineVariant = KineticBorder,
+        error = RecRed,
+        onError = KineticForeground,
+        errorContainer = KineticPrimaryContainer,
+        onErrorContainer = KineticOnPrimaryContainer,
+        scrim = Color.Black,
     )
 
 /**
- * 앱 전역 Material 3 테마.
+ * 앱 전역 Material 3 테마 — "Kinetic" 다크 전용 (DESIGN_GUIDE.md 0절).
  *
- * DESIGN_GUIDE.md 규칙:
- * - 다이내믹 컬러(Material You)가 기본이며, 끄면 DESIGN_GUIDE 1절의 고정 팔레트를 쓴다.
- * - [RecRed], [SplashBackground] 등 브랜드 색은 다이내믹 컬러와 무관하게 고정이다.
+ * 라이트 테마와 다이내믹 컬러(Material You)는 쓰지 않는다. 이 앱의 화면 대부분이
+ * 녹화 대상 화면·영상 위에 얹히는 어두운 UI이며, 강조 레드가 곧 녹화 상태 신호이기 때문이다.
  *
- * @param darkTheme 다크 테마 사용 여부. 설정 화면의 테마 값(시스템/라이트/다크)과 조합해 전달한다.
- * @param dynamicColor 다이내믹 컬러 사용 여부 (설정 > 화면 > 다이내믹 컬러).
+ * 내용을 [Surface]로 감싸 `LocalContentColor`를 onSurface로 내려보낸다. MaterialTheme 자체는
+ * 콘텐츠 색을 제공하지 않아 이게 없으면 색을 명시하지 않은 Text가 기본값인 검정으로 그려진다.
  */
 @Composable
-fun ScreenRecorderTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit,
-) {
-    val colorScheme =
-        when {
-            dynamicColor && darkTheme -> dynamicDarkColorScheme(LocalContext.current)
-            dynamicColor -> dynamicLightColorScheme(LocalContext.current)
-            darkTheme -> DarkColors
-            else -> LightColors
-        }
+fun ScreenRecorderTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
-        content = content,
-    )
+        colorScheme = KineticColors,
+        typography = KineticTypography,
+        shapes = KineticShapes,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = KineticColors.background,
+            contentColor = KineticColors.onBackground,
+            content = content,
+        )
+    }
 }

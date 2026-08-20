@@ -3,7 +3,6 @@ package io.rami.screenrecorder.presentation.overlay
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.MotionEvent
@@ -29,12 +28,12 @@ class RegionSelectorView(
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = BORDER_WIDTH_PX
-            color = Color.WHITE
+            color = SELECTION_ACCENT
         }
     private val handlePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = Color.WHITE
+            color = SELECTION_ACCENT
         }
 
     /** 현재 선택 영역 (화면 픽셀 좌표, 최소 크기 보장). */
@@ -166,6 +165,9 @@ class RegionSelectorView(
 
     private companion object {
         const val DIM_COLOR = 0x99000000.toInt()
+
+        /** 선택 영역 강조색 — Kinetic 레드 (DESIGN_GUIDE.md 5절 "Selection Highlights"). */
+        const val SELECTION_ACCENT = 0xFFEF4444.toInt()
         const val BORDER_WIDTH_PX = 4f
         const val HANDLE_RADIUS_PX = 24f
         const val TOUCH_SLOP_PX = 64f

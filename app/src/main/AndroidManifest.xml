@@ -29,5 +29,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 플로팅 버블 → MediaProjection 동의 트램폴린 (기능명세서 11.1절).
+             exported=false + 패키지 지정 인텐트로만 열리므로 외부 앱이 동의 플로를 띄울 수 없다.
+             noHistory는 쓰지 않는다: 시스템 동의 액티비티가 위로 올라오면 이 액티비티가 안 보이게 되어
+             즉시 finish돼 동의 결과 콜백이 사라진다. 결과를 받은 뒤 스스로 finish()한다. -->
+        <activity
+            android:name=".CaptureConsentActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.ScreenRecorder.Transparent">
+            <intent-filter>
+                <action android:name="io.rami.screenrecorder.action.CONSENT_RECORD" />
+                <action android:name="io.rami.screenrecorder.action.CONSENT_SCREENSHOT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

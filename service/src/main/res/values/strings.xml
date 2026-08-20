@@ -19,4 +19,22 @@
     <string name="floating_pause">Pause</string>
     <string name="floating_resume">Resume</string>
     <string name="floating_stop">Stop</string>
+    <string name="capture_busy_recording">Another capture is already running.</string>
+    <string name="screenshot_notification_capturing">Capturing screen…</string>
+    <string name="screenshot_notification_saved">Screenshot saved to Pictures/ScreenRecorder</string>
+    <string name="screenshot_notification_failed">Could not capture the screen.</string>
+    <string name="voice_notification_recording">Voice recording…</string>
+    <string name="voice_notification_elapsed">Voice recording %1$s</string>
+    <string name="voice_notification_saved">Voice recording saved to Music/ScreenRecorder</string>
+    <string name="voice_notification_empty">Nothing was recorded.</string>
+    <string name="floating_expand">Capture menu</string>
+    <string name="floating_collapse">Close menu</string>
+    <string name="floating_record">Screen recording</string>
+    <string name="floating_screenshot">Screenshot</string>
+    <string name="floating_voice">Voice only</string>
+    <string name="floating_notification_title">Floating capture button</string>
+    <string name="floating_notification_text">Tap the bubble to record, capture, or start a voice memo.</string>
+    <string name="floating_notification_hide">Hide</string>
+    <string name="countdown_skip_hint">Tap to start now</string>
+    <string name="floating_open_app">Open app</string>
 </resources>

@@ -122,27 +122,58 @@ class LibraryViewModelTest {
                 assertTrue(selecting.isSelectionMode)
                 assertEquals(setOf(RecordingId(1)), selecting.selectedIds)
 
+                // 마지막 항목을 해제해도 선택 모드는 유지된다 (X로 명시적 종료).
                 viewModel.onItemLongPress(RecordingId(1))
-                val cleared = awaitItem()
-                assertTrue(!cleared.isSelectionMode) { "마지막 선택 해제 시 선택 모드 종료" }
+                val deselected = awaitItem()
+                assertTrue(deselected.isSelectionMode)
+                assertEquals(emptySet<RecordingId>(), deselected.selectedIds)
+
+                viewModel.onClearSelection()
+                assertTrue(!awaitItem().isSelectionMode) { "X로 선택 모드 종료" }
             }
         }
 
     @Test
-    fun `선택 항목을 휴지통으로 이동하면 선택이 해제된다`() =
+    fun `선택 버튼으로 진입해 전체 선택 후 삭제한다`() =
         runTest {
             recordingsFlow.value = listOf(recording(1, "A"), recording(2, "B"))
             val viewModel = viewModel()
             viewModel.uiState.test {
                 skipItems(2)
-                viewModel.onItemLongPress(RecordingId(1))
-                skipItems(1)
+
+                viewModel.onEnterSelectionMode()
+                assertTrue(awaitItem().isSelectionMode)
+
+                viewModel.onToggleSelectAll()
+                val allSelected = awaitItem()
+                assertTrue(allSelected.isAllSelected)
+                assertEquals(setOf(RecordingId(1), RecordingId(2)), allSelected.selectedIds)
 
                 viewModel.onDeleteConfirmed()
-
                 val afterDelete = awaitItem()
                 assertTrue(!afterDelete.isSelectionMode)
-                assertEquals(listOf(RecordingId(1)), repository.trashedIds)
+                // 전체 선택은 표시 순서(최신순)를 따르므로 순서가 아니라 대상 집합을 검증한다.
+                assertEquals(setOf(RecordingId(1), RecordingId(2)), repository.trashedIds.toSet())
+            }
+        }
+
+    @Test
+    fun `전체 선택을 다시 누르면 전체 해제된다`() =
+        runTest {
+            recordingsFlow.value = listOf(recording(1, "A"), recording(2, "B"))
+            val viewModel = viewModel()
+            viewModel.uiState.test {
+                skipItems(2)
+                viewModel.onEnterSelectionMode()
+                skipItems(1)
+
+                viewModel.onToggleSelectAll()
+                assertTrue(awaitItem().isAllSelected)
+
+                viewModel.onToggleSelectAll()
+                val cleared = awaitItem()
+                assertEquals(emptySet<RecordingId>(), cleared.selectedIds)
+                assertTrue(cleared.isSelectionMode) { "전체 해제해도 선택 모드 유지" }
             }
         }
 

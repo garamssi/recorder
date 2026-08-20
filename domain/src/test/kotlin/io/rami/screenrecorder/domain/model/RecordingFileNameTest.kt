@@ -48,6 +48,31 @@ class RecordingFileNameTest {
     }
 
     @Test
+    fun `확장자를 지정하면 그 확장자로 이름을 만든다`() {
+        val name =
+            RecordingFileNameFactory.create(
+                prefix = FileNamePrefix("Rec"),
+                timestamp = timestamp,
+                existingNames = emptySet(),
+                extension = ".m4a",
+            )
+        assertEquals("Rec_20260819_143025.m4a", name)
+    }
+
+    @Test
+    fun `확장자가 달라도 같은 확장자끼리만 순번을 매긴다`() {
+        val existing = setOf("Rec_20260819_143025.mp4", "Rec_20260819_143025.png")
+        val name =
+            RecordingFileNameFactory.create(
+                prefix = FileNamePrefix("Rec"),
+                timestamp = timestamp,
+                existingNames = existing,
+                extension = ".png",
+            )
+        assertEquals("Rec_20260819_143025_1.png", name)
+    }
+
+    @Test
     fun `접두어는 영문 숫자 언더스코어만 허용한다`() {
         org.junit.jupiter.api
             .assertThrows<IllegalArgumentException> { FileNamePrefix("녹화") }

@@ -2,7 +2,7 @@ package io.rami.screenrecorder.presentation.settings
 
 import app.cash.turbine.test
 import io.rami.screenrecorder.domain.model.AppSettings
-import io.rami.screenrecorder.domain.model.ThemeSetting
+import io.rami.screenrecorder.domain.model.LanguageSetting
 import io.rami.screenrecorder.domain.repository.SettingsRepository
 import io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
@@ -56,10 +56,10 @@ class SettingsViewModelTest {
 
                 assertEquals(AppSettings.DEFAULT, awaitItem())
 
-                viewModel.update { it.copy(theme = ThemeSetting.DARK) }
+                viewModel.update { it.copy(language = LanguageSetting.ENGLISH) }
 
-                assertEquals(ThemeSetting.DARK, awaitItem()?.theme)
-                assertEquals(ThemeSetting.DARK, settingsFlow.value.theme)
+                assertEquals(LanguageSetting.ENGLISH, awaitItem()?.language)
+                assertEquals(LanguageSetting.ENGLISH, settingsFlow.value.language)
             }
         }
 }

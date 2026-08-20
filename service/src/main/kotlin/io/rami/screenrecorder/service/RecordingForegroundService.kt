@@ -8,7 +8,6 @@ import android.os.IBinder
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.AudioSource
-import io.rami.screenrecorder.domain.model.AutoStopReason
 import io.rami.screenrecorder.domain.model.CaptureMode
 import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.model.CaptureRegion
@@ -16,11 +15,16 @@ import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
+import io.rami.screenrecorder.domain.usecase.CaptureScreenshotUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
+import io.rami.screenrecorder.domain.usecase.ObserveVoiceRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.PauseRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.ResumeRecordingUseCase
+import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.StartRecordingUseCase
+import io.rami.screenrecorder.domain.usecase.StartVoiceRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.StopRecordingUseCase
+import io.rami.screenrecorder.domain.usecase.StopVoiceRecordingUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,7 +34,6 @@ import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.time.Duration
 
 /**
  * mediaProjection 타입 Foreground Service (기능명세서 11절).
@@ -51,6 +54,16 @@ class RecordingForegroundService : Service() {
 
     @Inject lateinit var observeRecordingState: ObserveRecordingStateUseCase
 
+    @Inject lateinit var captureScreenshot: CaptureScreenshotUseCase
+
+    @Inject lateinit var startVoiceRecording: StartVoiceRecordingUseCase
+
+    @Inject lateinit var stopVoiceRecording: StopVoiceRecordingUseCase
+
+    @Inject lateinit var observeVoiceRecordingState: ObserveVoiceRecordingStateUseCase
+
+    @Inject lateinit var skipCountdown: SkipCountdownUseCase
+
     @Inject lateinit var observeSettings: io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 
     @Inject lateinit var sessionRepository: RecordingSessionRepository
@@ -59,11 +72,24 @@ class RecordingForegroundService : Service() {
 
     private val notifications by lazy { RecordingNotifications(this) }
 
-    private val floatingBubble by lazy { FloatingControlBubble(this) }
-    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val countdownOverlay by lazy { CountdownOverlayWindow(this) }
+
+    private val quickCapture by lazy {
+        QuickCaptureRunner(
+            service = this,
+            notifications = notifications,
+            scope = serviceScope,
+            useCases =
+                QuickCaptureUseCases(
+                    captureScreenshot = captureScreenshot,
+                    startVoiceRecording = startVoiceRecording,
+                    stopVoiceRecording = stopVoiceRecording,
+                    observeVoiceRecordingState = observeVoiceRecordingState,
+                ),
+        )
+    }
 
     private var timeLimit: TimeLimit = TimeLimit.None
-    private var bubbleEnabled = false
     private var stateObserverJob: kotlinx.coroutines.Job? = null
     private var eventObserverJob: kotlinx.coroutines.Job? = null
 
@@ -82,14 +108,31 @@ class RecordingForegroundService : Service() {
             ACTION_STOP -> serviceScope.launch { stopRecording() }
             ACTION_PAUSE -> serviceScope.launch { pauseRecording() }
             ACTION_RESUME -> serviceScope.launch { resumeRecording() }
+            ACTION_SCREENSHOT -> startQuickCapture(quickCapture::captureScreenshot)
+            ACTION_START_VOICE -> startQuickCapture(quickCapture::startVoiceRecording)
+            // 음성 녹음 중일 때만 처리한다 — 오래된 알림의 중지 버튼이 진행 중인 화면 녹화를 죽이지 않게.
+            ACTION_STOP_VOICE -> if (quickCapture.isVoiceRecording) quickCapture.stopVoiceRecording()
         }
         return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * 화면 녹화·다른 캡처가 진행 중이 아닐 때만 짧은 캡처 작업을 시작한다.
+     *
+     * MediaProjection 세션과 마이크는 동시에 하나만 쓸 수 있어 겹치면 조용히 실패하는 대신 안내한다.
+     */
+    private fun startQuickCapture(action: () -> Unit) {
+        if (stateObserverJob?.isActive == true || quickCapture.isVoiceRecording) {
+            quickCapture.notifyBusy()
+            return
+        }
+        action()
+    }
+
     override fun onDestroy() {
-        mainHandler.post { floatingBubble.dismiss() }
+        countdownOverlay.dismiss()
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -102,19 +145,8 @@ class RecordingForegroundService : Service() {
             val settings = observeSettings().first()
             val config = settings.recording.copy(captureMode = captureMode(settings, region))
             timeLimit = config.timeLimit
-            // 플로팅 컨트롤은 오버레이 권한이 있을 때만 표시한다 (기능명세서 11.1절 [결정]).
-            bubbleEnabled =
-                settings.showFloatingBubble &&
-                android.provider.Settings.canDrawOverlays(this@RecordingForegroundService)
-            if (bubbleEnabled) {
-                mainHandler.post {
-                    floatingBubble.show(
-                        onPause = { serviceScope.launch { pauseRecording() } },
-                        onResume = { serviceScope.launch { resumeRecording() } },
-                        onStop = { serviceScope.launch { stopRecording() } },
-                    )
-                }
-            }
+            // 녹화 중 플로팅 컨트롤은 FloatingCaptureService의 버블이 상태를 구독해 직접 표시한다
+            // (기능명세서 11.1절) — 여기서 별도 버블을 띄우면 두 개가 겹친다.
             startForeground(
                 RecordingNotifications.NOTIFICATION_ID,
                 notifications.buildOngoing(
@@ -150,29 +182,26 @@ class RecordingForegroundService : Service() {
         // 세션 시작 전의 초기 Idle은 종료 신호가 아니다 (병렬 구독 레이스 방지).
         observeRecordingState().dropWhile { it is RecordingState.Idle }.collectLatest { state ->
             when (state) {
+                is RecordingState.CountingDown ->
+                    countdownOverlay.show(state.remainingSeconds, onSkip = skipCountdown::invoke)
+
                 is RecordingState.Recording -> {
-                    notifications.updateOngoing(elapsedText(state.elapsed), isPaused = false)
-                    if (bubbleEnabled) {
-                        mainHandler.post { floatingBubble.update(elapsedText(state.elapsed), false) }
-                    }
+                    countdownOverlay.dismiss()
+                    notifications.updateOngoing(elapsedText(timeLimit, state.elapsed), isPaused = false)
                 }
 
-                is RecordingState.Paused -> {
+                is RecordingState.Paused ->
                     notifications.updateOngoing(
-                        getString(R.string.recording_notification_paused, elapsedText(state.elapsed)),
+                        getString(R.string.recording_notification_paused, elapsedText(timeLimit, state.elapsed)),
                         isPaused = true,
                     )
-                    if (bubbleEnabled) {
-                        mainHandler.post { floatingBubble.update(elapsedText(state.elapsed), true) }
-                    }
-                }
 
                 is RecordingState.Idle -> {
-                    if (bubbleEnabled) mainHandler.post { floatingBubble.dismiss() }
+                    countdownOverlay.dismiss()
                     stopSelf()
                 }
 
-                else -> Unit
+                else -> countdownOverlay.dismiss()
             }
         }
     }
@@ -212,33 +241,6 @@ class RecordingForegroundService : Service() {
         }
     }
 
-    /** 경과 시간 표시. 시간 제한이 있으면 "경과 / 제한"으로 병기한다 (기능명세서 11.4절). */
-    private fun elapsedText(elapsed: Duration): String {
-        val elapsedFormatted = DurationFormatter.formatElapsed(elapsed)
-        val limit = timeLimit
-        return if (limit is TimeLimit.Limited) {
-            getString(
-                R.string.recording_notification_elapsed_with_limit,
-                elapsedFormatted,
-                DurationFormatter.formatElapsed(limit.duration),
-            )
-        } else {
-            getString(R.string.recording_notification_elapsed, elapsedFormatted)
-        }
-    }
-
-    private fun autoStopText(reason: AutoStopReason): String =
-        when (reason) {
-            AutoStopReason.TIME_LIMIT_REACHED ->
-                getString(R.string.recording_notification_completed_time_limit)
-
-            AutoStopReason.STORAGE_LOW ->
-                getString(R.string.recording_notification_completed_storage_low)
-
-            AutoStopReason.PAUSE_TIMEOUT ->
-                getString(R.string.recording_notification_completed_pause_timeout)
-        }
-
     companion object {
         /** 홈에서 선택한 모드 + (부분 영역이면) 오버레이에서 지정한 영역을 세션 모드로 해석한다. */
         internal fun captureMode(
@@ -268,6 +270,9 @@ class RecordingForegroundService : Service() {
         }
 
         private const val ACTION_START = "io.rami.screenrecorder.action.START_RECORDING"
+        private const val ACTION_SCREENSHOT = "io.rami.screenrecorder.action.CAPTURE_SCREENSHOT"
+        private const val ACTION_START_VOICE = "io.rami.screenrecorder.action.START_VOICE_RECORDING"
+        internal const val ACTION_STOP_VOICE = "io.rami.screenrecorder.action.STOP_VOICE_RECORDING"
         internal const val ACTION_STOP = "io.rami.screenrecorder.action.STOP_RECORDING"
         internal const val ACTION_PAUSE = "io.rami.screenrecorder.action.PAUSE_RECORDING"
         internal const val ACTION_RESUME = "io.rami.screenrecorder.action.RESUME_RECORDING"
@@ -303,5 +308,17 @@ class RecordingForegroundService : Service() {
         /** 재개 인텐트 (알림 액션과 동일 경로). */
         fun resumeIntent(context: Context): Intent =
             Intent(context, RecordingForegroundService::class.java).setAction(ACTION_RESUME)
+
+        /** 화면 캡처 인텐트 (동의 토큰은 TokenHolder에 있어야 한다, 기능명세서 12절). */
+        fun screenshotIntent(context: Context): Intent =
+            Intent(context, RecordingForegroundService::class.java).setAction(ACTION_SCREENSHOT)
+
+        /** 음성 전용 녹음 시작 인텐트 (기능명세서 13절). */
+        fun startVoiceIntent(context: Context): Intent =
+            Intent(context, RecordingForegroundService::class.java).setAction(ACTION_START_VOICE)
+
+        /** 음성 전용 녹음 중지 인텐트. */
+        fun stopVoiceIntent(context: Context): Intent =
+            Intent(context, RecordingForegroundService::class.java).setAction(ACTION_STOP_VOICE)
     }
 }

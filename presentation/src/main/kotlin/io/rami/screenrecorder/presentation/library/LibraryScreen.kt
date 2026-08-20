@@ -1,269 +1,264 @@
 package io.rami.screenrecorder.presentation.library
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.rami.screenrecorder.core.designsystem.component.CircleIconButton
+import io.rami.screenrecorder.core.designsystem.component.EmptyState
+import io.rami.screenrecorder.core.designsystem.component.KineticSnackbarHost
+import io.rami.screenrecorder.core.designsystem.component.PrimaryActionButton
+import io.rami.screenrecorder.core.designsystem.component.SecondaryActionButton
+import io.rami.screenrecorder.core.designsystem.theme.ControlCorner
 import io.rami.screenrecorder.domain.model.Recording
-import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.SortOrder
 import io.rami.screenrecorder.presentation.R
+import io.rami.screenrecorder.presentation.home.ContentMaxWidth
+import io.rami.screenrecorder.presentation.home.ScreenPadding
 
-/** 녹화 목록 화면 (기능명세서 7절, DESIGN_GUIDE 1f/1h/1g). */
+/** 녹화 목록 화면 (기능명세서 7절, DESIGN_GUIDE.md 4절 "Library"). */
 @Composable
 fun LibraryScreen(
-    onBack: () -> Unit,
+    onOpenTrash: () -> Unit,
     onPlay: (Recording) -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
     compressViewModel: CompressViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val compressState by compressViewModel.uiState.collectAsState()
-    var compressTarget by remember { mutableStateOf<Recording?>(null) }
     val snackbarHost = remember { SnackbarHostState() }
-    var renameTarget by remember { mutableStateOf<Recording?>(null) }
-    var detailTarget by remember { mutableStateOf<Recording?>(null) }
-    var deleteSingleTarget by remember { mutableStateOf<RecordingId?>(null) }
-    var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
-    var duplicateSuggestion by remember {
-        mutableStateOf<LibraryEvent.RenameNeedsSuffix?>(null)
-    }
+    val dialogs = rememberLibraryDialogState()
 
-    ObserveLibraryEvents(viewModel, snackbarHost) { duplicateSuggestion = it }
+    ObserveLibraryEvents(viewModel, snackbarHost) { dialogs.duplicateSuggestion = it }
     ObserveCompressEvents(compressViewModel, snackbarHost)
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHost) },
-        topBar = {
-            LibraryTopBar(
-                uiState = uiState,
-                viewModel = viewModel,
-                onBack = onBack,
-                onDeleteClick = { showDeleteConfirm = true },
-            )
-        },
-    ) { padding ->
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 32.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = ScreenPadding, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            OutlinedTextField(
-                value = uiState.query,
-                onValueChange = viewModel::onQueryChanged,
-                label = { Text(stringResource(R.string.library_search_hint)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            if (uiState.recordings.isEmpty() && !uiState.isLoading) {
-                Column(modifier = Modifier.padding(top = 32.dp)) {
-                    Text(
-                        text = stringResource(R.string.home_recent_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    androidx.compose.material3.Button(
-                        onClick = onBack,
-                        modifier = Modifier.padding(top = 16.dp),
-                    ) {
-                        Text(stringResource(R.string.library_empty_go_home))
-                    }
-                }
-            } else {
+            Column(
+                modifier = Modifier.fillMaxWidth().widthIn(max = ContentMaxWidth),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                LibraryHeader(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onOpenTrash = onOpenTrash,
+                    onDeleteClick = { dialogs.showDeleteConfirm = true },
+                )
+                LibraryToolbar(uiState = uiState, viewModel = viewModel)
                 compressState.runningJob?.let { job ->
                     CompressProgressBar(job = job, onCancel = compressViewModel::onCancelTranscode)
                 }
-                LibraryContent(
+                LibraryBody(
                     uiState = uiState,
                     viewModel = viewModel,
                     onPlay = onPlay,
-                    onRename = { renameTarget = it },
-                    onDetail = { detailTarget = it },
-                    onDelete = { deleteSingleTarget = it.id },
-                    onCompress = { compressTarget = it },
+                    dialogs = dialogs,
                 )
             }
         }
+        KineticSnackbarHost(
+            hostState = snackbarHost,
+            modifier = Modifier.align(Alignment.BottomStart).padding(ScreenPadding),
+        )
     }
 
-    renameTarget?.let { target ->
-        RenameDialog(
-            initialName = target.displayName,
-            onConfirm = { newName -> viewModel.onRenameConfirmed(target.id, newName) },
-            onDismiss = { renameTarget = null },
-        )
-    }
-    detailTarget?.let { target ->
-        DetailDialog(recording = target, onDismiss = { detailTarget = null })
-    }
-    if (showDeleteConfirm) {
-        DeleteConfirmDialog(
-            count = uiState.selectedIds.size,
-            onConfirm = viewModel::onDeleteConfirmed,
-            onDismiss = { showDeleteConfirm = false },
-        )
-    }
-    deleteSingleTarget?.let { target ->
-        DeleteConfirmDialog(
-            count = 1,
-            onConfirm = { viewModel.onDeleteSingleConfirmed(target) },
-            onDismiss = { deleteSingleTarget = null },
-        )
-    }
-    duplicateSuggestion?.let { suggestion ->
-        DuplicateNameDialog(
-            suggestedName = suggestion.suggestedName,
-            onConfirm = { viewModel.onRenameConfirmed(suggestion.id, suggestion.suggestedName) },
-            onDismiss = { duplicateSuggestion = null },
-        )
-    }
-    compressTarget?.let { target ->
-        CompressDialog(
-            onConfirm = { preset -> compressViewModel.onCompressConfirmed(target.id, preset) },
-            onDismiss = { compressTarget = null },
-        )
-    }
-    compressState.trashPromptFor?.let { originalId ->
-        TrashOriginalDialog(
-            onConfirm = { compressViewModel.onTrashOriginalConfirmed(originalId) },
-            onDismiss = { compressViewModel.onTrashPromptDismissed() },
-        )
-    }
+    LibraryDialogHost(
+        state = dialogs,
+        uiState = uiState,
+        viewModel = viewModel,
+        compressViewModel = compressViewModel,
+        compressState = compressState,
+    )
 }
 
 @Composable
-private fun ObserveCompressEvents(
-    viewModel: CompressViewModel,
-    snackbarHost: SnackbarHostState,
-) {
-    val blockedMessage = stringResource(R.string.compress_blocked_recording)
-    val busyMessage = stringResource(R.string.compress_busy)
-    val failedMessage = stringResource(R.string.operation_failed)
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is CompressEvent.BlockedByRecording -> snackbarHost.showSnackbar(blockedMessage)
-                is CompressEvent.Busy -> snackbarHost.showSnackbar(busyMessage)
-                is CompressEvent.Failed -> snackbarHost.showSnackbar(failedMessage)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ObserveLibraryEvents(
-    viewModel: LibraryViewModel,
-    snackbarHost: SnackbarHostState,
-    onDuplicate: (LibraryEvent.RenameNeedsSuffix) -> Unit,
-) {
-    val invalidNameMessage = stringResource(R.string.rename_invalid)
-    val failedMessage = stringResource(R.string.operation_failed)
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is LibraryEvent.RenameRejected -> snackbarHost.showSnackbar(invalidNameMessage)
-                is LibraryEvent.OperationFailed -> snackbarHost.showSnackbar(failedMessage)
-                is LibraryEvent.RenameNeedsSuffix -> onDuplicate(event)
-            }
-        }
-    }
-}
-
-/** 상단 바: 일반 모드(정렬/레이아웃) ↔ 선택 모드(선택 수/전체 선택/삭제) 전환 (기능명세서 7.3절). */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LibraryTopBar(
+private fun LibraryBody(
     uiState: LibraryUiState,
     viewModel: LibraryViewModel,
-    onBack: () -> Unit,
+    onPlay: (Recording) -> Unit,
+    dialogs: LibraryDialogState,
+) {
+    if (uiState.recordings.isEmpty() && !uiState.isLoading) {
+        EmptyState(
+            icon = Icons.Default.Videocam,
+            message =
+                stringResource(
+                    if (uiState.query.isBlank()) R.string.home_recent_empty else R.string.library_no_results,
+                ),
+        )
+        return
+    }
+    LibraryContent(
+        uiState = uiState,
+        viewModel = viewModel,
+        onPlay = onPlay,
+        onRename = { dialogs.renameTarget = it },
+        onDetail = { dialogs.detailTarget = it },
+        onDelete = { dialogs.deleteSingleTarget = it.id },
+        onCompress = { dialogs.compressTarget = it },
+    )
+}
+
+/** 제목 + 선택 모드 액션 (기능명세서 7.3절). */
+@Composable
+private fun LibraryHeader(
+    uiState: LibraryUiState,
+    viewModel: LibraryViewModel,
+    onOpenTrash: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    if (uiState.isSelectionMode) {
-        TopAppBar(
-            title = { Text(stringResource(R.string.library_selected_count, uiState.selectedIds.size)) },
-            navigationIcon = {
-                IconButton(onClick = viewModel::onClearSelection) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.dialog_cancel))
-                }
-            },
-            actions = {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                IconButton(
-                    onClick = {
-                        shareRecordings(
-                            context,
-                            uiState.recordings.filter { it.id in uiState.selectedIds },
-                        )
-                    },
-                ) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = stringResource(R.string.menu_share),
-                    )
-                }
-                IconButton(onClick = viewModel::onSelectAll) {
-                    Icon(
-                        Icons.Default.Menu,
-                        contentDescription = stringResource(R.string.library_select_all),
-                    )
-                }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.menu_delete))
-                }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.library_title), style = MaterialTheme.typography.headlineLarge)
+            Text(
+                text = stringResource(R.string.library_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (uiState.isSelectionMode) {
+            SelectionActions(uiState = uiState, viewModel = viewModel, onDeleteClick = onDeleteClick)
+        } else {
+            BrowseActions(uiState = uiState, viewModel = viewModel, onOpenTrash = onOpenTrash)
+        }
+    }
+}
+
+@Composable
+private fun SelectionActions(
+    uiState: LibraryUiState,
+    viewModel: LibraryViewModel,
+    onDeleteClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    val hasSelection = uiState.selectedIds.isNotEmpty()
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.library_selected_count, uiState.selectedIds.size),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SecondaryActionButton(
+            text =
+                stringResource(
+                    if (uiState.isAllSelected) R.string.library_deselect_all else R.string.library_select_all,
+                ),
+            onClick = viewModel::onToggleSelectAll,
+        )
+        CircleIconButton(
+            icon = Icons.Default.Share,
+            contentDescription = stringResource(R.string.menu_share),
+            enabled = hasSelection,
+            onClick = {
+                shareRecordings(context, uiState.recordings.filter { it.id in uiState.selectedIds })
             },
         )
-    } else {
-        TopAppBar(
-            title = { Text(stringResource(R.string.library_title)) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.navigate_back),
-                    )
-                }
-            },
-            actions = {
-                SortMenuAction(current = uiState.sortOrder, onSortChanged = viewModel::onSortChanged)
-                IconButton(onClick = viewModel::onToggleLayout) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.List,
-                        contentDescription = stringResource(R.string.library_toggle_layout),
-                    )
-                }
-            },
+        PrimaryActionButton(
+            text = stringResource(R.string.menu_delete),
+            icon = Icons.Default.Delete,
+            enabled = hasSelection,
+            onClick = onDeleteClick,
+        )
+        CircleIconButton(
+            icon = Icons.Default.Close,
+            contentDescription = stringResource(R.string.dialog_cancel),
+            onClick = viewModel::onClearSelection,
+        )
+    }
+}
+
+@Composable
+private fun BrowseActions(
+    uiState: LibraryUiState,
+    viewModel: LibraryViewModel,
+    onOpenTrash: () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SecondaryActionButton(
+            text = stringResource(R.string.library_select_items),
+            icon = Icons.Default.Check,
+            enabled = uiState.recordings.isNotEmpty(),
+            onClick = viewModel::onEnterSelectionMode,
+        )
+        CircleIconButton(
+            icon = Icons.Default.Delete,
+            contentDescription = stringResource(R.string.trash_title),
+            onClick = onOpenTrash,
+        )
+    }
+}
+
+/** 검색어 + 정렬 + 레이아웃 전환 (기능명세서 7.1절). */
+@Composable
+private fun LibraryToolbar(
+    uiState: LibraryUiState,
+    viewModel: LibraryViewModel,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OutlinedTextField(
+            value = uiState.query,
+            onValueChange = viewModel::onQueryChanged,
+            placeholder = { Text(stringResource(R.string.library_search_hint)) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            singleLine = true,
+            shape = ControlCorner,
+            modifier = Modifier.weight(1f),
+        )
+        SortMenuAction(current = uiState.sortOrder, onSortChanged = viewModel::onSortChanged)
+        CircleIconButton(
+            icon = if (uiState.isGrid) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
+            contentDescription = stringResource(R.string.library_toggle_layout),
+            onClick = viewModel::onToggleLayout,
         )
     }
 }
@@ -274,18 +269,22 @@ private fun SortMenuAction(
     onSortChanged: (SortOrder) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    IconButton(onClick = { expanded = true }) {
-        Icon(Icons.Default.Menu, contentDescription = stringResource(R.string.library_sort))
-    }
-    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        SortOrder.entries.forEach { order ->
-            DropdownMenuItem(
-                text = { Text(sortLabel(order) + if (order == current) " ✓" else "") },
-                onClick = {
-                    onSortChanged(order)
-                    expanded = false
-                },
-            )
+    Box {
+        CircleIconButton(
+            icon = Icons.AutoMirrored.Filled.Sort,
+            contentDescription = stringResource(R.string.library_sort),
+            onClick = { expanded = true },
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            SortOrder.entries.forEach { order ->
+                DropdownMenuItem(
+                    text = { Text(sortLabel(order) + if (order == current) " ✓" else "") },
+                    onClick = {
+                        onSortChanged(order)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
@@ -298,3 +297,9 @@ internal fun sortLabel(order: SortOrder): String =
         SortOrder.NAME -> stringResource(R.string.library_sort_name)
         SortOrder.LARGEST_FIRST -> stringResource(R.string.library_sort_size)
     }
+
+/** 선택 모드에서 항목을 흐리게 하는 불투명도 (DESIGN_GUIDE.md 4절). */
+internal const val UNSELECTED_ALPHA = 0.5f
+
+/** 목록 격자/리스트의 항목 간격. */
+internal val ItemSpacing = 16.dp

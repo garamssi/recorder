@@ -1,12 +1,5 @@
 package io.rami.screenrecorder.domain.model
 
-/** 테마 설정 (기능명세서 4.4절). */
-enum class ThemeSetting {
-    SYSTEM,
-    LIGHT,
-    DARK,
-}
-
 /** 언어 설정 (기능명세서 4.5절 [결정]: 기본 한국어). */
 enum class LanguageSetting {
     KOREAN,
@@ -47,8 +40,6 @@ data class AppSettings(
     val selectedCaptureMode: CaptureModeKind,
     val fileNamePrefix: FileNamePrefix,
     val storageLocation: StorageLocation,
-    val theme: ThemeSetting,
-    val dynamicColor: Boolean,
     val language: LanguageSetting,
     val showFloatingBubble: Boolean,
     val showTouches: Boolean,
@@ -61,8 +52,6 @@ data class AppSettings(
                 selectedCaptureMode = CaptureModeKind.FULL_SCREEN,
                 fileNamePrefix = FileNamePrefix.DEFAULT,
                 storageLocation = StorageLocation.MediaStoreDefault,
-                theme = ThemeSetting.SYSTEM,
-                dynamicColor = true,
                 language = LanguageSetting.KOREAN,
                 showFloatingBubble = false,
                 showTouches = false,

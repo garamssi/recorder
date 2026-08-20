@@ -1,10 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Compose가 전체 UI를 그리므로 최소한의 플랫폼 테마만 유지한다.
-         DayNight 계열로 시스템 다크 모드 시 데코 뷰(상태바 전환 순간)가 어긋나지 않게 한다.
-         스플래시 테마는 Stage 6에서 androidx.core.splashscreen으로 구성한다. -->
-    <style name="Theme.ScreenRecorder" parent="android:Theme.DeviceDefault.DayNight">
+         앱은 다크 전용(DESIGN_GUIDE.md 0절)이므로 DayNight 대신 다크 데코 뷰를 고정하고,
+         런치 윈도우 배경도 Kinetic 배경색과 맞춰 첫 프레임 전 흰 화면 번쩍임을 없앤다. -->
+    <style name="Theme.ScreenRecorder" parent="android:Theme.DeviceDefault">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
+        <item name="android:windowBackground">@color/kinetic_background</item>
+        <item name="android:statusBarColor">@color/kinetic_background</item>
+        <item name="android:navigationBarColor">@color/kinetic_background</item>
+    </style>
+
+    <!-- 플로팅 버블에서 동의만 받고 즉시 사라지는 트램폴린용. 사용자가 보던 화면이 뒤로 보여야 한다. -->
+    <style name="Theme.ScreenRecorder.Transparent" parent="android:Theme.DeviceDefault">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
     </style>
 </resources>

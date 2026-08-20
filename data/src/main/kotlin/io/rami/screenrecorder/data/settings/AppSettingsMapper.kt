@@ -38,10 +38,8 @@ object AppSettingsMapper {
     private val KEY_STORAGE_TREE_URI = stringPreferencesKey("storage_tree_uri")
 
     /** 손상 값 폴백 테스트용으로 공개하는 키. */
-    val KEY_THEME = stringPreferencesKey("theme")
+    val KEY_LANGUAGE = stringPreferencesKey("language")
 
-    private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
-    private val KEY_LANGUAGE = stringPreferencesKey("language")
     private val KEY_FLOATING_BUBBLE = booleanPreferencesKey("floating_bubble")
     private val KEY_SHOW_TOUCHES = booleanPreferencesKey("show_touches")
 
@@ -75,8 +73,6 @@ object AppSettingsMapper {
                 preferences[KEY_STORAGE_TREE_URI]
                     ?.let(StorageLocation::CustomTree)
                     ?: StorageLocation.MediaStoreDefault,
-            theme = preferences.readEnum(KEY_THEME, defaults.theme),
-            dynamicColor = preferences[KEY_DYNAMIC_COLOR] ?: defaults.dynamicColor,
             language = preferences.readEnum(KEY_LANGUAGE, defaults.language),
             showFloatingBubble = preferences[KEY_FLOATING_BUBBLE] ?: defaults.showFloatingBubble,
             showTouches = preferences[KEY_SHOW_TOUCHES] ?: defaults.showTouches,
@@ -115,8 +111,6 @@ object AppSettingsMapper {
         (settings.storageLocation as? StorageLocation.CustomTree)?.let {
             preferences[KEY_STORAGE_TREE_URI] = it.treeUri
         }
-        preferences[KEY_THEME] = settings.theme.name
-        preferences[KEY_DYNAMIC_COLOR] = settings.dynamicColor
         preferences[KEY_LANGUAGE] = settings.language.name
         preferences[KEY_FLOATING_BUBBLE] = settings.showFloatingBubble
         preferences[KEY_SHOW_TOUCHES] = settings.showTouches

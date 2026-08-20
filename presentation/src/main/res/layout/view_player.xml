@@ -3,6 +3,8 @@
   TextureView 표면을 쓰는 플레이어 뷰.
   기본 SurfaceView는 별도 표면 레이어라 레이아웃보다 늦게 따라와 초기 깨짐·위치 지터·
   화면 전환 잔상을 유발한다. TextureView는 일반 뷰처럼 레이아웃에 참여해 이를 없앤다.
+
+  컨트롤러는 Compose로 직접 그린다(DESIGN_GUIDE.md 4절 "Video Player UI")므로 내장 컨트롤러는 끈다.
 -->
 <androidx.media3.ui.PlayerView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -12,9 +14,5 @@
     android:background="@android:color/black"
     app:resize_mode="fit"
     app:show_buffering="when_playing"
-    app:show_fastforward_button="true"
-    app:show_next_button="false"
-    app:show_previous_button="false"
-    app:show_rewind_button="true"
     app:surface_type="texture_view"
-    app:use_controller="true" />
+    app:use_controller="false" />

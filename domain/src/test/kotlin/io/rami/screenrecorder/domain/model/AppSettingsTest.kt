@@ -13,19 +13,9 @@ class AppSettingsTest {
         assertEquals(CaptureModeKind.FULL_SCREEN, settings.selectedCaptureMode)
         assertEquals(FileNamePrefix.DEFAULT, settings.fileNamePrefix)
         assertEquals(StorageLocation.MediaStoreDefault, settings.storageLocation)
-        assertEquals(ThemeSetting.SYSTEM, settings.theme)
-        assertEquals(true, settings.dynamicColor)
         assertEquals(LanguageSetting.KOREAN, settings.language)
         assertEquals(false, settings.showFloatingBubble)
         assertEquals(false, settings.showTouches)
-    }
-
-    @Test
-    fun `테마 선택지는 시스템_라이트_다크 3가지다`() {
-        assertEquals(
-            listOf(ThemeSetting.SYSTEM, ThemeSetting.LIGHT, ThemeSetting.DARK),
-            ThemeSetting.entries.toList(),
-        )
     }
 
     @Test

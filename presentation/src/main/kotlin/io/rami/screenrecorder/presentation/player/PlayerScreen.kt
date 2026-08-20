@@ -1,19 +1,8 @@
 package io.rami.screenrecorder.presentation.player
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -26,9 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,13 +26,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.presentation.R
-import io.rami.screenrecorder.presentation.library.DeleteConfirmDialog
-import io.rami.screenrecorder.presentation.library.DetailDialog
-import io.rami.screenrecorder.presentation.library.RenameDialog
-import io.rami.screenrecorder.presentation.library.shareRecording
 
-/** 내장 플레이어 화면 (기능명세서 10절, DESIGN_GUIDE 1i). */
-@OptIn(ExperimentalMaterial3Api::class)
+/** 내장 플레이어 화면 (기능명세서 10절, DESIGN_GUIDE.md 4절 "Video Player UI"). */
 @Composable
 fun PlayerScreen(
     onBack: () -> Unit,
@@ -59,7 +43,7 @@ fun PlayerScreen(
     }
 
     when (val current = target) {
-        is PlayerTarget.Loading -> Unit
+        is PlayerTarget.Loading -> Box(Modifier.fillMaxSize().background(Color.Black))
 
         is PlayerTarget.Missing ->
             // 삭제(휴지통 이동) 등으로 대상이 사라지면 목록으로 복귀한다 (기능명세서 10절).
@@ -70,7 +54,6 @@ fun PlayerScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerContent(
     recording: Recording,
@@ -81,7 +64,9 @@ private fun PlayerContent(
     var playbackSpeed by rememberSaveable { mutableFloatStateOf(DEFAULT_SPEED) }
     // 회전(컴포지션 재생성) 시 재생 위치를 복원한다 (기능명세서 10절 회전 대응).
     var savedPositionMs by rememberSaveable { mutableLongStateOf(0L) }
-    var isFullscreen by rememberSaveable { mutableStateOf(false) }
+    // 플레이어는 이미 화면을 꽉 채우므로 "전체화면"은 영상을 잘라 화면을 채우는 모드를 뜻한다.
+    var fillScreen by rememberSaveable { mutableStateOf(false) }
+
     val player =
         remember {
             ExoPlayer
@@ -104,124 +89,106 @@ private fun PlayerContent(
     }
     LaunchedEffect(playbackSpeed) { player.setPlaybackSpeed(playbackSpeed) }
 
-    // 전체 화면에서는 시스템 바를 숨겨 몰입형으로 전환한다 (기능명세서 10절).
+    // 화면 채우기에서는 시스템 바까지 숨겨 영상만 남긴다 (기능명세서 10절).
     val view = LocalView.current
-    LaunchedEffect(isFullscreen) { applyImmersive(view, isFullscreen) }
+    LaunchedEffect(fillScreen) { applyImmersive(view, fillScreen) }
     DisposableEffect(Unit) { onDispose { applyImmersive(view, immersive = false) } }
 
-    Scaffold(
-        topBar = {
-            if (!isFullscreen) {
-                PlayerTopBar(
-                    recording = recording,
-                    viewModel = viewModel,
-                    onBack = onBack,
-                    playbackSpeed = playbackSpeed,
-                    onSpeedSelected = { playbackSpeed = it },
-                )
-            }
-        },
-    ) { padding ->
-        // 비디오가 본문 전체를 채워 컨트롤러(시크바·재생/일시정지·±10초)가 넉넉히 보이게 한다.
+    val playback = rememberPlaybackState(player)
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         PlayerSurface(
             player = player,
-            onFullscreenToggle = { isFullscreen = it },
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+            fillScreen = fillScreen,
+            modifier = Modifier.fillMaxSize(),
+        )
+        PlayerControlsOverlay(
+            recording = recording,
+            playback = playback,
+            playbackSpeed = playbackSpeed,
+            fillScreen = fillScreen,
+            callbacks =
+                PlayerCallbacks(
+                    onBack = onBack,
+                    onPlayPause = { player.playOrRestart(playback.hasEnded) },
+                    onSeekBack = player::seekBack,
+                    onSeekForward = player::seekForward,
+                    onSeekTo = player::seekTo,
+                    onSpeedSelected = { playbackSpeed = it },
+                    onToggleFillScreen = { fillScreen = !fillScreen },
+                    onRename = viewModel::onRenameConfirmed,
+                    onDelete = viewModel::onDeleteConfirmed,
+                ),
         )
     }
-    if (isFullscreen) {
-        // 전체 화면에서 뒤로가기 = 일반 모드 복귀 (컨트롤러의 전체화면 버튼과 함께 이중 탈출 경로).
-        androidx.activity.compose.BackHandler { isFullscreen = false }
+
+    if (fillScreen) {
+        // 화면 채우기에서 뒤로가기 = 원래 비율 복귀 (버튼과 함께 이중 탈출 경로).
+        androidx.activity.compose.BackHandler { fillScreen = false }
     }
 }
 
 /**
  * ExoPlayer 재생 서피스.
  *
- * PlayerView 내장 컨트롤러(재생/일시정지·시크바·±10초 버튼·단일 탭 표시)를 그대로 쓰고,
- * 전체 화면 토글은 컨트롤러의 전체화면 버튼으로 노출한다. 더블 탭 ±10초는 이벤트를 소비하지
- * 않는 GestureDetector로 얹어 컨트롤러 동작을 막지 않는다 (이전 오버레이 방식의 버그 수정).
+ * 내장 컨트롤러는 끄고(view_player.xml) 컨트롤을 Compose로 그린다.
+ * TextureView 표면을 그대로 써서 SurfaceView 특유의 지터/잔상을 피한다.
+ *
+ * @param fillScreen true면 영상을 확대·크롭해 화면을 꽉 채운다 (레터박스 제거).
  */
 @Composable
 private fun PlayerSurface(
     player: ExoPlayer,
-    onFullscreenToggle: (Boolean) -> Unit,
+    fillScreen: Boolean,
     modifier: Modifier = Modifier,
 ) {
     AndroidView(
-        factory = { viewContext -> buildPlayerView(viewContext, player, onFullscreenToggle) },
+        factory = { viewContext -> buildPlayerView(viewContext, player) },
+        update = { playerView ->
+            playerView.resizeMode =
+                if (fillScreen) {
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                } else {
+                    androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
+        },
         // 컴포지션 이탈 시 플레이어 연결을 끊어 마지막 프레임 잔상을 남기지 않는다.
         onRelease = { it.player = null },
         modifier = modifier,
     )
 }
 
-@android.annotation.SuppressLint("ClickableViewAccessibility", "InflateParams")
+/**
+ * 재생/일시정지 토글. 끝까지 재생된 뒤에는 처음으로 되돌린 다음 재생한다.
+ *
+ * ExoPlayer는 STATE_ENDED에서 play()를 불러도 위치가 끝이라 아무 일도 일어나지 않는다.
+ */
+private fun ExoPlayer.playOrRestart(hasEnded: Boolean) {
+    when {
+        hasEnded -> {
+            seekTo(0)
+            play()
+        }
+
+        isPlaying -> pause()
+        else -> play()
+    }
+}
+
+@android.annotation.SuppressLint("InflateParams")
 private fun buildPlayerView(
     context: android.content.Context,
     player: ExoPlayer,
-    onFullscreenToggle: (Boolean) -> Unit,
 ): PlayerView {
-    // TextureView 표면(view_player.xml)을 인플레이트해 SurfaceView 특유의 지터/잔상을 피한다.
     val playerView =
         android.view.LayoutInflater
             .from(context)
             .inflate(R.layout.view_player, null) as PlayerView
     playerView.player = player
-    // 컨트롤러에 전체화면 버튼을 노출한다 — 진입/복귀 모두 이 버튼으로 가능하다.
-    playerView.setFullscreenButtonClickListener(onFullscreenToggle::invoke)
-    val doubleTapDetector =
-        android.view.GestureDetector(
-            context,
-            object : android.view.GestureDetector.SimpleOnGestureListener() {
-                override fun onDoubleTap(event: android.view.MotionEvent): Boolean {
-                    if (event.x < playerView.width / 2f) player.seekBack() else player.seekForward()
-                    return true
-                }
-            },
-        )
-    // 이벤트를 소비하지 않으므로(반환 false) PlayerView의 단일 탭·버튼·시크바 처리가 그대로 동작한다.
-    playerView.setOnTouchListener { _, event ->
-        doubleTapDetector.onTouchEvent(event)
-        false
-    }
     return playerView
 }
 
-/** 배속 선택 (기능명세서 10절: 0.5x~2.0x, 0.1 단위). 상단 바 액션으로 노출한다. */
-@Composable
-private fun SpeedSelector(
-    playbackSpeed: Float,
-    onSpeedSelected: (Float) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        androidx.compose.material3.TextButton(onClick = { expanded = true }) {
-            Text(stringResource(R.string.player_speed_format, formatSpeed(playbackSpeed)))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            PLAYBACK_SPEEDS.forEach { speed ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(R.string.player_speed_format, formatSpeed(speed)) +
-                                if (speed == playbackSpeed) "  ✓" else "",
-                        )
-                    },
-                    onClick = {
-                        onSpeedSelected(speed)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
-}
-
-/** 전체 화면 몰입 모드로 시스템 바를 숨기거나 되돌린다. */
+/** 몰입 모드로 시스템 바를 숨기거나 되돌린다. */
 private fun applyImmersive(
     view: android.view.View,
     immersive: Boolean,
@@ -242,94 +209,8 @@ private fun applyImmersive(
     }
 }
 
-/** 상단 메뉴 (기능명세서 10절: 이름 변경/공유/상세 정보/삭제). */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PlayerTopBar(
-    recording: Recording,
-    viewModel: PlayerViewModel,
-    onBack: () -> Unit,
-    playbackSpeed: Float,
-    onSpeedSelected: (Float) -> Unit,
-) {
-    val context = LocalContext.current
-    var menuExpanded by remember { mutableStateOf(false) }
-    var showRename by remember { mutableStateOf(false) }
-    var showDetail by remember { mutableStateOf(false) }
-    var showDelete by remember { mutableStateOf(false) }
-
-    TopAppBar(
-        title = { Text(recording.displayName, maxLines = 1) },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.navigate_back),
-                )
-            }
-        },
-        actions = {
-            SpeedSelector(playbackSpeed = playbackSpeed, onSpeedSelected = onSpeedSelected)
-            IconButton(onClick = { menuExpanded = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.menu_more))
-            }
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_rename)) },
-                    onClick = {
-                        menuExpanded = false
-                        showRename = true
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_share)) },
-                    onClick = {
-                        menuExpanded = false
-                        shareRecording(context, recording)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_details)) },
-                    onClick = {
-                        menuExpanded = false
-                        showDetail = true
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.menu_delete)) },
-                    onClick = {
-                        menuExpanded = false
-                        showDelete = true
-                    },
-                )
-            }
-        },
-    )
-
-    if (showRename) {
-        RenameDialog(
-            initialName = recording.displayName,
-            onConfirm = viewModel::onRenameConfirmed,
-            onDismiss = { showRename = false },
-        )
-    }
-    if (showDetail) {
-        DetailDialog(recording = recording, onDismiss = { showDetail = false })
-    }
-    if (showDelete) {
-        DeleteConfirmDialog(
-            count = 1,
-            onConfirm = viewModel::onDeleteConfirmed,
-            onDismiss = { showDelete = false },
-        )
-    }
-}
-
-/** 항상 소수 첫째 자리까지 표시한다 (예: 0.5, 1.0, 1.5). */
-private fun formatSpeed(speed: Float): String = "%.1f".format(speed)
-
-/** 0.5x부터 2.0x까지 0.1 단위 (정수 스텝을 10으로 나눠 부동소수 드리프트를 줄인다). */
-private val PLAYBACK_SPEEDS: List<Float> =
+/** 배속 선택지: 0.5x부터 2.0x까지 0.1 단위 (기능명세서 10절). */
+internal val PLAYBACK_SPEEDS: List<Float> =
     (SPEED_MIN_STEPS..SPEED_MAX_STEPS).map { it / SPEED_DENOMINATOR }
 
 private const val SPEED_DENOMINATOR = 10f

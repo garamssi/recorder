@@ -16,8 +16,27 @@ Android 16(API 36) 태블릿용 화면 녹화 앱. FHD 60fps 이상 녹화, 백�
 - **라이브러리**: 리스트/그리드, 정렬·검색·다중 선택, 이름 변경, 공유, 상세 정보
 - **휴지통**: 삭제 = 30일 보관(시스템 휴지통), 복원/영구 삭제
 - **압축**: 고효율(HEVC)/표준/최대 프리셋, 원본 보존, 백그라운드 진행률 알림
-- **플레이어**: ExoPlayer 배속·±10초 점프·전체 화면
-- **설정**: 테마(시스템/라이트/다크), 앱별 언어(한국어/English/시스템)
+- **플레이어**: ExoPlayer 배속·±10초 점프·전체 화면 (Compose 커스텀 컨트롤, 3초 자동 숨김)
+- **화면 캡처**: 현재 화면 1장을 PNG로 저장 (Pictures/ScreenRecorder)
+- **음성 전용 녹음**: 화면 없이 마이크만 m4a로 저장 (Music/ScreenRecorder)
+- **설정**: 앱별 언어(한국어/English/시스템). 테마는 다크 고정 (Kinetic 디자인, DESIGN_GUIDE.md 0절)
+
+## 실기기 검증 스크립트
+
+타이머 녹화(기능명세서 11.4절)를 자동으로 검증한다. 시간 제한을 설정하고 대상 앱을 띄운 뒤
+녹화를 시작해서, 자동 중지된 파일의 실제 재생 시간이 요청 시간과 맞는지 확인한다.
+
+```bash
+scripts/verify-timer-recording.sh -s 30                          # 현재 화면을 30초
+scripts/verify-timer-recording.sh -s 60 -a com.android.chrome    # Chrome 을 60초 (플로팅 버블로 시작)
+scripts/verify-timer-recording.sh -s 30 -t 2.0 -k                # 허용 오차 2초, 결과 파일 보관
+```
+
+- 종료 코드: `0` 통과 / `1` 시간 불일치 / `2` 준비·조작 오류
+- 필요한 것: `adb`(기기 1대 연결), `ffprobe`, `python3` + Pillow
+- `-a` 를 쓰면 플로팅 캡처 버튼이 켜져 있어야 한다 (설정 > 녹화 > 플로팅 캡처 버튼)
+- UI는 uiautomator 텍스트로 찾고, 오버레이 버블만 스크린샷의 빨간 원으로 찾는다 (`scripts/uiauto.py`)
+- 부분 영역 모드는 영역 지정이 필요해 자동화 대상이 아니다
 
 ## 아키텍처
 

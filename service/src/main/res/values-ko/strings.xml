@@ -19,4 +19,22 @@
     <string name="floating_pause">일시정지</string>
     <string name="floating_resume">재개</string>
     <string name="floating_stop">중지</string>
+    <string name="capture_busy_recording">다른 캡처가 이미 진행 중입니다.</string>
+    <string name="screenshot_notification_capturing">화면을 캡처하는 중…</string>
+    <string name="screenshot_notification_saved">Pictures/ScreenRecorder에 저장했습니다</string>
+    <string name="screenshot_notification_failed">화면을 캡처하지 못했습니다.</string>
+    <string name="voice_notification_recording">음성 녹음 중…</string>
+    <string name="voice_notification_elapsed">음성 녹음 %1$s</string>
+    <string name="voice_notification_saved">Music/ScreenRecorder에 저장했습니다</string>
+    <string name="voice_notification_empty">녹음된 내용이 없습니다.</string>
+    <string name="floating_expand">캡처 메뉴</string>
+    <string name="floating_collapse">메뉴 닫기</string>
+    <string name="floating_record">화면 녹화</string>
+    <string name="floating_screenshot">화면 캡처</string>
+    <string name="floating_voice">음성만 녹음</string>
+    <string name="floating_notification_title">플로팅 캡처 버튼</string>
+    <string name="floating_notification_text">버블을 눌러 녹화·캡처·음성 녹음을 시작하세요.</string>
+    <string name="floating_notification_hide">숨기기</string>
+    <string name="countdown_skip_hint">탭하면 바로 시작합니다</string>
+    <string name="floating_open_app">앱으로 가기</string>
 </resources>

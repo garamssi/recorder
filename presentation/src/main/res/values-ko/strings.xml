@@ -13,10 +13,7 @@
     <string name="home_recent_title">최근 녹화</string>
     <string name="home_recent_empty">아직 녹화한 영상이 없습니다</string>
     <string name="home_view_all">전체 보기</string>
-    <string name="home_storage_format">%1$s 남음 · 약 %2$s 녹화 가능</string>
     <string name="home_storage_low_warning">저장 공간이 부족합니다 (500MB 미만)</string>
-    <string name="home_open_settings">설정</string>
-    <string name="home_open_trash">휴지통</string>
     <string name="home_countdown_skip_hint">탭하면 바로 시작</string>
 
     <string name="preset_resolution_device_max">기기 최대</string>
@@ -69,10 +66,6 @@
     <string name="settings_trash_retention">휴지통 보관 기간</string>
     <string name="settings_trash_retention_value">30일 (시스템 고정)</string>
     <string name="settings_theme">테마</string>
-    <string name="settings_theme_system">시스템 설정 따름</string>
-    <string name="settings_theme_light">라이트</string>
-    <string name="settings_theme_dark">다크</string>
-    <string name="settings_dynamic_color">다이내믹 컬러</string>
     <string name="settings_language_korean">한국어</string>
     <string name="settings_language_english">English</string>
     <string name="settings_language_system">시스템 설정 따름</string>
@@ -81,12 +74,11 @@
     <string name="settings_volume_percent_format">%1$d%%</string>
     <string name="navigate_back">뒤로</string>
     <string name="home_saving">저장 중…</string>
-    <string name="settings_volume_label_format">%1$s — %2$d%%</string>
     <string name="settings_show_touches">터치 표시</string>
-    <string name="settings_floating_bubble">플로팅 컨트롤 표시</string>
-    <string name="settings_floating_bubble_hint">버블 자체가 녹화 영상에 포함됩니다 (오버레이 특성)</string>
+    <string name="settings_floating_bubble">플로팅 캡처 버튼</string>
+    <string name="settings_floating_bubble_hint">다른 앱 위에 떠 있고 드래그로 옮길 수 있습니다. 버블 자체는 녹화 영상에 포함됩니다 (오버레이 특성).</string>
     <string name="settings_prefix_rule">영문, 숫자, 언더스코어만 입력</string>
-    <string name="library_title">녹화 목록</string>
+    <string name="library_title">보관함</string>
     <string name="library_search_hint">파일명 검색</string>
     <string name="library_sort">정렬</string>
     <string name="library_sort_newest">최신순</string>
@@ -129,12 +121,10 @@
     <string name="operation_failed">작업에 실패했습니다</string>
     <string name="rename_duplicate_title">이미 있는 이름입니다</string>
     <string name="rename_duplicate_message">"%1$s"(으)로 저장할까요?</string>
-    <string name="library_empty_go_home">홈으로 이동</string>
     <string name="detail_path">경로</string>
     <string name="detail_fps">프레임레이트</string>
     <string name="detail_codec">코덱</string>
     <string name="detail_bitrate">비트레이트</string>
-    <string name="player_fullscreen">전체 화면</string>
     <string name="region_confirm">확인</string>
     <string name="region_overlay_permission_needed">영역 선택에는 오버레이 권한이 필요합니다. 설정에서 허용해 주세요.</string>
     <string name="menu_compress">압축</string>
@@ -168,4 +158,54 @@
     <string name="options_time_unit_seconds">초</string>
     <string name="settings_show_touches_unsupported">이 기기에서 지원되지 않음 (시스템 권한 필요)</string>
     <string name="settings_storage_location_custom_planned">사용자 지정 폴더는 추후 지원 예정입니다.</string>
+    <string name="library_select_items">항목 선택</string>
+    <string name="library_deselect_all">전체 해제</string>
+    <!-- 셸 내비게이션 -->
+    <string name="nav_record">녹화</string>
+    <string name="nav_library">보관함</string>
+    <string name="nav_settings">설정</string>
+
+    <!-- 캡처 Speed Dial -->
+    <string name="speed_dial_expand">캡처 메뉴 열기</string>
+    <string name="speed_dial_collapse">닫기</string>
+    <string name="action_screen_record">화면 녹화 시작</string>
+    <string name="action_screenshot">화면 캡처</string>
+    <string name="action_voice_record">음성만 녹음</string>
+    <string name="action_voice_stop">음성 녹음 중지</string>
+
+    <!-- 홈 -->
+    <string name="home_ready_title">녹화 준비 완료</string>
+    <string name="home_ready_subtitle">캡처 모드를 고르고 녹화를 시작하세요.</string>
+    <string name="home_in_session_title">녹화 진행 중</string>
+    <string name="home_in_session_subtitle">다른 앱을 써도 녹화는 계속됩니다.</string>
+    <string name="home_mode_full_screen_desc">화면 전체를 담습니다. 튜토리얼·게임플레이에 적합합니다.</string>
+    <string name="home_mode_single_app_desc">앱 하나만 녹화해 알림이 화면에 남지 않게 합니다.</string>
+    <string name="home_mode_region_desc">영역을 지정해 그 부분만 녹화합니다.</string>
+    <string name="home_active_configuration">현재 설정</string>
+    <string name="home_edit_options">변경</string>
+    <string name="home_storage_title">남은 공간</string>
+    <string name="home_storage_estimate">약 %1$s 녹화 가능</string>
+
+    <!-- 목록 -->
+    <string name="library_subtitle">녹화본을 관리하고 재생·공유합니다.</string>
+    <string name="library_no_results">검색과 일치하는 녹화본이 없습니다.</string>
+
+    <!-- 휴지통 -->
+    <string name="trash_retention_notice">여기 있는 항목은 30일 후 영구 삭제됩니다.</string>
+
+    <!-- 플레이어 -->
+    <string name="player_play">재생</string>
+    <string name="player_pause">일시정지</string>
+    <string name="player_seek_back">10초 뒤로</string>
+    <string name="player_seek_forward">10초 앞으로</string>
+
+    <!-- 설정 -->
+    <string name="settings_subtitle">영상·오디오·앱 환경을 설정합니다.</string>
+    <string name="settings_section_video">영상 품질</string>
+    <string name="settings_theme_dark_fixed">다크</string>
+    <string name="settings_theme_dark_fixed_hint">이 앱은 디자인상 다크 테마 전용입니다.</string>
+    <string name="settings_floating_bubble_permission_needed">"다른 앱 위에 표시" 권한을 허용해야 버튼이 보입니다.</string>
+    <string name="player_replay">처음부터 재생</string>
+    <string name="player_fill_screen">화면 채우기</string>
+    <string name="player_fit_screen">원본 비율</string>
 </resources>

@@ -68,10 +68,37 @@ internal abstract class DataBindsModule {
     ): io.rami.screenrecorder.domain.repository.RecordingRecoveryRepository
 }
 
+/** 화면 캡처·음성 녹음 구현체 바인딩 (기능명세서 12, 13절). */
+@Module
+@InstallIn(SingletonComponent::class)
+internal abstract class QuickCaptureBindsModule {
+    @Binds
+    abstract fun bindScreenshotRepository(
+        implementation: io.rami.screenrecorder.data.recorder.MediaProjectionScreenshotRepository,
+    ): io.rami.screenrecorder.domain.repository.ScreenshotRepository
+}
+
 /** 세션 오케스트레이터 프로바이더. */
 @Module
 @InstallIn(SingletonComponent::class)
 internal object DataProvidesModule {
+    /** 음성 전용 녹음 저장소 (기능명세서 13절). 자체 스코프에서 경과 시간 티커를 돌린다. */
+    @Provides
+    @Singleton
+    fun provideVoiceRecordingRepository(
+        @dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context,
+        settingsRepository: io.rami.screenrecorder.domain.repository.SettingsRepository,
+        quickCaptureStore: io.rami.screenrecorder.data.storage.MediaStoreQuickCaptureStore,
+        clock: MonotonicClock,
+    ): io.rami.screenrecorder.domain.repository.VoiceRecordingRepository =
+        io.rami.screenrecorder.data.audio.AacVoiceRecordingRepository(
+            context = context,
+            settingsRepository = settingsRepository,
+            quickCaptureStore = quickCaptureStore,
+            clock = clock,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        )
+
     @Provides
     @Singleton
     fun provideRecordingSessionRepository(

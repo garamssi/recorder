@@ -82,9 +82,7 @@ class MediaStoreRecordingFileStore
                         resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values),
                     ) { "MediaStore insert 실패: $fileName" }
                 try {
-                    val output =
-                        checkNotNull(resolver.openOutputStream(uri)) { "MediaStore 쓰기 스트림 열기 실패: $uri" }
-                    output.use { tempFile.inputStream().use { input -> input.copyTo(it) } }
+                    writeToMediaStore(tempFile, uri)
                     values.clear()
                     values.put(MediaStore.Video.Media.IS_PENDING, 0)
                     resolver.update(uri, values, null, null)
@@ -111,6 +109,39 @@ class MediaStoreRecordingFileStore
                     bitrateBps = metadata.bitrateBps,
                 )
             }
+
+        /**
+         * 임시 fMP4를 표준 MP4로 remux해 MediaStore에 쓴다 (ADR-0001 개정).
+         *
+         * remux가 실패하면 원본을 그대로 복사한다 — 시크가 안 되더라도 녹화물을 잃는 것보다 낫다.
+         */
+        private fun writeToMediaStore(
+            tempFile: File,
+            uri: android.net.Uri,
+        ) {
+            val resolver = context.contentResolver
+            val descriptor =
+                checkNotNull(resolver.openFileDescriptor(uri, FILE_MODE_READ_WRITE)) {
+                    "MediaStore 파일 디스크립터 열기 실패: $uri"
+                }
+            val remuxed =
+                descriptor.use {
+                    @Suppress("TooGenericExceptionCaught") // 어떤 실패든 원본 복사로 되돌린다.
+                    try {
+                        Mp4Remuxer.remux(tempFile, it.fileDescriptor)
+                        true
+                    } catch (remuxFailure: Exception) {
+                        android.util.Log.w(LOG_TAG, "remux 실패 — 원본 fMP4로 저장한다: ${tempFile.name}", remuxFailure)
+                        false
+                    }
+                }
+            if (remuxed) return
+            val output =
+                checkNotNull(resolver.openOutputStream(uri, FILE_MODE_TRUNCATE)) {
+                    "MediaStore 쓰기 스트림 열기 실패: $uri"
+                }
+            output.use { tempFile.inputStream().use { input -> input.copyTo(it) } }
+        }
 
         /** 빈 파일이거나 재생 가능한 비디오 트랙이 없으면 null. */
         private fun readMetadata(file: File): VideoMetadata? {
@@ -173,5 +204,11 @@ class MediaStoreRecordingFileStore
             const val RELATIVE_PATH = "Movies/ScreenRecorder"
             const val MIME_TYPE = "video/mp4"
             const val LOG_TAG = "RecordingFileStore"
+
+            /** MediaMuxer는 탐색 가능한 디스크립터가 필요하다 (쓰기 전용 "w"로는 안 된다). */
+            const val FILE_MODE_READ_WRITE = "rw"
+
+            /** remux 실패 후 재작성할 때 이전 내용을 남기지 않는다. */
+            const val FILE_MODE_TRUNCATE = "wt"
         }
     }

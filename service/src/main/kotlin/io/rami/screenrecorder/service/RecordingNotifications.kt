@@ -59,6 +59,65 @@ internal class RecordingNotifications(
         notificationManager.notify(NOTIFICATION_ID, buildOngoing(contentText, isPaused))
     }
 
+    /**
+     * 화면 캡처·음성 녹음용 진행 알림 (기능명세서 12, 13절).
+     *
+     * 일시정지/재개가 없는 짧은 작업이므로 액션은 중지 하나뿐이며, 사용자가 멈출 수 있는
+     * 음성 녹음에만 붙인다. 몇 초 만에 끝나는 화면 캡처에 중지 버튼을 두면 오해를 부른다.
+     */
+    fun buildQuickCapture(
+        contentText: String,
+        stoppable: Boolean,
+    ): Notification =
+        Notification
+            .Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.presence_video_online)
+            .setContentTitle(context.getString(R.string.recording_notification_title))
+            .setContentText(contentText)
+            .setOngoing(true)
+            .apply {
+                if (stoppable) {
+                    addAction(
+                        action(
+                            R.string.recording_notification_stop,
+                            RecordingForegroundService.ACTION_STOP_VOICE,
+                        ),
+                    )
+                }
+            }.build()
+
+    /** 음성 녹음 진행 알림을 갱신한다 (경과 시간 반영). */
+    fun updateQuickCapture(contentText: String) {
+        notificationManager.notify(NOTIFICATION_ID, buildQuickCapture(contentText, stoppable = true))
+    }
+
+    /**
+     * 플로팅 캡처 버블을 유지하는 상시 알림 (기능명세서 11.1절).
+     *
+     * 버블이 다른 앱 위에 떠 있으려면 포그라운드 서비스가 필요하고, 그 대가로 알림이 남는다.
+     * 사용자가 알림에서 바로 버블을 내릴 수 있도록 "숨기기" 액션을 둔다.
+     */
+    fun buildFloatingBubble(): Notification =
+        Notification
+            .Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.presence_video_online)
+            .setContentTitle(context.getString(R.string.floating_notification_title))
+            .setContentText(context.getString(R.string.floating_notification_text))
+            .setOngoing(true)
+            .addAction(
+                Notification.Action
+                    .Builder(
+                        null,
+                        context.getString(R.string.floating_notification_hide),
+                        PendingIntent.getService(
+                            context,
+                            FloatingCaptureService.ACTION_HIDE.hashCode(),
+                            FloatingCaptureService.hideIntent(context),
+                            PendingIntent.FLAG_IMMUTABLE,
+                        ),
+                    ).build(),
+            ).build()
+
     /** 완료/자동 중지 알림을 별도로 게시한다 (기능명세서 11.4절: 탭 시 앱 열기). */
     fun showCompleted(contentText: String) {
         val openApp =

@@ -20,8 +20,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/** 다중 선택 상태 (모드 여부 + 선택된 id). */
+private data class Selection(
+    val mode: Boolean = false,
+    val ids: Set<RecordingId> = emptySet(),
+)
 
 /** 녹화 목록 화면 상태 (기능명세서 7절). */
 data class LibraryUiState(
@@ -31,9 +38,11 @@ data class LibraryUiState(
     val sortOrder: SortOrder = SortOrder.NEWEST_FIRST,
     val isGrid: Boolean = false,
     val selectedIds: Set<RecordingId> = emptySet(),
+    /** 다중 선택 모드 여부 (기능명세서 7.3절: 선택 버튼 또는 길게 누르기로 진입). */
+    val isSelectionMode: Boolean = false,
 ) {
-    /** 다중 선택 모드 여부 (기능명세서 7.3절: 길게 누르기로 진입). */
-    val isSelectionMode: Boolean get() = selectedIds.isNotEmpty()
+    /** 현재 목록의 모든 항목이 선택됐는지 (전체 선택/해제 토글용). */
+    val isAllSelected: Boolean get() = recordings.isNotEmpty() && selectedIds.size == recordings.size
 }
 
 /** 목록 화면 일회성 이벤트. */
@@ -66,7 +75,9 @@ class LibraryViewModel
         private val query = MutableStateFlow("")
         private val sortOrder = MutableStateFlow(SortOrder.NEWEST_FIRST)
         private val isGrid = MutableStateFlow(false)
-        private val selectedIds = MutableStateFlow<Set<RecordingId>>(emptySet())
+
+        // 선택 상태(모드 여부 + 선택된 id)를 하나로 관리해 갱신이 단일 방출이 되게 한다.
+        private val selection = MutableStateFlow(Selection())
 
         private val mutableEvents = MutableSharedFlow<LibraryEvent>(extraBufferCapacity = 4)
 
@@ -83,15 +94,16 @@ class LibraryViewModel
                 query,
                 sortOrder,
                 isGrid,
-                selectedIds,
-            ) { recordings, currentQuery, currentSort, grid, selection ->
+                selection,
+            ) { recordings, currentQuery, currentSort, grid, currentSelection ->
                 LibraryUiState(
                     isLoading = false,
                     recordings = recordings,
                     query = currentQuery,
                     sortOrder = currentSort,
                     isGrid = grid,
-                    selectedIds = selection,
+                    selectedIds = currentSelection.ids,
+                    isSelectionMode = currentSelection.mode,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -114,29 +126,39 @@ class LibraryViewModel
             isGrid.value = !isGrid.value
         }
 
-        /** 길게 누르기/선택 토글 (기능명세서 7.3절). */
-        fun onItemLongPress(id: RecordingId) {
-            selectedIds.value =
-                if (id in selectedIds.value) selectedIds.value - id else selectedIds.value + id
+        /** 상단 '선택' 버튼으로 선택 모드에 진입한다 (아무 것도 선택되지 않은 상태). */
+        fun onEnterSelectionMode() {
+            selection.value = selection.value.copy(mode = true)
         }
 
-        /** 전체 선택. */
-        fun onSelectAll() {
-            selectedIds.value =
+        /** 길게 누르기/선택 토글 — 선택 모드로 진입하며 항목을 토글한다 (기능명세서 7.3절). */
+        fun onItemLongPress(id: RecordingId) {
+            selection.update { current ->
+                val ids = if (id in current.ids) current.ids - id else current.ids + id
+                Selection(mode = true, ids = ids)
+            }
+        }
+
+        /** 전체 선택 ↔ 전체 해제 토글. */
+        fun onToggleSelectAll() {
+            val all =
                 uiState.value.recordings
                     .map { it.id }
                     .toSet()
+            selection.update { current ->
+                current.copy(ids = if (current.ids.size == all.size) emptySet() else all)
+            }
         }
 
-        /** 선택 해제. */
+        /** 선택 모드 종료 (선택 해제). */
         fun onClearSelection() {
-            selectedIds.value = emptySet()
+            selection.value = Selection()
         }
 
         /** 삭제 확인 후 휴지통 이동 (기능명세서 7.3절: 확인 다이얼로그는 UI 담당). */
         fun onDeleteConfirmed() {
-            val targets = selectedIds.value.toList()
-            selectedIds.value = emptySet()
+            val targets = selection.value.ids.toList()
+            selection.value = Selection()
             viewModelScope.launch {
                 moveToTrash(targets).onFailure { mutableEvents.emit(LibraryEvent.OperationFailed) }
             }

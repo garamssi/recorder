@@ -9,12 +9,14 @@ import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.TrashItem
 import io.rami.screenrecorder.domain.model.VideoCodec
-import kotlin.time.Duration.Companion.milliseconds
 
 /** MediaStore 비디오 쿼리 모음 (목록/휴지통, 기능명세서 7, 9절). */
 internal class MediaStoreVideoQueries(
     private val context: Context,
 ) {
+    // fMP4는 MediaStore DURATION이 0이라 파일에서 보완해야 한다 (ADR-0001).
+    private val durationResolver = VideoDurationResolver(mediaMetadataDurationProbe(context))
+
     fun queryRecordings(): List<Recording> {
         val recordings = mutableListOf<Recording>()
         context.contentResolver
@@ -42,13 +44,14 @@ internal class MediaStoreVideoQueries(
                 val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
+                    val contentUri = "${MediaStore.Video.Media.EXTERNAL_CONTENT_URI}/$id"
                     recordings +=
                         Recording(
                             id = RecordingId(id),
                             displayName = cursor.getString(nameColumn),
-                            contentUri = "${MediaStore.Video.Media.EXTERNAL_CONTENT_URI}/$id",
+                            contentUri = contentUri,
                             sizeBytes = cursor.getLong(sizeColumn),
-                            duration = cursor.getLong(durationColumn).milliseconds,
+                            duration = durationResolver.resolve(contentUri, cursor.getLong(durationColumn)),
                             resolution =
                                 Resolution(
                                     width = cursor.getInt(widthColumn).coerceAtLeast(1),
@@ -100,6 +103,7 @@ internal class MediaStoreVideoQueries(
                 val expiresColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_EXPIRES)
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
+                    val contentUri = "${MediaStore.Video.Media.EXTERNAL_CONTENT_URI}/$id"
                     val expiresEpochSeconds = cursor.getLong(expiresColumn)
                     trashItems +=
                         TrashItem(
@@ -107,9 +111,9 @@ internal class MediaStoreVideoQueries(
                                 Recording(
                                     id = RecordingId(id),
                                     displayName = cursor.getString(nameColumn),
-                                    contentUri = "${MediaStore.Video.Media.EXTERNAL_CONTENT_URI}/$id",
+                                    contentUri = contentUri,
                                     sizeBytes = cursor.getLong(sizeColumn),
-                                    duration = cursor.getLong(durationColumn).milliseconds,
+                                    duration = durationResolver.resolve(contentUri, cursor.getLong(durationColumn)),
                                     resolution = Resolution(1, 1),
                                     frameRate = 0,
                                     codec = VideoCodec.H264,

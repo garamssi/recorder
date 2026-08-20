@@ -14,7 +14,6 @@ import io.rami.screenrecorder.domain.model.OrientationPolicy
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.ResolutionOption
 import io.rami.screenrecorder.domain.model.StorageLocation
-import io.rami.screenrecorder.domain.model.ThemeSetting
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.model.VideoCodec
 import io.rami.screenrecorder.domain.model.VolumePercent
@@ -49,8 +48,6 @@ class AppSettingsMapperTest {
                 selectedCaptureMode = CaptureModeKind.REGION,
                 fileNamePrefix = FileNamePrefix("My_Clip"),
                 storageLocation = StorageLocation.CustomTree("content://tree/primary"),
-                theme = ThemeSetting.DARK,
-                dynamicColor = false,
                 language = LanguageSetting.ENGLISH,
                 showFloatingBubble = true,
                 showTouches = true,
@@ -80,9 +77,9 @@ class AppSettingsMapperTest {
     fun `알 수 없는 enum 값은 기본값으로 폴백한다`() {
         val corrupted =
             AppSettingsMapper.toPreferences(AppSettings.DEFAULT).toMutablePreferences().apply {
-                this[AppSettingsMapper.KEY_THEME] = "NEON"
+                this[AppSettingsMapper.KEY_LANGUAGE] = "ESPERANTO"
             }
 
-        assertEquals(ThemeSetting.SYSTEM, AppSettingsMapper.fromPreferences(corrupted).theme)
+        assertEquals(LanguageSetting.KOREAN, AppSettingsMapper.fromPreferences(corrupted).language)
     }
 }
