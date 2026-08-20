@@ -1,8 +1,6 @@
 package io.rami.screenrecorder.presentation.player
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -31,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -115,28 +112,25 @@ private fun PlayerContent(
     Scaffold(
         topBar = {
             if (!isFullscreen) {
-                PlayerTopBar(recording, viewModel, onBack)
-            }
-        },
-    ) { padding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-        ) {
-            PlayerSurface(
-                player = player,
-                onFullscreenToggle = { isFullscreen = it },
-                modifier = Modifier.weight(1f),
-            )
-            if (!isFullscreen) {
-                SpeedRow(
+                PlayerTopBar(
+                    recording = recording,
+                    viewModel = viewModel,
+                    onBack = onBack,
                     playbackSpeed = playbackSpeed,
                     onSpeedSelected = { playbackSpeed = it },
                 )
             }
-        }
+        },
+    ) { padding ->
+        // 비디오가 본문 전체를 채워 컨트롤러(시크바·재생/일시정지·±10초)가 넉넉히 보이게 한다.
+        PlayerSurface(
+            player = player,
+            onFullscreenToggle = { isFullscreen = it },
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+        )
     }
     if (isFullscreen) {
         // 전체 화면에서 뒤로가기 = 일반 모드 복귀 (컨트롤러의 전체화면 버튼과 함께 이중 탈출 경로).
@@ -159,74 +153,69 @@ private fun PlayerSurface(
 ) {
     AndroidView(
         factory = { viewContext -> buildPlayerView(viewContext, player, onFullscreenToggle) },
+        // 컴포지션 이탈 시 플레이어 연결을 끊어 마지막 프레임 잔상을 남기지 않는다.
+        onRelease = { it.player = null },
         modifier = modifier,
     )
 }
 
-@android.annotation.SuppressLint("ClickableViewAccessibility")
+@android.annotation.SuppressLint("ClickableViewAccessibility", "InflateParams")
 private fun buildPlayerView(
     context: android.content.Context,
     player: ExoPlayer,
     onFullscreenToggle: (Boolean) -> Unit,
-): PlayerView =
-    PlayerView(context).apply {
-        this.player = player
-        setShowNextButton(false)
-        setShowPreviousButton(false)
-        // 컨트롤러에 전체화면 버튼을 노출한다 — 진입/복귀 모두 이 버튼으로 가능하다.
-        setFullscreenButtonClickListener(onFullscreenToggle::invoke)
-        val doubleTapDetector =
-            android.view.GestureDetector(
-                context,
-                object : android.view.GestureDetector.SimpleOnGestureListener() {
-                    override fun onDoubleTap(event: android.view.MotionEvent): Boolean {
-                        if (event.x < width / 2f) player.seekBack() else player.seekForward()
-                        return true
-                    }
-                },
-            )
-        // 이벤트를 소비하지 않으므로(반환 false) PlayerView의 단일 탭·버튼 처리가 그대로 동작한다.
-        setOnTouchListener { _, event ->
-            doubleTapDetector.onTouchEvent(event)
-            false
-        }
+): PlayerView {
+    // TextureView 표면(view_player.xml)을 인플레이트해 SurfaceView 특유의 지터/잔상을 피한다.
+    val playerView =
+        android.view.LayoutInflater
+            .from(context)
+            .inflate(R.layout.view_player, null) as PlayerView
+    playerView.player = player
+    // 컨트롤러에 전체화면 버튼을 노출한다 — 진입/복귀 모두 이 버튼으로 가능하다.
+    playerView.setFullscreenButtonClickListener(onFullscreenToggle::invoke)
+    val doubleTapDetector =
+        android.view.GestureDetector(
+            context,
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(event: android.view.MotionEvent): Boolean {
+                    if (event.x < playerView.width / 2f) player.seekBack() else player.seekForward()
+                    return true
+                }
+            },
+        )
+    // 이벤트를 소비하지 않으므로(반환 false) PlayerView의 단일 탭·버튼·시크바 처리가 그대로 동작한다.
+    playerView.setOnTouchListener { _, event ->
+        doubleTapDetector.onTouchEvent(event)
+        false
     }
+    return playerView
+}
 
-/** 배속 선택 (기능명세서 10절: 0.5x~2.0x, 0.1 단위 선택). */
+/** 배속 선택 (기능명세서 10절: 0.5x~2.0x, 0.1 단위). 상단 바 액션으로 노출한다. */
 @Composable
-private fun SpeedRow(
+private fun SpeedSelector(
     playbackSpeed: Float,
     onSpeedSelected: (Float) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(R.string.player_speed_label),
-            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(end = 8.dp),
-        )
-        Box {
-            androidx.compose.material3.OutlinedButton(onClick = { expanded = true }) {
-                Text(stringResource(R.string.player_speed_format, formatSpeed(playbackSpeed)))
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                PLAYBACK_SPEEDS.forEach { speed ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                stringResource(R.string.player_speed_format, formatSpeed(speed)) +
-                                    if (speed == playbackSpeed) "  ✓" else "",
-                            )
-                        },
-                        onClick = {
-                            onSpeedSelected(speed)
-                            expanded = false
-                        },
-                    )
-                }
+    Box {
+        androidx.compose.material3.TextButton(onClick = { expanded = true }) {
+            Text(stringResource(R.string.player_speed_format, formatSpeed(playbackSpeed)))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            PLAYBACK_SPEEDS.forEach { speed ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.player_speed_format, formatSpeed(speed)) +
+                                if (speed == playbackSpeed) "  ✓" else "",
+                        )
+                    },
+                    onClick = {
+                        onSpeedSelected(speed)
+                        expanded = false
+                    },
+                )
             }
         }
     }
@@ -260,6 +249,8 @@ private fun PlayerTopBar(
     recording: Recording,
     viewModel: PlayerViewModel,
     onBack: () -> Unit,
+    playbackSpeed: Float,
+    onSpeedSelected: (Float) -> Unit,
 ) {
     val context = LocalContext.current
     var menuExpanded by remember { mutableStateOf(false) }
@@ -278,6 +269,7 @@ private fun PlayerTopBar(
             }
         },
         actions = {
+            SpeedSelector(playbackSpeed = playbackSpeed, onSpeedSelected = onSpeedSelected)
             IconButton(onClick = { menuExpanded = true }) {
                 Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.menu_more))
             }
