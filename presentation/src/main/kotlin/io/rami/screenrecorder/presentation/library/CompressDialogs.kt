@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.rami.screenrecorder.domain.model.CompressionPreset
 import io.rami.screenrecorder.domain.model.TranscodeJob
@@ -44,9 +46,16 @@ fun CompressDialog(
                 CompressionPreset.entries.forEach { preset ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = selected == preset,
+                                    onClick = { selected = preset },
+                                    role = Role.RadioButton,
+                                ).padding(top = 8.dp),
                     ) {
-                        RadioButton(selected = selected == preset, onClick = { selected = preset })
+                        RadioButton(selected = selected == preset, onClick = null)
                         Column {
                             Text(presetLabel(preset), style = MaterialTheme.typography.bodyLarge)
                             Text(
