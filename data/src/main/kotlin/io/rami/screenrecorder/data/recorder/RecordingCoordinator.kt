@@ -107,6 +107,8 @@ class RecordingCoordinator(
 
     override suspend fun pause() {
         val session = activeSession ?: return
+        // 회전 이벤트 등 비동기 경로와의 레이스에서 이중 일시정지를 막는다 (Recording에서만 유효).
+        if (mutableState.value !is RecordingState.Recording) return
         session.encoder.setSuspended(true)
         session.audioRecorder?.setSuspended(true)
         session.pauseOffset.onPause(clock.elapsedRealtimeMillis() * US_PER_MS)
@@ -154,6 +156,7 @@ class RecordingCoordinator(
         val fileName = fileNameProvider.nextFileName()
         val tempFile = fileStore.createTempFile(fileName)
         val muxer = sessionFactory.createMuxer()
+        var startedProcessor: FrameProcessor? = null
         try {
             withContext(blockingDispatcher) {
                 muxer.open(tempFile)
@@ -174,17 +177,22 @@ class RecordingCoordinator(
                         fileName = fileName,
                         stopwatch = PauseAwareStopwatch(clock),
                     )
+                startedProcessor = session.frameProcessor
                 session.startCapture(
                     CaptureWiring(config, resolution, displayResolution, bitrateBps, regionMode),
                 )
                 activeSession = session
             }
         } catch (
-            // 어떤 시작 실패든 열린 먹서를 정리하고 원인을 그대로 전파한다 (증상 은폐 아님).
+            // 어떤 시작 실패든 열린 자원(먹서/GPU 프로세서)을 정리하고 원인을 그대로 전파한다.
             @Suppress("TooGenericExceptionCaught") startFailure: Exception,
         ) {
-            muxer.close()
-            mutableState.value = RecordingState.Idle
+            try {
+                startedProcessor?.stop()
+            } finally {
+                muxer.close()
+                mutableState.value = RecordingState.Idle
+            }
             throw startFailure
         }
         val session = checkNotNull(activeSession)

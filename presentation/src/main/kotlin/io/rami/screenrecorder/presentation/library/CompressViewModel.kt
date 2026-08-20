@@ -35,6 +35,9 @@ sealed interface CompressEvent {
     /** 녹화 중이라 시작 불가 (명세 8절: 사유 안내). */
     data object BlockedByRecording : CompressEvent
 
+    /** 이미 다른 압축이 진행 중 (동시 1건 제한). */
+    data object Busy : CompressEvent
+
     /** 압축 실패. */
     data object Failed : CompressEvent
 }
@@ -73,21 +76,30 @@ class CompressViewModel
                 initialValue = CompressUiState(),
             )
 
-        /** 프리셋 확정 → 압축 작업 등록 (명세 8절: 녹화 중 불가). */
+        /** 프리셋 확정 → 압축 작업 등록 (명세 8절: 녹화 중 불가, 동시 1건). */
         fun onCompressConfirmed(
             id: RecordingId,
             preset: CompressionPreset,
         ) {
             viewModelScope.launch {
-                compressRecording(id, preset).onFailure { failure ->
-                    val event =
-                        if (failure is CompressionBlockedException) {
-                            CompressEvent.BlockedByRecording
-                        } else {
-                            CompressEvent.Failed
-                        }
-                    mutableEvents.emit(event)
+                // 동시 실행은 1건: 진행 중이면 KEEP 정책이 무음 드롭하므로 명시적으로 안내한다 (검수 #7).
+                if (uiState.value.runningJob != null) {
+                    mutableEvents.emit(CompressEvent.Busy)
+                    return@launch
                 }
+                compressRecording(id, preset)
+                    .onSuccess {
+                        // 새 작업이 시작되면 이전 완료 프롬프트 처리 이력을 초기화한다 (검수 #4).
+                        dismissedPrompt.value = null
+                    }.onFailure { failure ->
+                        val event =
+                            if (failure is CompressionBlockedException) {
+                                CompressEvent.BlockedByRecording
+                            } else {
+                                CompressEvent.Failed
+                            }
+                        mutableEvents.emit(event)
+                    }
             }
         }
 

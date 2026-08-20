@@ -1,0 +1,5 @@
+<resources>
+    <string name="transcode_notification_title">영상 압축 중</string>
+    <string name="transcode_notification_cancel">취소</string>
+    <string name="transcode_channel_name">영상 압축</string>
+</resources>

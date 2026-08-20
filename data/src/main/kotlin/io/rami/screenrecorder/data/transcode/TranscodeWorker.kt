@@ -41,15 +41,19 @@ class TranscodeWorker(
     appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
+    private val probe = TranscodeMediaProbe(appContext)
+
     override suspend fun doWork(): Result {
         val recordingId = inputData.getLong(KEY_RECORDING_ID, -1L)
         val preset = CompressionPreset.valueOf(checkNotNull(inputData.getString(KEY_PRESET)))
+        // 명세 8절: 백그라운드에서도 진행률 알림 + 취소 가능해야 한다 (검수 #3).
+        setForeground(TranscodeNotifications.foregroundInfo(applicationContext, id, progressPercent = 0))
         val metadata = queryVideo(recordingId) ?: return Result.failure()
         val plan = preset.plan(metadata.source)
         val outputName = CompressionPreset.compressedFileName(metadata.displayName)
         val tempFile = File(applicationContext.cacheDir, "transcode_$outputName")
         return try {
-            transform(metadata.uriString, plan, tempFile)
+            transform(metadata.uriString, plan, metadata.source.resolution, tempFile)
             publish(tempFile, outputName)
             Result.success(workDataOf(KEY_OUTPUT_NAME to outputName))
         } finally {
@@ -61,6 +65,7 @@ class TranscodeWorker(
     private suspend fun transform(
         sourceUri: String,
         plan: CompressionPlan,
+        sourceResolution: Resolution,
         outputFile: File,
     ) = withContext(Dispatchers.Main) {
         val transformer = buildTransformer(plan)
@@ -71,12 +76,15 @@ class TranscodeWorker(
                     while (true) {
                         if (transformer.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) {
                             setProgress(workDataOf(KEY_PROGRESS to holder.progress))
+                            setForeground(
+                                TranscodeNotifications.foregroundInfo(applicationContext, id, holder.progress),
+                            )
                         }
                         delay(PROGRESS_POLL_MS)
                     }
                 }
             try {
-                awaitCompletion(transformer, sourceUri, plan, outputFile)
+                awaitCompletion(transformer, sourceUri, plan, sourceResolution, outputFile)
             } finally {
                 progressJob.cancel()
             }
@@ -87,6 +95,7 @@ class TranscodeWorker(
         transformer: Transformer,
         sourceUri: String,
         plan: CompressionPlan,
+        sourceResolution: Resolution,
         outputFile: File,
     ) = suspendCancellableCoroutine { continuation ->
         transformer.addListener(
@@ -107,7 +116,7 @@ class TranscodeWorker(
                 }
             },
         )
-        transformer.start(editedItem(sourceUri, plan), outputFile.absolutePath)
+        transformer.start(editedItem(sourceUri, plan, sourceResolution), outputFile.absolutePath)
         continuation.invokeOnCancellation { transformer.cancel() }
     }
 
@@ -134,19 +143,22 @@ class TranscodeWorker(
     private fun editedItem(
         sourceUri: String,
         plan: CompressionPlan,
+        sourceResolution: Resolution,
     ): EditedMediaItem {
         val builder = EditedMediaItem.Builder(MediaItem.fromUri(sourceUri))
-        // 짧은 변 기준 다운스케일 (최대 압축 프리셋)
-        builder.setEffects(
-            androidx.media3.transformer.Effects(
-                emptyList(),
-                listOf(
-                    Presentation.createForShortSide(
-                        minOf(plan.targetResolution.width, plan.targetResolution.height),
+        // 동일 해상도 프리셋에는 스케일 패스를 넣지 않는다 (검수 #2: 불필요한 리사이즈 방지)
+        if (plan.targetResolution != sourceResolution) {
+            builder.setEffects(
+                androidx.media3.transformer.Effects(
+                    emptyList(),
+                    listOf(
+                        Presentation.createForShortSide(
+                            minOf(plan.targetResolution.width, plan.targetResolution.height),
+                        ),
                     ),
                 ),
-            ),
-        )
+            )
+        }
         return builder.build()
     }
 
@@ -216,38 +228,10 @@ class TranscodeWorker(
             source =
                 CompressionSource(
                     resolution = Resolution(width, height),
-                    bitrateBps = probeBitrate(uriString, sizeBytes, durationMs),
-                    codec = VideoCodec.H264,
+                    bitrateBps = probe.probeBitrate(uriString, sizeBytes, durationMs),
+                    codec = probe.probeCodec(uriString),
                 ),
         )
-    }
-
-    /**
-     * 실제 비트레이트를 컨테이너에서 읽는다. fMP4는 MediaStore duration이 0이므로
-     * (ADR-0001) retriever가 단일 진실 공급원이고, 크기/시간 추정은 최후 폴백이다.
-     */
-    private fun probeBitrate(
-        uriString: String,
-        sizeBytes: Long,
-        mediaStoreDurationMs: Long,
-    ): Int {
-        val retriever = android.media.MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(applicationContext, android.net.Uri.parse(uriString))
-            retriever
-                .extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE)
-                ?.toIntOrNull()
-                ?.takeIf { it > 0 }
-                ?.let { return it }
-            val durationMs =
-                retriever
-                    .extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
-                    ?.toLongOrNull()
-                    ?.takeIf { it > 0 } ?: mediaStoreDurationMs
-            return estimateBitrate(sizeBytes, durationMs)
-        } finally {
-            retriever.release()
-        }
     }
 
     companion object {

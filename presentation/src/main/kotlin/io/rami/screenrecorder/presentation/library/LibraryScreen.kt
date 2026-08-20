@@ -169,11 +169,13 @@ private fun ObserveCompressEvents(
     snackbarHost: SnackbarHostState,
 ) {
     val blockedMessage = stringResource(R.string.compress_blocked_recording)
+    val busyMessage = stringResource(R.string.compress_busy)
     val failedMessage = stringResource(R.string.operation_failed)
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is CompressEvent.BlockedByRecording -> snackbarHost.showSnackbar(blockedMessage)
+                is CompressEvent.Busy -> snackbarHost.showSnackbar(busyMessage)
                 is CompressEvent.Failed -> snackbarHost.showSnackbar(failedMessage)
             }
         }

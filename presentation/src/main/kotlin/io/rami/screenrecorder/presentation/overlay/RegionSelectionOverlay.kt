@@ -56,7 +56,8 @@ class RegionSelectionOverlay(
                             FrameLayout.LayoutParams.WRAP_CONTENT,
                         ).apply {
                             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                            bottomMargin = BUTTON_MARGIN_PX
+                            bottomMargin =
+                                (BUTTON_MARGIN_DP * context.resources.displayMetrics.density).toInt()
                         },
                 )
             }
@@ -101,6 +102,6 @@ class RegionSelectionOverlay(
         )
 
     private companion object {
-        const val BUTTON_MARGIN_PX = 48
+        const val BUTTON_MARGIN_DP = 48
     }
 }

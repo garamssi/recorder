@@ -66,7 +66,13 @@ class GlFrameProcessor : FrameProcessor {
             }
         }
         ready.await()
-        failure?.let { throw it }
+        failure?.let { initError ->
+            // 초기화 실패 시 렌더 스레드를 남기지 않는다 (검수 #1: HandlerThread 누수)
+            renderThread.quitSafely()
+            thread = null
+            handler = null
+            throw initError
+        }
         return checkNotNull(inputSurface)
     }
 

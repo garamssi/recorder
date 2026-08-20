@@ -1,0 +1,5 @@
+<resources>
+    <string name="transcode_notification_title">Compressing video</string>
+    <string name="transcode_notification_cancel">Cancel</string>
+    <string name="transcode_channel_name">Video compression</string>
+</resources>

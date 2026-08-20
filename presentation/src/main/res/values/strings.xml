@@ -153,4 +153,5 @@
     <string name="compress_done_trash_prompt">Move the original to the trash?</string>
     <string name="compress_trash_original">Move to trash</string>
     <string name="compress_keep_original">Keep</string>
+    <string name="compress_busy">Another compression is in progress.</string>
 </resources>
