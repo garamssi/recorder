@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 13+ 테마 아이콘용 단색 실루엣. 시스템이 알파 기준으로 테마색을 입힌다.
+  화면(모니터)에서 녹화 점을 evenOdd로 뚫어 단색에서도 "녹화" 의미가 드러나게 한다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 스탠드 -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M51,64h6v9h-6z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M45,72h18a2,2 0 0 1 2,2v0a2,2 0 0 1 -2,2h-18a2,2 0 0 1 -2,-2v0a2,2 0 0 1 2,-2z" />
+
+    <!-- 화면 + 녹화 점 구멍 (evenOdd) -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M36,34h36a6,6 0 0 1 6,6v18a6,6 0 0 1 -6,6h-36a6,6 0 0 1 -6,-6v-18a6,6 0 0 1 6,-6z M54,49m-8,0a8,8 0 1,0 16,0a8,8 0 1,0 -16,0z" />
+</vector>
