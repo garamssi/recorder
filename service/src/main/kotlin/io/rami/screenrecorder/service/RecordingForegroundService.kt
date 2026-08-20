@@ -167,6 +167,13 @@ class RecordingForegroundService : Service() {
 
                 is RecordingSessionEvent.AutoStopped ->
                     notifications.showCompleted(autoStopText(event.reason))
+
+                is RecordingSessionEvent.RegionInvalidatedByRotation ->
+                    // 명세 5절 [결정]: "영역을 다시 지정하거나 중지하세요"
+                    notifications.updateOngoing(
+                        getString(R.string.recording_notification_region_rotated),
+                        isPaused = true,
+                    )
             }
         }
     }

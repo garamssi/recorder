@@ -184,6 +184,8 @@ class RecordingCoordinatorTest {
 
                 override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? =
                     if (config.audioSource == AudioSource.SILENT) null else audioRecorder
+
+                override fun createFrameProcessor(): FrameProcessor = error("전체 화면 테스트에서는 프레임 프로세서를 만들지 않는다")
             }
         return RecordingCoordinator(
             sessionFactory = factory,

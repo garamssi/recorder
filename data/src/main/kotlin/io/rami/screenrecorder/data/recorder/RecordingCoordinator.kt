@@ -4,12 +4,15 @@ import android.media.MediaFormat
 import io.rami.screenrecorder.domain.model.AutoBitratePolicy
 import io.rami.screenrecorder.domain.model.AutoStopReason
 import io.rami.screenrecorder.domain.model.BitrateOption
+import io.rami.screenrecorder.domain.model.CaptureMode
+import io.rami.screenrecorder.domain.model.CropGeometry
 import io.rami.screenrecorder.domain.model.PauseTimeoutPolicy
 import io.rami.screenrecorder.domain.model.RecordableTimeEstimator
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
+import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
@@ -134,7 +137,15 @@ class RecordingCoordinator(
     }
 
     private suspend fun startPipeline(config: RecordingConfig) {
-        val resolution = config.resolution.resolve(displayInfo.currentResolution())
+        val displayResolution = displayInfo.currentResolution()
+        val regionMode = config.captureMode as? CaptureMode.Region
+        // 부분 영역이면 인코더 출력 = 짝수 정렬된 영역 크기 (H.264 색차 정렬)
+        val resolution =
+            if (regionMode != null) {
+                Resolution(evenDown(regionMode.region.width), evenDown(regionMode.region.height))
+            } else {
+                config.resolution.resolve(displayResolution)
+            }
         val bitrateBps =
             when (val bitrate = config.bitrate) {
                 is BitrateOption.Auto -> AutoBitratePolicy.bitrateBpsFor(resolution, config.frameRate)
@@ -156,20 +167,16 @@ class RecordingCoordinator(
                                 capture = captureSource,
                                 audioRecorder = sessionFactory.createAudioRecorder(config),
                                 muxer = muxer,
+                                frameProcessor =
+                                    if (regionMode != null) sessionFactory.createFrameProcessor() else null,
                             ),
                         tempFile = tempFile,
                         fileName = fileName,
                         stopwatch = PauseAwareStopwatch(clock),
                     )
-                val surface =
-                    session.encoder.prepare(
-                        VideoEncoderConfig(resolution, config.frameRate.fps, bitrateBps, config.codec),
-                        session.encoderListener(),
-                    )
-                session.encoder.start()
-                session.capture.start(surface, resolution, session.captureListener())
-                session.audioRecorder?.start(session.audioListener(), session.pauseOffset)
-                session.stopwatch.start()
+                session.startCapture(
+                    CaptureWiring(config, resolution, displayResolution, bitrateBps, regionMode),
+                )
                 activeSession = session
             }
         } catch (
@@ -185,6 +192,15 @@ class RecordingCoordinator(
         session.ticker = scope.launch { tickElapsed(session, config.timeLimit) }
         session.storageWatch = scope.launch { watchStorage() }
     }
+
+    /** 한 세션의 캡처 배선 입력 묶음. */
+    private class CaptureWiring(
+        val config: RecordingConfig,
+        val resolution: Resolution,
+        val displayResolution: Resolution,
+        val bitrateBps: Int,
+        val regionMode: CaptureMode.Region?,
+    )
 
     private suspend fun tickElapsed(
         session: ActiveSession,
@@ -245,12 +261,16 @@ class RecordingCoordinator(
                             session.capture.stop()
                         } finally {
                             try {
-                                session.audioRecorder?.stopAndRelease()
+                                session.frameProcessor?.stop()
                             } finally {
                                 try {
-                                    session.encoder.stopAndRelease()
+                                    session.audioRecorder?.stopAndRelease()
                                 } finally {
-                                    session.muxer.close()
+                                    try {
+                                        session.encoder.stopAndRelease()
+                                    } finally {
+                                        session.muxer.close()
+                                    }
                                 }
                             }
                         }
@@ -270,6 +290,7 @@ class RecordingCoordinator(
         val capture: ScreenCaptureSource,
         val audioRecorder: AudioRecorder?,
         val muxer: MuxerWriter,
+        val frameProcessor: FrameProcessor?,
     )
 
     private inner class ActiveSession(
@@ -282,6 +303,7 @@ class RecordingCoordinator(
         val capture = media.capture
         val audioRecorder = media.audioRecorder
         val muxer = media.muxer
+        val frameProcessor = media.frameProcessor
         val pauseOffset = PauseOffsetTracker()
         var ticker: Job? = null
         var storageWatch: Job? = null
@@ -295,6 +317,38 @@ class RecordingCoordinator(
                 muxer = muxer,
                 expectedTrackCount = if (audioRecorder != null) 2 else 1,
             )
+
+        /** 인코더/캡처/오디오를 배선한다. 부분 영역이면 GPU 프로세서를 경유한다 (명세 2.2절). */
+        fun startCapture(wiring: CaptureWiring) {
+            val encoderSurface =
+                encoder.prepare(
+                    VideoEncoderConfig(
+                        wiring.resolution,
+                        wiring.config.frameRate.fps,
+                        wiring.bitrateBps,
+                        wiring.config.codec,
+                    ),
+                    encoderListener(),
+                )
+            encoder.start()
+            val regionMode = wiring.regionMode
+            if (regionMode != null && frameProcessor != null) {
+                // 부분 영역: 디스플레이 전체를 프로세서 입력에 캡처하고 GPU에서 크롭한다
+                val geometry =
+                    CropGeometry.compute(
+                        sourceSize = wiring.displayResolution,
+                        cropRegion = regionMode.region,
+                        outputSize = wiring.resolution,
+                    )
+                val processorInput =
+                    frameProcessor.start(encoderSurface, wiring.displayResolution, geometry)
+                capture.start(processorInput, wiring.displayResolution, captureListener())
+            } else {
+                capture.start(encoderSurface, wiring.resolution, captureListener())
+            }
+            audioRecorder?.start(audioListener(), pauseOffset)
+            stopwatch.start()
+        }
 
         fun encoderListener() =
             object : VideoEncoder.Listener {
@@ -338,12 +392,23 @@ class RecordingCoordinator(
                     width: Int,
                     height: Int,
                 ) {
-                    // 회전/리사이즈 대응은 Stage 5(회전 정책) / Stage 8(부분 영역)에서 구현한다.
+                    // 전체 화면/단일 앱은 VirtualDisplay 미러링이 스케일을 흡수한다 (명세 5절).
+                    // 부분 영역은 회전 시 좌표가 무효화되므로 자동 일시정지한다 (명세 5절 [결정]).
+                    if (frameProcessor == null) return
+                    scope.launch {
+                        if (mutableState.value is RecordingState.Recording) {
+                            pause()
+                            mutableEvents.emit(RecordingSessionEvent.RegionInvalidatedByRotation)
+                        }
+                    }
                 }
             }
     }
 
     private companion object {
+        /** H.264/HEVC 색차 서브샘플링 정렬을 위한 짝수 내림. */
+        fun evenDown(value: Int): Int = value - (value % 2)
+
         const val ELAPSED_TICK_MS = 1_000L
         const val US_PER_MS = 1_000L
         const val BPS_PER_MBPS = 1_000_000

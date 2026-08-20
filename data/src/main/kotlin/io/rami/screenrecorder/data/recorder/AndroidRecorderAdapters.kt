@@ -84,6 +84,8 @@ class ProjectionRecorderSessionFactory
 
         override fun createMuxer(): MuxerWriter = Media3FragmentedMp4Writer()
 
+        override fun createFrameProcessor(): FrameProcessor = GlFrameProcessor()
+
         override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? {
             val needsInternal =
                 config.audioSource == AudioSource.INTERNAL ||

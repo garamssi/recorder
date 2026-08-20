@@ -137,6 +137,24 @@ interface AudioRecorder {
     }
 }
 
+/**
+ * GPU 크롭/레터박스 프레임 프로세서 (기능명세서 2.2절 부분 영역, 5절 레터박스).
+ *
+ * 캡처(VirtualDisplay)가 그릴 입력 Surface를 만들고, 매 프레임을 [CropGeometry]에 따라
+ * 크롭/스케일해 인코더 서피스에 그린다. 세션마다 새로 생성한다.
+ */
+interface FrameProcessor {
+    /** [outputSurface](인코더 입력) 위에 렌더링을 시작하고 캡처가 그릴 입력 Surface를 반환한다. */
+    fun start(
+        outputSurface: Surface,
+        sourceSize: io.rami.screenrecorder.domain.model.Resolution,
+        geometry: io.rami.screenrecorder.domain.model.CropGeometry,
+    ): Surface
+
+    /** 렌더 스레드와 EGL 자원을 해제한다. */
+    fun stop()
+}
+
 /** 세션별 어댑터 생성 팩토리 (MediaCodec/MediaProjection은 세션 간 재사용 불가). */
 interface RecorderSessionFactory {
     /** 새 비디오 인코더를 만든다. */
@@ -153,6 +171,9 @@ interface RecorderSessionFactory {
      * 내부 오디오 캡처는 [createCaptureSource]가 만든 세션의 MediaProjection을 공유한다.
      */
     fun createAudioRecorder(config: io.rami.screenrecorder.domain.model.RecordingConfig): AudioRecorder?
+
+    /** 부분 영역 크롭용 GPU 프레임 프로세서를 만든다. */
+    fun createFrameProcessor(): FrameProcessor
 }
 
 /** 녹화 파일 저장 경계 (임시 파일 + MediaStore 이동, 기능명세서 6.1절). */

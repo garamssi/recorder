@@ -15,4 +15,5 @@
     <string name="recording_notification_completed_time_limit">Time limit reached — recording saved</string>
     <string name="recording_notification_completed_storage_low">Storage low — recording saved safely</string>
     <string name="recording_notification_completed_pause_timeout">Paused too long — recording saved</string>
+    <string name="recording_notification_region_rotated">Screen rotated. Re-select the region or stop recording.</string>
 </resources>
