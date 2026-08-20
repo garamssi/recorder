@@ -76,7 +76,7 @@ class MediaStoreMediaLibraryRepository
                         MediaStore.Video.Media.HEIGHT,
                         MediaStore.Video.Media.DATE_ADDED,
                     ),
-                    "${MediaStore.Video.Media.RELATIVE_PATH} = ?",
+                    "${MediaStore.Video.Media.RELATIVE_PATH} = ? AND ${MediaStore.Video.Media.IS_PENDING} = 0",
                     arrayOf("$RELATIVE_PATH/"),
                     "${MediaStore.Video.Media.DATE_ADDED} DESC",
                 )?.use { cursor ->

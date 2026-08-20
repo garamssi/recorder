@@ -18,7 +18,6 @@
     <string name="home_open_settings">설정</string>
     <string name="home_open_trash">휴지통</string>
     <string name="home_countdown_skip_hint">탭하면 바로 시작</string>
-    <string name="home_region_not_ready">부분 영역 녹화는 곧 제공됩니다</string>
 
     <string name="preset_resolution_device_max">기기 최대</string>
     <string name="preset_resolution_format">%1$dp</string>
@@ -80,4 +79,11 @@
     <string name="settings_about_version">앱 버전</string>
     <string name="settings_about_privacy">개인정보: 수집 데이터 없음, 오프라인 전용</string>
     <string name="settings_volume_percent_format">%1$d%%</string>
+    <string name="navigate_back">뒤로</string>
+    <string name="home_saving">저장 중…</string>
+    <string name="settings_volume_label_format">%1$s — %2$d%%</string>
+    <string name="settings_show_touches">터치 표시</string>
+    <string name="settings_floating_bubble">플로팅 컨트롤 표시</string>
+    <string name="settings_floating_bubble_hint">버블 자체가 녹화 영상에 포함됩니다 (오버레이 특성)</string>
+    <string name="settings_prefix_rule">영문, 숫자, 언더스코어만 입력</string>
 </resources>

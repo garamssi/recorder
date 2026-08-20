@@ -7,12 +7,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.designsystem.theme.ScreenRecorderTheme
 import io.rami.screenrecorder.data.recorder.MediaProjectionTokenHolder
 import io.rami.screenrecorder.domain.model.AppSettings
+import io.rami.screenrecorder.domain.model.LanguageSetting
 import io.rami.screenrecorder.domain.model.ThemeSetting
 import io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 import io.rami.screenrecorder.presentation.navigation.AppNavHost
@@ -49,6 +51,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val settings by observeSettings().collectAsState(initial = AppSettings.DEFAULT)
+            LaunchedEffect(settings.language) { applyAppLocale(settings.language) }
             ScreenRecorderTheme(
                 darkTheme =
                     when (settings.theme) {
@@ -74,5 +77,20 @@ class MainActivity : ComponentActivity() {
     private fun requestProjectionConsent() {
         val manager = getSystemService(MediaProjectionManager::class.java)
         consentLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
+    /** 앱별 언어 설정 적용 (기능명세서 4.5절 [결정], Android 13+ per-app language). */
+    private fun applyAppLocale(language: LanguageSetting) {
+        val localeManager = getSystemService(android.app.LocaleManager::class.java)
+        val wanted =
+            when (language) {
+                LanguageSetting.KOREAN -> android.os.LocaleList.forLanguageTags("ko")
+                LanguageSetting.ENGLISH -> android.os.LocaleList.forLanguageTags("en")
+                LanguageSetting.SYSTEM -> android.os.LocaleList.getEmptyLocaleList()
+            }
+        // 동일 값 재적용은 액티비티 재생성을 유발하지 않지만, 불필요한 호출을 피한다.
+        if (localeManager.applicationLocales != wanted) {
+            localeManager.applicationLocales = wanted
+        }
     }
 }

@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,7 +61,8 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showOptionsSheet by remember { mutableStateOf(false) }
+    var showOptionsSheet by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -174,6 +178,13 @@ private fun HeroPanel(
                     actions = actions,
                 )
 
+            is RecordingState.Stopping ->
+                Text(
+                    text = stringResource(R.string.home_saving),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+
             else ->
                 RecordButton(
                     enabled = uiState.canStartRecording,
@@ -210,6 +221,8 @@ private fun ModeSegments(
                             if (isSelected) Color.White else Color.Transparent,
                             CircleShape,
                         ).clickable { onSelected(mode) }
+                        .heightIn(min = 48.dp)
+                        .wrapContentHeight()
                         .padding(horizontal = 20.dp, vertical = 10.dp),
             )
         }
@@ -231,13 +244,17 @@ private fun RecordButton(
     onClick: () -> Unit,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        val startLabel = stringResource(R.string.home_start_recording)
         Box(
             modifier =
                 Modifier
                     .size(132.dp)
                     .shadow(16.dp, CircleShape)
-                    .background(if (enabled) Color.White else Color.White.copy(alpha = 0.5f), CircleShape)
-                    .clickable(enabled = enabled, onClick = onClick),
+                    .background(
+                        if (enabled) Color.White else Color.White.copy(alpha = DISABLED_BUTTON_ALPHA),
+                        CircleShape,
+                    ).clickable(enabled = enabled, onClick = onClick)
+                    .semantics { contentDescription = startLabel },
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -273,6 +290,10 @@ private fun RecordingStatusPanel(
             color = Color.White,
             fontSize = 56.sp,
             fontWeight = FontWeight.Bold,
+            style =
+                MaterialTheme.typography.displaySmall.copy(
+                    fontFeatureSettings = TABULAR_NUMBERS,
+                ),
         )
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -321,3 +342,5 @@ private const val HERO_WEIGHT = 1.2f
 private const val SIDE_WEIGHT = 0.8f
 private const val SEGMENT_CONTAINER_ALPHA = 0.12f
 private const val CHIP_CONTAINER_ALPHA = 0.14f
+private const val DISABLED_BUTTON_ALPHA = 0.5f
+private const val TABULAR_NUMBERS = "tnum"

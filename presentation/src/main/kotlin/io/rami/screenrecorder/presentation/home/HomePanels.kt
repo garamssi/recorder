@@ -89,6 +89,8 @@ internal fun CountdownOverlay(
     remainingSeconds: Int,
     onTap: () -> Unit,
 ) {
+    // 뒤로가기도 탭과 동일하게 스킵 처리한다 (화면 이탈로 좀비 세션이 생기는 것을 방지).
+    androidx.activity.compose.BackHandler(onBack = onTap)
     Box(
         modifier =
             Modifier
@@ -104,6 +106,10 @@ internal fun CountdownOverlay(
                 fontSize = 120.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
+                style =
+                    MaterialTheme.typography.displaySmall.copy(
+                        fontFeatureSettings = TABULAR_NUMBERS_FEATURE,
+                    ),
             )
             Text(
                 text = stringResource(R.string.home_countdown_skip_hint),
@@ -120,4 +126,6 @@ internal fun formatGigabytes(bytes: Long): String {
 }
 
 private const val COUNTDOWN_DIM_ALPHA = 0.72f
+private const val TABULAR_NUMBERS_FEATURE = "tnum"
+
 private const val BYTES_PER_GB_FLOAT = 1_000_000_000f
