@@ -17,6 +17,9 @@ work = "2.11.2"
 media3 = "1.11.0"
 javaxInject = "1"
 junit = "5.14.4"
+junit4 = "4.13.2"
+androidxTest = "1.7.0"
+androidxTestRunner = "1.7.0"
 mockk = "1.14.11"
 turbine = "1.2.1"
 robolectric = "4.16.1"
@@ -42,6 +45,9 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+junit4 = { group = "junit", name = "junit", version.ref = "junit4" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTest" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 
 # DI

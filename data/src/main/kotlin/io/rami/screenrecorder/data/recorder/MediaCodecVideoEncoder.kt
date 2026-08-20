@@ -106,9 +106,6 @@ class MediaCodecVideoEncoder : VideoEncoder {
                 index: Int,
                 info: MediaCodec.BufferInfo,
             ) {
-                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
-                    endOfStreamLatch.countDown()
-                }
                 val isCodecConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                 if (info.size > 0 && !isCodecConfig) {
                     val buffer = checkNotNull(codec.getOutputBuffer(index)) { "출력 버퍼가 없다: $index" }
@@ -121,6 +118,12 @@ class MediaCodecVideoEncoder : VideoEncoder {
                     )
                 }
                 codec.releaseOutputBuffer(index, false)
+                // 반드시 버퍼 해제 후에 신호한다 — 먼저 내리면 stopAndRelease()의 codec.stop()과
+                // 이 콜백의 releaseOutputBuffer()가 경합해 IllegalStateException이 난다
+                // (EncoderThroughputTest가 재현한 실기기 레이스).
+                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                    endOfStreamLatch.countDown()
+                }
             }
 
             override fun onOutputFormatChanged(
