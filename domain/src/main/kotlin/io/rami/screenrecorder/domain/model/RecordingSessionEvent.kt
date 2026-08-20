@@ -32,6 +32,13 @@ sealed interface RecordingSessionEvent {
     data class AutoStopped(
         val reason: AutoStopReason,
     ) : RecordingSessionEvent
+
+    /**
+     * 부분 영역 녹화 중 회전 감지로 자동 일시정지됨 (기능명세서 5절 [결정]).
+     *
+     * UI는 "영역을 다시 지정하거나 중지하세요" 알림을 표시한다.
+     */
+    data object RegionInvalidatedByRotation : RecordingSessionEvent
 }
 
 /** 일시정지 자동 중지 정책 (기능명세서 11.2절 [결정]). */
