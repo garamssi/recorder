@@ -32,7 +32,49 @@ data class CropGeometry(
             cropRegion: CaptureRegion?,
             outputSize: Resolution,
         ): CropGeometry {
-            TODO("RED: 구현 전")
+            val sourceRect =
+                if (cropRegion == null) {
+                    NormalizedRect(0f, 0f, 1f, 1f)
+                } else {
+                    NormalizedRect(
+                        left = cropRegion.x.toFloat() / sourceSize.width,
+                        top = cropRegion.y.toFloat() / sourceSize.height,
+                        right = cropRegion.right.toFloat() / sourceSize.width,
+                        bottom = cropRegion.bottom.toFloat() / sourceSize.height,
+                    )
+                }
+            val contentWidth = cropRegion?.width ?: sourceSize.width
+            val contentHeight = cropRegion?.height ?: sourceSize.height
+            return CropGeometry(sourceRect, letterbox(contentWidth, contentHeight, outputSize))
         }
+
+        /** 콘텐츠 비율을 유지한 채 출력 안에 중앙 배치한다 (명세 5절: 레터박스). */
+        private fun letterbox(
+            contentWidth: Int,
+            contentHeight: Int,
+            outputSize: Resolution,
+        ): Viewport {
+            // 어느 축을 출력에 꽉 채울지: 콘텐츠가 출력보다 상대적으로 넓으면 너비 기준.
+            val fillWidth =
+                contentWidth.toLong() * outputSize.height >= contentHeight.toLong() * outputSize.width
+            val width: Int
+            val height: Int
+            if (fillWidth) {
+                width = outputSize.width
+                height = evenDown(outputSize.width.toLong() * contentHeight / contentWidth)
+            } else {
+                height = outputSize.height
+                width = evenDown(outputSize.height.toLong() * contentWidth / contentHeight)
+            }
+            return Viewport(
+                x = (outputSize.width - width) / 2,
+                y = (outputSize.height - height) / 2,
+                width = width,
+                height = height,
+            )
+        }
+
+        /** GL 뷰포트/색차 정렬을 위해 짝수로 내림한다. */
+        private fun evenDown(value: Long): Int = (value - (value % 2)).toInt()
     }
 }
