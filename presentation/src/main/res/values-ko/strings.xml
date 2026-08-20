@@ -154,4 +154,8 @@
     <string name="compress_trash_original">휴지통으로 이동</string>
     <string name="compress_keep_original">유지</string>
     <string name="compress_busy">다른 압축 작업이 진행 중입니다.</string>
+    <string name="recovery_title">이전 녹화 복구</string>
+    <string name="recovery_message">예기치 않게 종료되어 저장되지 못한 녹화(%1$s)가 있습니다. 복구할까요, 삭제할까요?</string>
+    <string name="recovery_restore">복구</string>
+    <string name="recovery_delete">삭제</string>
 </resources>

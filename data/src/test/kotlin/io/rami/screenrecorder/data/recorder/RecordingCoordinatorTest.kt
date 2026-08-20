@@ -140,28 +140,37 @@ class RecordingCoordinatorTest {
     private class FakeFileStore : RecordingFileStore {
         var publishedFileName: String? = null
 
+        /** true면 빈 녹화(저장할 내용 없음)를 흉내내 null을 반환한다. */
+        var publishReturnsEmpty = false
+
         override fun createTempFile(fileName: String): File = File("build/tmp/fake/$fileName")
+
+        override fun listTempFiles(): List<File> = emptyList()
 
         override suspend fun existingFileNames(): Set<String> = emptySet()
 
         override suspend fun publish(
             tempFile: File,
             fileName: String,
-        ) = io.rami.screenrecorder.domain.model
-            .Recording(
-                id =
-                    io.rami.screenrecorder.domain.model
-                        .RecordingId(42),
-                displayName = fileName,
-                contentUri = "content://media/42",
-                sizeBytes = 1_000,
-                duration = kotlin.time.Duration.ZERO,
-                resolution = Resolution.FHD,
-                frameRate = 60,
-                codec = io.rami.screenrecorder.domain.model.VideoCodec.H264,
-                createdAtEpochMillis = 0,
-                bitrateBps = null,
-            ).also { publishedFileName = fileName }
+        ): io.rami.screenrecorder.domain.model.Recording? {
+            if (publishReturnsEmpty) return null
+            publishedFileName = fileName
+            return io.rami.screenrecorder.domain.model
+                .Recording(
+                    id =
+                        io.rami.screenrecorder.domain.model
+                            .RecordingId(42),
+                    displayName = fileName,
+                    contentUri = "content://media/42",
+                    sizeBytes = 1_000,
+                    duration = kotlin.time.Duration.ZERO,
+                    resolution = Resolution.FHD,
+                    frameRate = 60,
+                    codec = io.rami.screenrecorder.domain.model.VideoCodec.H264,
+                    createdAtEpochMillis = 0,
+                    bitrateBps = null,
+                )
+        }
     }
 
     // --- 테스트 픽스처 ---
@@ -351,6 +360,24 @@ class RecordingCoordinatorTest {
             assertEquals(1, encoder.stopCount)
             assertTrue(muxer.closed)
             assertEquals("Rec_test.mp4", fileStore.publishedFileName)
+            assertEquals(RecordingState.Idle, coordinator.state.value)
+        }
+
+    @Test
+    fun `녹화된 내용이 없으면 완료 이벤트 없이 유휴로 돌아간다`() =
+        runTest {
+            // 시작 직후 프레임이 하나도 인코딩되기 전에 중지하면 빈 파일이 된다 (root cause 대응).
+            fileStore.publishReturnsEmpty = true
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+
+            coordinator.completedRecordings.test {
+                coordinator.stop()
+
+                expectNoEvents()
+            }
+            assertTrue(muxer.closed)
+            assertNull(fileStore.publishedFileName)
             assertEquals(RecordingState.Idle, coordinator.state.value)
         }
 

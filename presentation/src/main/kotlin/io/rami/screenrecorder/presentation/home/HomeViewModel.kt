@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.rami.screenrecorder.domain.model.AutoBitratePolicy
 import io.rami.screenrecorder.domain.model.BitrateOption
 import io.rami.screenrecorder.domain.model.CaptureModeKind
+import io.rami.screenrecorder.domain.model.PendingRecovery
 import io.rami.screenrecorder.domain.model.RecordableTimeEstimator
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingConfig
@@ -14,18 +15,24 @@ import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.SortOrder
 import io.rami.screenrecorder.domain.repository.StorageRepository
+import io.rami.screenrecorder.domain.usecase.DiscardRecoveryUseCase
+import io.rami.screenrecorder.domain.usecase.GetPendingRecoveriesUseCase
 import io.rami.screenrecorder.domain.usecase.GetRecordingsUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveCompletedRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
+import io.rami.screenrecorder.domain.usecase.RecoverRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.time.Duration
@@ -54,6 +61,9 @@ class HomeUseCases
         val getRecordings: GetRecordingsUseCase,
         val observeCompletedRecording: ObserveCompletedRecordingUseCase,
         val renameRecording: RenameRecordingUseCase,
+        val getPendingRecoveries: GetPendingRecoveriesUseCase,
+        val recoverRecording: RecoverRecordingUseCase,
+        val discardRecovery: DiscardRecoveryUseCase,
     )
 
 /** 홈 화면 ViewModel (기능명세서 2절). */
@@ -70,9 +80,22 @@ class HomeViewModel
         private val observeSettings = useCases.observeSettings
         private val observeRecordingState = useCases.observeRecordingState
         private val getRecordings = useCases.getRecordings
+        private val recoverRecording = useCases.recoverRecording
+        private val discardRecovery = useCases.discardRecovery
 
         /** 저장 완료 이벤트 (기능명세서 6.2절: 저장 직후 스낵바에서 이름 변경). */
         val completedRecordings: Flow<Recording> = useCases.observeCompletedRecording()
+
+        private val mutablePendingRecoveries = MutableStateFlow<List<PendingRecovery>>(emptyList())
+
+        /** 크래시로 발행되지 못한 임시 녹화 목록 (기능명세서 6.1절: 복구/삭제 제안). */
+        val pendingRecoveries: StateFlow<List<PendingRecovery>> = mutablePendingRecoveries.asStateFlow()
+
+        init {
+            viewModelScope.launch {
+                mutablePendingRecoveries.value = useCases.getPendingRecoveries()
+            }
+        }
 
         /** 결합된 홈 상태 스트림. */
         val uiState: StateFlow<HomeUiState> =
@@ -127,6 +150,26 @@ class HomeViewModel
         /** 카운트다운 오버레이 탭 = 즉시 시작 (기능명세서 3절). */
         fun onCountdownTapped() {
             skipCountdown()
+        }
+
+        /** 임시 파일 복구 확정 (기능명세서 6.1절). MediaStore로 발행하고 목록에서 제거한다. */
+        fun onRecoverConfirmed(id: String) {
+            viewModelScope.launch {
+                recoverRecording(id)
+                removePending(id)
+            }
+        }
+
+        /** 임시 파일 삭제 (기능명세서 6.1절). */
+        fun onDiscardRecovery(id: String) {
+            viewModelScope.launch {
+                discardRecovery(id)
+                removePending(id)
+            }
+        }
+
+        private fun removePending(id: String) {
+            mutablePendingRecoveries.update { list -> list.filterNot { it.id == id } }
         }
 
         private fun RecordingConfig.estimateBitrateBps(): Int =

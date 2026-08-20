@@ -154,4 +154,8 @@
     <string name="compress_trash_original">Move to trash</string>
     <string name="compress_keep_original">Keep</string>
     <string name="compress_busy">Another compression is in progress.</string>
+    <string name="recovery_title">Recover last recording</string>
+    <string name="recovery_message">A recording (%1$s) was left unsaved after an unexpected exit. Restore it or delete it?</string>
+    <string name="recovery_restore">Restore</string>
+    <string name="recovery_delete">Delete</string>
 </resources>

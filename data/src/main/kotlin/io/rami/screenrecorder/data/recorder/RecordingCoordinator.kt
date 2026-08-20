@@ -284,7 +284,8 @@ class RecordingCoordinator(
                         }
                         fileStore.publish(session.tempFile, session.fileName)
                     }
-                mutableCompleted.emit(recording)
+                // 프레임이 하나도 인코딩되지 않은 빈 세션은 저장할 내용이 없으므로 완료를 알리지 않는다.
+                recording?.let { mutableCompleted.emit(it) }
             } finally {
                 activeSession = null
                 mutableState.value = RecordingState.Idle

@@ -79,6 +79,8 @@ class AutoStopTest {
     private class NoopFileStore : RecordingFileStore {
         override fun createTempFile(fileName: String) = File("build/tmp/fake/$fileName")
 
+        override fun listTempFiles(): List<java.io.File> = emptyList()
+
         override suspend fun existingFileNames(): Set<String> = emptySet()
 
         override suspend fun publish(

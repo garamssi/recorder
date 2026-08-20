@@ -95,6 +95,28 @@ class HomeViewModelTest {
             override suspend fun permanentlyDelete(ids: List<RecordingId>) = Unit
         }
 
+    private val recoveryRepository =
+        object : io.rami.screenrecorder.domain.repository.RecordingRecoveryRepository {
+            var pending =
+                listOf(
+                    io.rami.screenrecorder.domain.model
+                        .PendingRecovery("t.mp4", "t.mp4", 10),
+                )
+            val discarded = mutableListOf<String>()
+            val recovered = mutableListOf<String>()
+
+            override suspend fun pendingRecoveries() = pending
+
+            override suspend fun recover(id: String): Recording? {
+                recovered += id
+                return null
+            }
+
+            override suspend fun discard(id: String) {
+                discarded += id
+            }
+        }
+
     private fun viewModel(): HomeViewModel =
         HomeViewModel(
             useCases =
@@ -110,6 +132,15 @@ class HomeViewModelTest {
                     renameRecording =
                         io.rami.screenrecorder.domain.usecase
                             .RenameRecordingUseCase(libraryRepository),
+                    getPendingRecoveries =
+                        io.rami.screenrecorder.domain.usecase
+                            .GetPendingRecoveriesUseCase(recoveryRepository),
+                    recoverRecording =
+                        io.rami.screenrecorder.domain.usecase
+                            .RecoverRecordingUseCase(recoveryRepository),
+                    discardRecovery =
+                        io.rami.screenrecorder.domain.usecase
+                            .DiscardRecoveryUseCase(recoveryRepository),
                 ),
             storageRepository = StorageRepository { availableBytes },
         )
@@ -136,6 +167,46 @@ class HomeViewModelTest {
                 assertEquals(10_000_000_000L, state.availableBytes)
                 assertTrue(state.canStartRecording)
                 assertTrue(state.estimatedRecordableTime > 30.minutes)
+            }
+        }
+
+    @Test
+    fun `초기화 시 미발행 임시 파일을 복구 대기 목록으로 노출한다`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.pendingRecoveries.test {
+                assertEquals(emptyList<Any>(), awaitItem()) // 초기값
+                assertEquals(listOf("t.mp4"), awaitItem().map { it.id })
+            }
+        }
+
+    @Test
+    fun `복구를 확정하면 저장소에 위임하고 목록에서 제거한다`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.pendingRecoveries.test {
+                skipItems(1)
+                assertEquals(listOf("t.mp4"), awaitItem().map { it.id })
+
+                viewModel.onRecoverConfirmed("t.mp4")
+
+                assertEquals(emptyList<Any>(), awaitItem())
+                assertEquals(listOf("t.mp4"), recoveryRepository.recovered)
+            }
+        }
+
+    @Test
+    fun `복구를 거부하면 임시 파일을 삭제하고 목록에서 제거한다`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.pendingRecoveries.test {
+                skipItems(1)
+                assertEquals(listOf("t.mp4"), awaitItem().map { it.id })
+
+                viewModel.onDiscardRecovery("t.mp4")
+
+                assertEquals(emptyList<Any>(), awaitItem())
+                assertEquals(listOf("t.mp4"), recoveryRepository.discarded)
             }
         }
 

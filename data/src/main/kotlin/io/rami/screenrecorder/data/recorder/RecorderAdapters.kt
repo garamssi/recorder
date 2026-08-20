@@ -181,14 +181,22 @@ interface RecordingFileStore {
     /** 앱 전용 캐시에 [fileName] 임시 파일을 만든다. */
     fun createTempFile(fileName: String): File
 
+    /** 앱 전용 캐시에 남아 있는 임시 파일 목록 (크래시 복구 감지용, 기능명세서 6.1절). */
+    fun listTempFiles(): List<File>
+
     /** 사용 중인 최종 파일명 집합 (충돌 순번용). */
     suspend fun existingFileNames(): Set<String>
 
-    /** [tempFile]을 MediaStore로 이동(IS_PENDING insert→해제)하고 저장된 녹화본을 반환한다. */
+    /**
+     * [tempFile]을 MediaStore로 이동(IS_PENDING insert→해제)하고 저장된 녹화본을 반환한다.
+     *
+     * 녹화된 내용이 없는 빈/손상 파일이면 임시 파일을 정리하고 null을 반환한다
+     * (프레임이 인코딩되기 전에 중지된 경우 — 오류가 아니라 저장할 내용이 없는 정상 경로).
+     */
     suspend fun publish(
         tempFile: File,
         fileName: String,
-    ): io.rami.screenrecorder.domain.model.Recording
+    ): io.rami.screenrecorder.domain.model.Recording?
 }
 
 /** 디스플레이 정보 제공자 (기기 최대 해상도 해석용). */

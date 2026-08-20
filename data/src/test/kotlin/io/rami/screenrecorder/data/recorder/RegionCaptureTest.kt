@@ -258,6 +258,8 @@ internal class CoordinatorHarness {
     class NoopFileStore : RecordingFileStore {
         override fun createTempFile(fileName: String): java.io.File = java.io.File("build/tmp/fake/$fileName")
 
+        override fun listTempFiles(): List<java.io.File> = emptyList()
+
         override suspend fun existingFileNames(): Set<String> = emptySet()
 
         override suspend fun publish(

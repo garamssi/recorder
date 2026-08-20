@@ -147,7 +147,52 @@ fun HomeScreen(
             onDismiss = { renameTarget = null },
         )
     }
+
+    // 크래시로 발행되지 못한 임시 파일을 한 건씩 복구/삭제 제안한다 (기능명세서 6.1절).
+    val pendingRecoveries by viewModel.pendingRecoveries.collectAsState()
+    pendingRecoveries.firstOrNull()?.let { recovery ->
+        RecoveryDialog(
+            recovery = recovery,
+            onRecover = { viewModel.onRecoverConfirmed(recovery.id) },
+            onDiscard = { viewModel.onDiscardRecovery(recovery.id) },
+        )
+    }
 }
+
+/** 크래시 복구 다이얼로그 (기능명세서 6.1절: 복구/삭제 제안). */
+@Composable
+private fun RecoveryDialog(
+    recovery: io.rami.screenrecorder.domain.model.PendingRecovery,
+    onRecover: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { /* 명시적 선택을 강제한다 — 임의 dismiss로 파일이 방치되지 않게 */ },
+        title = { Text(stringResource(R.string.recovery_title)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.recovery_message,
+                    formatRecoverySize(recovery.sizeBytes),
+                ),
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onRecover) {
+                Text(stringResource(R.string.recovery_restore))
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDiscard) {
+                Text(stringResource(R.string.recovery_delete))
+            }
+        },
+    )
+}
+
+private fun formatRecoverySize(bytes: Long): String = "%.1fMB".format(bytes / BYTES_PER_MB)
+
+private const val BYTES_PER_MB = 1_000_000f
 
 /** 옵션 시트와 카운트다운 오버레이 (기능명세서 2.1, 3절). */
 @Composable
