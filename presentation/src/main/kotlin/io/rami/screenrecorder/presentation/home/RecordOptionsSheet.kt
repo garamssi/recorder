@@ -4,12 +4,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,10 +30,6 @@ import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.ResolutionOption
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.presentation.R
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 /** 녹화 옵션 시트 (기능명세서 2.1절 빠른 선택, DESIGN_GUIDE 1b: 칩 선택형). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,9 +39,15 @@ fun RecordOptionsSheet(
     onPresetChanged: ((RecordingConfig) -> RecordingConfig) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    // 열자마자 전체 높이로 펼쳐 모든 옵션이 한 번에 보이게 한다 (부분 펼침 단계 생략).
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -87,17 +92,14 @@ fun RecordOptionsSheet(
     }
 }
 
-/** 시간 제한 선택 행 (기능명세서 11.4절 프리셋 + 직접 입력). */
+/** 시간 제한 선택 행 (기능명세서 11.4절: 제한 없음 / 직접 입력). */
 @Composable
 private fun TimeLimitRow(
     preset: RecordingConfig,
     onPresetChanged: ((RecordingConfig) -> RecordingConfig) -> Unit,
 ) {
     var showCustomInput by remember { mutableStateOf(false) }
-    // 프리셋 목록에 없는 Limited 값이면 직접 입력한 것으로 본다.
-    val isCustom =
-        preset.timeLimit is TimeLimit.Limited &&
-            (preset.timeLimit as TimeLimit.Limited).duration !in timeLimitChoices
+    val limited = preset.timeLimit as? TimeLimit.Limited
 
     OptionRow(label = stringResource(R.string.options_time_limit)) {
         FilterChip(
@@ -105,20 +107,14 @@ private fun TimeLimitRow(
             onClick = { onPresetChanged { it.copy(timeLimit = TimeLimit.None) } },
             label = { Text(stringResource(R.string.options_time_limit_none)) },
         )
-        timeLimitChoices.forEach { duration ->
-            FilterChip(
-                selected = (preset.timeLimit as? TimeLimit.Limited)?.duration == duration,
-                onClick = { onPresetChanged { it.copy(timeLimit = TimeLimit.Limited(duration)) } },
-                label = { Text(DurationFormatter.formatElapsed(duration)) },
-            )
-        }
+        // 직접 입력: 확정 값이 있으면 그 시간을, 없으면 "직접 입력" 안내를 표시한다.
         FilterChip(
-            selected = isCustom,
+            selected = limited != null,
             onClick = { showCustomInput = true },
             label = {
                 Text(
-                    if (isCustom) {
-                        DurationFormatter.formatElapsed((preset.timeLimit as TimeLimit.Limited).duration)
+                    if (limited != null) {
+                        DurationFormatter.formatElapsed(limited.duration)
                     } else {
                         stringResource(R.string.options_time_limit_custom)
                     },
@@ -164,7 +160,3 @@ private val resolutionChoices =
         ResolutionOption.Fixed(Resolution.FHD),
         ResolutionOption.Fixed(Resolution.HD),
     )
-
-/** 시간 제한 프리셋 (기능명세서 11.4절, 직접 입력은 후속). */
-private val timeLimitChoices: List<Duration> =
-    listOf(30.seconds, 1.minutes, 3.minutes, 5.minutes, 10.minutes, 30.minutes, 1.hours)
