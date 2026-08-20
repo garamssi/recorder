@@ -40,6 +40,10 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
