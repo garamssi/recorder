@@ -1,6 +1,5 @@
 package io.rami.screenrecorder.presentation.player
 
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +11,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -30,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -110,6 +107,11 @@ private fun PlayerContent(
     }
     LaunchedEffect(playbackSpeed) { player.setPlaybackSpeed(playbackSpeed) }
 
+    // 전체 화면에서는 시스템 바를 숨겨 몰입형으로 전환한다 (기능명세서 10절).
+    val view = LocalView.current
+    LaunchedEffect(isFullscreen) { applyImmersive(view, isFullscreen) }
+    DisposableEffect(Unit) { onDispose { applyImmersive(view, immersive = false) } }
+
     Scaffold(
         topBar = {
             if (!isFullscreen) {
@@ -125,99 +127,129 @@ private fun PlayerContent(
         ) {
             PlayerSurface(
                 player = player,
+                onFullscreenToggle = { isFullscreen = it },
                 modifier = Modifier.weight(1f),
             )
             if (!isFullscreen) {
-                SpeedAndFullscreenRow(
+                SpeedRow(
                     playbackSpeed = playbackSpeed,
                     onSpeedSelected = { playbackSpeed = it },
-                    onFullscreen = { isFullscreen = true },
                 )
             }
         }
     }
     if (isFullscreen) {
-        // 전체 화면에서 뒤로가기는 일반 모드 복귀 (기능명세서 10절 전체 화면 토글).
+        // 전체 화면에서 뒤로가기 = 일반 모드 복귀 (컨트롤러의 전체화면 버튼과 함께 이중 탈출 경로).
         androidx.activity.compose.BackHandler { isFullscreen = false }
     }
 }
 
-/** 재생 서피스 + 더블 탭 ±10초 (기능명세서 10절). */
+/**
+ * ExoPlayer 재생 서피스.
+ *
+ * PlayerView 내장 컨트롤러(재생/일시정지·시크바·±10초 버튼·단일 탭 표시)를 그대로 쓰고,
+ * 전체 화면 토글은 컨트롤러의 전체화면 버튼으로 노출한다. 더블 탭 ±10초는 이벤트를 소비하지
+ * 않는 GestureDetector로 얹어 컨트롤러 동작을 막지 않는다 (이전 오버레이 방식의 버그 수정).
+ */
 @Composable
 private fun PlayerSurface(
     player: ExoPlayer,
+    onFullscreenToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
-    Box(modifier = modifier) {
-        AndroidView(
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    this.player = player
-                    setShowNextButton(false)
-                    setShowPreviousButton(false)
-                    playerViewRef = this
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
+    AndroidView(
+        factory = { viewContext -> buildPlayerView(viewContext, player, onFullscreenToggle) },
+        modifier = modifier,
+    )
+}
+
+@android.annotation.SuppressLint("ClickableViewAccessibility")
+private fun buildPlayerView(
+    context: android.content.Context,
+    player: ExoPlayer,
+    onFullscreenToggle: (Boolean) -> Unit,
+): PlayerView =
+    PlayerView(context).apply {
+        this.player = player
+        setShowNextButton(false)
+        setShowPreviousButton(false)
+        // 컨트롤러에 전체화면 버튼을 노출한다 — 진입/복귀 모두 이 버튼으로 가능하다.
+        setFullscreenButtonClickListener(onFullscreenToggle::invoke)
+        val doubleTapDetector =
+            android.view.GestureDetector(
+                context,
+                object : android.view.GestureDetector.SimpleOnGestureListener() {
+                    override fun onDoubleTap(event: android.view.MotionEvent): Boolean {
+                        if (event.x < width / 2f) player.seekBack() else player.seekForward()
+                        return true
+                    }
+                },
+            )
+        // 이벤트를 소비하지 않으므로(반환 false) PlayerView의 단일 탭·버튼 처리가 그대로 동작한다.
+        setOnTouchListener { _, event ->
+            doubleTapDetector.onTouchEvent(event)
+            false
+        }
+    }
+
+/** 배속 선택 (기능명세서 10절: 0.5x~2.0x, 0.1 단위 선택). */
+@Composable
+private fun SpeedRow(
+    playbackSpeed: Float,
+    onSpeedSelected: (Float) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.player_speed_label),
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(end = 8.dp),
         )
-        // 좌/우 반면 더블 탭 = 뒤로/앞으로 10초, 단일 탭 = 컨트롤러 토글 위임.
-        Row(modifier = Modifier.fillMaxSize()) {
-            DoubleTapArea(
-                onDoubleTap = { player.seekBack() },
-                onSingleTap = { playerViewRef?.performClick() },
-                modifier = Modifier.weight(1f),
-            )
-            DoubleTapArea(
-                onDoubleTap = { player.seekForward() },
-                onSingleTap = { playerViewRef?.performClick() },
-                modifier = Modifier.weight(1f),
-            )
+        Box {
+            androidx.compose.material3.OutlinedButton(onClick = { expanded = true }) {
+                Text(stringResource(R.string.player_speed_format, formatSpeed(playbackSpeed)))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                PLAYBACK_SPEEDS.forEach { speed ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(R.string.player_speed_format, formatSpeed(speed)) +
+                                    if (speed == playbackSpeed) "  ✓" else "",
+                            )
+                        },
+                        onClick = {
+                            onSpeedSelected(speed)
+                            expanded = false
+                        },
+                    )
+                }
+            }
         }
     }
 }
 
-@Composable
-private fun DoubleTapArea(
-    onDoubleTap: () -> Unit,
-    onSingleTap: () -> Unit,
-    modifier: Modifier = Modifier,
+/** 전체 화면 몰입 모드로 시스템 바를 숨기거나 되돌린다. */
+private fun applyImmersive(
+    view: android.view.View,
+    immersive: Boolean,
 ) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = { onDoubleTap() },
-                        onTap = { onSingleTap() },
-                    )
-                },
-    )
-}
-
-/** 배속 칩 + 전체 화면 토글 (기능명세서 10절). */
-@Composable
-private fun SpeedAndFullscreenRow(
-    playbackSpeed: Float,
-    onSpeedSelected: (Float) -> Unit,
-    onFullscreen: () -> Unit,
-) {
-    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        PLAYBACK_SPEEDS.forEach { speed ->
-            FilterChip(
-                selected = playbackSpeed == speed,
-                onClick = { onSpeedSelected(speed) },
-                label = {
-                    Text(stringResource(R.string.player_speed_format, formatSpeed(speed)))
-                },
-                modifier = Modifier.padding(end = 8.dp),
-            )
-        }
-        // material-icons-core에는 Fullscreen 아이콘이 없어 텍스트 버튼으로 제공한다.
-        androidx.compose.material3.TextButton(onClick = onFullscreen) {
-            Text(stringResource(R.string.player_fullscreen))
-        }
+    val window = (view.context as? android.app.Activity)?.window ?: return
+    val controller =
+        androidx.core.view.WindowCompat
+            .getInsetsController(window, view)
+    val systemBars =
+        androidx.core.view.WindowInsetsCompat.Type
+            .systemBars()
+    if (immersive) {
+        controller.systemBarsBehavior =
+            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(systemBars)
+    } else {
+        controller.show(systemBars)
     }
 }
 
@@ -301,9 +333,15 @@ private fun PlayerTopBar(
     }
 }
 
-private fun formatSpeed(speed: Float): String =
-    if (speed == speed.toInt().toFloat()) speed.toInt().toString() else speed.toString()
+/** 항상 소수 첫째 자리까지 표시한다 (예: 0.5, 1.0, 1.5). */
+private fun formatSpeed(speed: Float): String = "%.1f".format(speed)
 
-private val PLAYBACK_SPEEDS = listOf(0.5f, 1f, 1.5f, 2f)
+/** 0.5x부터 2.0x까지 0.1 단위 (정수 스텝을 10으로 나눠 부동소수 드리프트를 줄인다). */
+private val PLAYBACK_SPEEDS: List<Float> =
+    (SPEED_MIN_STEPS..SPEED_MAX_STEPS).map { it / SPEED_DENOMINATOR }
+
+private const val SPEED_DENOMINATOR = 10f
+private const val SPEED_MIN_STEPS = 5 // 0.5x
+private const val SPEED_MAX_STEPS = 20 // 2.0x
 private const val DEFAULT_SPEED = 1f
 private const val SEEK_INCREMENT_MS = 10_000L
