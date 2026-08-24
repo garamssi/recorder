@@ -27,7 +27,7 @@ internal sealed interface BubbleState {
 }
 
 /** 펼침 메뉴 한 줄의 구성. */
-private class BubbleMenuItem(
+internal class BubbleMenuItem(
     val iconRes: Int,
     val labelRes: Int,
     val accent: Boolean = false,
@@ -91,11 +91,7 @@ internal class FloatingCaptureBubble(
         if (root != null) return
         this.actions = actions
         val container = FrameLayout(context)
-        val stack =
-            LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.END
-            }
+        val stack = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         container.addView(stack)
         root = container
         content = stack
@@ -140,13 +136,15 @@ internal class FloatingCaptureBubble(
         baseView = base
         menuRows =
             if (expanded) {
-                context.bubbleMenuRows(menuItemsFor(state, actions)) { collapseThen(it.onClick) }
+                context.bubbleMenuRows(menuItemsFor(state, actions), position.snappedToRight) {
+                    collapseThen(it.onClick)
+                }
             } else {
                 emptyList()
             }
         // 총 높이는 순서와 무관하므로 잠정 배치로 재고, 방향이 정해지면 그때 순서를 바꾼다.
         menuBelowBase = false
-        stack.arrange(menuRows, base, menuBelowBase = false)
+        stack.arrange(menuRows, base, menuBelowBase = false, snappedToRight = position.snappedToRight)
         attachDrag()
         place(position::keepOnScreen)
     }
@@ -177,7 +175,7 @@ internal class FloatingCaptureBubble(
         val below = reposition(container, base)
         if (below == menuBelowBase) return
         menuBelowBase = below
-        stack.arrange(menuRows, base, below)
+        stack.arrange(menuRows, base, below, position.snappedToRight)
     }
 
     /**
@@ -192,7 +190,12 @@ internal class FloatingCaptureBubble(
             windowManager = windowManager,
             layoutParams = layoutParams,
             onTap = { toggleExpanded() },
-            onSnapped = { toRight -> place { container, base -> position.onSnapped(toRight, container, base) } },
+            onSnapped = { toRight ->
+                // 반대쪽 변으로 옮겨 가면 라벨 위치와 정렬이 뒤집히므로 메뉴를 다시 만든다.
+                val edgeChanged = position.snappedToRight != toRight
+                place { container, base -> position.onSnapped(toRight, container, base) }
+                if (edgeChanged && expanded) rebuild()
+            },
         ).attachTo(handle)
     }
 
@@ -231,7 +234,7 @@ private fun Context.overlayLayoutParams() =
         }
 
 /** 접힘/펼침 토글 버튼. 펼침 상태에서는 닫기 아이콘이 된다. */
-private fun Context.bubbleToggle(
+internal fun Context.bubbleToggle(
     expanded: Boolean,
     onToggle: () -> Unit,
 ): View {
@@ -240,9 +243,10 @@ private fun Context.bubbleToggle(
     return circleButton(icon, label, accent = !expanded, onClick = onToggle)
 }
 
-/** 펼침 메뉴 줄들. */
-private fun Context.bubbleMenuRows(
+/** 펼침 메뉴 줄들. 라벨은 붙어 있는 변의 반대쪽에 둔다. */
+internal fun Context.bubbleMenuRows(
     items: List<BubbleMenuItem>,
+    snappedToRight: Boolean,
     onSelect: (BubbleMenuItem) -> Unit,
 ): List<View> =
     items.map { item ->
@@ -250,6 +254,7 @@ private fun Context.bubbleMenuRows(
             iconRes = item.iconRes,
             label = getString(item.labelRes),
             accent = item.accent,
+            labelFirst = snappedToRight,
         ) { onSelect(item) }
     }
 
@@ -262,15 +267,19 @@ private fun menuItemsFor(
     return if (state is BubbleState.Idle) idleMenuItems(callbacks) else inSessionMenuItems(callbacks)
 }
 
-/** 기준 요소와 메뉴 줄을 방향에 맞는 순서로 다시 담는다. */
-private fun LinearLayout.arrange(
+/** 기준 요소와 메뉴 줄을 방향에 맞는 순서와 정렬로 다시 담는다. */
+internal fun LinearLayout.arrange(
     menuRows: List<View>,
     base: View,
     menuBelowBase: Boolean,
+    snappedToRight: Boolean,
 ) {
     removeAllViews()
+    gravity = if (snappedToRight) Gravity.END else Gravity.START
     val ordered = if (menuBelowBase) listOf(base) + menuRows else menuRows + base
-    ordered.forEachIndexed { index, view -> addStacked(view, withGap = index > 0) }
+    ordered.forEachIndexed { index, view ->
+        addStacked(view, withGap = index > 0, alignEnd = snappedToRight)
+    }
 }
 
 /** 모양(펼침 여부·버튼 구성)이 같아 텍스트만 갱신하면 되는지. */

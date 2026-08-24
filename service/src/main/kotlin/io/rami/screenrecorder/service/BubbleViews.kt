@@ -77,21 +77,35 @@ internal fun Context.actionLabel(text: String): TextView =
         )
     }
 
-/** "라벨 + 원형 버튼" 한 줄. 버블이 오른쪽 가장자리에 붙어 있어 라벨을 왼쪽에 둔다. */
+/**
+ * "라벨 + 원형 버튼" 한 줄.
+ *
+ * @param labelFirst 라벨을 버튼보다 앞에 둘지. 버튼이 버블이 붙어 있는 변 쪽에 와야
+ *   펼칠 때 기준 요소가 가로로 밀리지 않는다 (기능명세서 11.1절).
+ */
 internal fun Context.actionRow(
     iconRes: Int,
     label: String,
     accent: Boolean,
+    labelFirst: Boolean,
     onClick: () -> Unit,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        addView(actionLabel(label))
-        // 버튼의 크기 params는 유지하고 왼쪽 간격만 더한다.
+        // 버튼의 크기 params는 유지하고 라벨 쪽 간격만 더한다.
         val button = circleButton(iconRes, label, accent, onClick)
-        (button.layoutParams as LinearLayout.LayoutParams).marginStart = dpToPx(ROW_GAP_DP)
-        addView(button)
+        val buttonParams = button.layoutParams as LinearLayout.LayoutParams
+        val gap = dpToPx(ROW_GAP_DP)
+        if (labelFirst) {
+            buttonParams.marginStart = gap
+            addView(actionLabel(label))
+            addView(button)
+        } else {
+            buttonParams.marginEnd = gap
+            addView(button)
+            addView(actionLabel(label))
+        }
     }
 
 /**
@@ -101,10 +115,12 @@ internal fun Context.actionRow(
  * (원형 버튼이 아이콘 크기로 쪼그라든다), 자식의 기존 params에 정렬과 간격만 얹는다.
  *
  * @param withGap 위쪽 간격을 줄지. 스택의 첫 자식에는 주지 않는다.
+ * @param alignEnd 세로 스택 안에서 오른쪽으로 붙일지. 가로 스택(pill)에서는 의미가 없다.
  */
 internal fun LinearLayout.addStacked(
     child: View,
     withGap: Boolean = true,
+    alignEnd: Boolean = true,
 ) {
     val params =
         child.layoutParams as? LinearLayout.LayoutParams
@@ -112,7 +128,7 @@ internal fun LinearLayout.addStacked(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             )
-    params.gravity = Gravity.END
+    params.gravity = if (alignEnd) Gravity.END else Gravity.START
     params.topMargin = if (withGap) context.dpToPx(ROW_GAP_DP) else 0
     child.layoutParams = params
     addView(child)

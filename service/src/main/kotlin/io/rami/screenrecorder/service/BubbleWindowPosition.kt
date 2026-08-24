@@ -16,7 +16,10 @@ internal class BubbleWindowPosition(
     private val windowManager: WindowManager,
     private val layoutParams: WindowManager.LayoutParams,
 ) {
-    private var snappedToRight = false
+    /** 마지막으로 붙은 변. 메뉴 줄의 라벨 위치와 정렬이 이 값을 따른다. */
+    var snappedToRight = false
+        private set
+
     private var anchorBottom = UNSET_ANCHOR
 
     /**
