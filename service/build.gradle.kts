@@ -27,6 +27,8 @@ android {
 
     testOptions {
         unitTests.all { it.useJUnitPlatform() }
+        // Robolectric 이 R.drawable / R.string 을 읽으려면 리소스를 단위 테스트에 포함해야 한다.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -40,6 +42,9 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage.engine)
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -86,6 +86,8 @@ media3-common = { group = "androidx.media3", name = "media3-common", version.ref
 # 테스트
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform-launcher" }
+# Robolectric 은 JUnit4 러너다. JUnit Platform 위에서 함께 돌리려면 vintage 엔진이 필요하다.
+junit-vintage-engine = { group = "org.junit.vintage", name = "junit-vintage-engine", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
