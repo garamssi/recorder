@@ -1,102 +1,91 @@
 # ScreenRecorder
 
-Android 16(API 36) 태블릿용 화면 녹화 앱. FHD 60fps 이상 녹화, 백그라운드 녹화,
-내부/마이크 오디오, 부분 영역 크롭, 압축, 내장 플레이어를 지원한다.
+Android 16(API 36) 태블릿용 화면 녹화 앱. FHD 60fps 녹화, 백그라운드 녹화, 내부/마이크 오디오,
+부분 영역 크롭, 압축, 내장 플레이어를 지원한다.
 
-> 오프라인 전용 앱이다. 네트워크 권한(INTERNET)을 선언하지 않으며, 녹화물은 기기를 벗어나지 않는다.
+오프라인 전용 앱이다. INTERNET 권한을 선언하지 않으며 녹화물은 기기를 벗어나지 않는다.
 
-## 주요 기능
+## 기능
 
-- **녹화 모드**: 전체 화면 / 단일 앱 / 부분 영역(드래그 선택, GPU 크롭)
-- **해상도·품질**: 기기 최대 / 1080p / 720p, 60·30fps, 자동/고정 비트레이트, H.264·HEVC
-- **오디오**: 내부 재생음(AudioPlaybackCapture) + 마이크, 개별/동시 선택, 볼륨 게인
-- **백그라운드 녹화**: Foreground Service, 경과 시간·일시정지/재개/중지 알림
-- **자동 안전 중지**: 타이머(직접 입력), 저장 공간 부족(200MB), 일시정지 30분 초과
-- **크래시 복구**: 강제 종료로 저장되지 못한 녹화를 다음 실행에서 복구/삭제 제안 (fMP4 기반)
-- **라이브러리**: 리스트/그리드, 정렬·검색·다중 선택, 이름 변경, 공유, 상세 정보
-- **휴지통**: 삭제 = 30일 보관(시스템 휴지통), 복원/영구 삭제
-- **압축**: 고효율(HEVC)/표준/최대 프리셋, 원본 보존, 백그라운드 진행률 알림
-- **플레이어**: ExoPlayer 배속·±10초 점프·전체 화면 (Compose 커스텀 컨트롤, 3초 자동 숨김)
-- **화면 캡처**: 현재 화면 1장을 PNG로 저장 (Pictures/ScreenRecorder)
-- **음성 전용 녹음**: 화면 없이 마이크만 m4a로 저장 (Music/ScreenRecorder)
-- **설정**: 앱별 언어(한국어/English/시스템). 테마는 다크 고정 (Kinetic 디자인, DESIGN_GUIDE.md 0절)
-
-## 실기기 검증 스크립트
-
-타이머 녹화(기능명세서 11.4절)를 자동으로 검증한다. 시간 제한을 설정하고 대상 앱을 띄운 뒤
-녹화를 시작해서, 자동 중지된 파일의 실제 재생 시간이 요청 시간과 맞는지 확인한다.
-
-```bash
-scripts/verify-timer-recording.sh -s 30                          # 현재 화면을 30초
-scripts/verify-timer-recording.sh -s 60 -a com.android.chrome    # Chrome 을 60초 (플로팅 버블로 시작)
-scripts/verify-timer-recording.sh -s 30 -t 2.0 -k                # 허용 오차 2초, 결과 파일 보관
-```
-
-- 종료 코드: `0` 통과 / `1` 시간 불일치 / `2` 준비·조작 오류
-- 필요한 것: `adb`(기기 1대 연결), `ffprobe`, `python3` + Pillow
-- `-a` 를 쓰면 플로팅 캡처 버튼이 켜져 있어야 한다 (설정 > 녹화 > 플로팅 캡처 버튼)
-- UI는 uiautomator 텍스트로 찾고, 오버레이 버블만 스크린샷의 빨간 원으로 찾는다 (`scripts/uiauto.py`)
-- 부분 영역 모드는 영역 지정이 필요해 자동화 대상이 아니다
+- 녹화 모드: 전체 화면 / 단일 앱 / 부분 영역(GPU 크롭)
+- 품질: 기기 최대 / 1080p / 720p, 60·30fps, 자동·고정 비트레이트, H.264·HEVC
+- 오디오: 내부 재생음 + 마이크(개별/동시), 볼륨 게인, 마이크 장치 선택(블루투스 SCO 포함)
+- 백그라운드 녹화: Foreground Service, 알림에서 일시정지·재개·중지
+- 자동 안전 중지: 타이머, 저장 공간 부족, 일시정지 30분 초과
+- 크래시 복구: 저장되지 못한 녹화를 다음 실행에서 복구 또는 삭제
+- 라이브러리: 리스트/그리드, 정렬·검색·다중 선택, 이름 변경, 공유
+- 휴지통: 삭제 시 30일 보관, 복원·영구 삭제
+- 압축: 고효율(HEVC)/표준/최대 프리셋, 원본 보존, 백그라운드 진행
+- 플레이어: 배속, ±10초 점프, 화면 채우기, 볼륨·음소거(시스템 미디어 볼륨 연동)
+- 화면 캡처: PNG 한 장 저장
+- 음성 전용 녹음: 마이크만 m4a로 저장
+- 설정: 앱별 언어(한국어/English/시스템). 테마는 다크 고정
 
 ## 아키텍처
 
 Clean Architecture + MVVM. 의존 방향은 Gradle 모듈로 강제한다.
 
 ```
-app          — DI 조립, MainActivity, 동의/권한/서비스 연동, NavHost
-core/common  — 순수 JVM 유틸 (시간·용량 포맷)
-core/designsystem — Compose 테마·공용 컴포넌트
-domain       — 순수 Kotlin. 모델 / repository 인터페이스 / UseCase (Android 의존 0)
-data         — repository 구현 + 플랫폼 어댑터(MediaProjection/MediaCodec/fMP4/오디오/MediaStore/Transformer)
-presentation — Compose UI + ViewModel (home/library/player/trash/settings/overlay)
-service      — RecordingForegroundService, 알림
+app               DI 조립, MainActivity, 동의·권한, NavHost
+core/common       순수 JVM 유틸
+core/designsystem Compose 테마·공용 컴포넌트
+domain            모델 / repository 인터페이스 / UseCase (Android 의존 없음)
+data              repository 구현 + 플랫폼 어댑터
+presentation      Compose UI + ViewModel
+service           RecordingForegroundService, 알림
 ```
 
-- `presentation → domain ← data` (data↔presentation 상호 참조 금지)
-- 플랫폼 API는 전부 data 계층의 어댑터 인터페이스 뒤로 격리 → JVM 페이크로 단위 테스트, 실물은 계측 테스트
+`presentation -> domain <- data` 이며 data와 presentation은 서로 참조하지 않는다.
+플랫폼 API는 전부 data 계층의 인터페이스 뒤로 격리해 JVM 페이크로 단위 테스트한다.
 
-핵심 설계 결정은 [`docs/adr/`](docs/adr/)에 기록한다:
-- [ADR-0001](docs/adr/0001-fragmented-mp4-muxing.md): fMP4 먹싱 (크래시 복구)
-- [ADR-0002](docs/adr/0002-region-crop-gpu-pipeline.md): 부분 영역 GPU 크롭 파이프라인
+설계 결정 기록: [docs/adr/](docs/adr/)
 
 ## 기술 스택
 
-Kotlin · Jetpack Compose + Material 3 · Hilt · Coroutines/Flow · MediaProjection + VirtualDisplay ·
-MediaCodec + Media3 FragmentedMp4Muxer · AudioRecord + AudioPlaybackCapture · MediaStore ·
-Media3 Transformer + WorkManager(압축) · ExoPlayer · DataStore · coil3(썸네일)
+Kotlin, Jetpack Compose + Material 3, Hilt, Coroutines/Flow,
+MediaProjection + VirtualDisplay, MediaCodec + Media3 FragmentedMp4Muxer,
+AudioRecord + AudioPlaybackCapture, MediaStore, Media3 Transformer + WorkManager, ExoPlayer, DataStore.
 
-- minSdk 34 / targetSdk 36 / compileSdk 37
-- **빌드 JDK: Temurin 21 필수** (JDK 25는 Gradle 미지원)
+minSdk 34 / targetSdk 36 / compileSdk 37. 빌드 JDK는 Temurin 21이 필요하다.
 
 ## 빌드
 
 ```bash
 export JAVA_HOME=/path/to/temurin-21
 
-./gradlew ktlintFormat                 # 포매팅
-./gradlew ktlintCheck detekt           # 정적 분석
-./gradlew test                         # JVM 단위 테스트
-./gradlew :domain:koverVerify          # domain 커버리지 게이트(90%)
-./gradlew connectedAndroidTest         # 실기기 계측 테스트 (fps 등)
-./gradlew assembleDebug                # 디버그 APK
-./gradlew assembleRelease              # release (R8 minify)
+./gradlew ktlintCheck detekt      # 정적 분석
+./gradlew test                    # JVM 단위 테스트
+./gradlew assembleDebug           # 디버그 APK
 
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-모든 커밋 전 `ktlintCheck detekt test`가 통과해야 한다.
+커밋 전 `ktlintCheck detekt test`가 통과해야 한다.
+
+## 검증 스크립트
+
+```bash
+scripts/verify-timer-recording.sh -s 30      # 타이머 녹화 시간이 맞는지 확인
+scripts/verify-recording-audio.sh            # 최신 녹화의 오디오가 무음이 아닌지 확인
+scripts/verify-recording-audio.sh -t voice   # 최신 음성 녹음 확인
+```
+
+기기 1대가 연결된 상태에서 실행한다. `adb`, `ffmpeg`/`ffprobe`, `python3`(Pillow)이 필요하다.
+종료 코드는 0이 통과, 1이 검증 실패, 2가 준비·조작 오류다.
 
 ## 개발 방식
 
-- **TDD**: 실패하는 테스트 먼저 → 최소 구현 → 리팩터. 커밋에 `[RED]`/`[GREEN]`/`[REFACTOR]` 표기.
-- **Root cause 원칙**: 증상을 try-catch/sleep로 감추지 않고 원인을 규명해 수정한다.
-- 기능 동작은 [`기능명세서.md`](기능명세서.md)의 [결정] 사항을 단일 진실 공급원으로 따른다.
-- 규칙 전문은 [`CLAUDE.md`](CLAUDE.md).
+- TDD: 실패하는 테스트를 먼저 작성하고 최소 구현 후 리팩터한다.
+- Root cause 원칙: 증상을 try-catch나 sleep으로 감추지 않고 원인을 규명해 수정한다.
+- 기능 동작은 [기능명세서.md](기능명세서.md)의 [결정] 사항을 단일 진실 공급원으로 따른다.
+- 규칙 전문은 [CLAUDE.md](CLAUDE.md).
 
-## 성능·보안
+## 문서
 
-- 성능 검증 결과: [`docs/performance-report.md`](docs/performance-report.md) (fps 계측, 일시정지 보정, 안정성)
-- 보안 체크리스트: [`docs/security-checklist.md`](docs/security-checklist.md)
+- [docs/performance-report.md](docs/performance-report.md) 성능 검증 결과
+- [docs/security-checklist.md](docs/security-checklist.md) 보안 체크리스트
+- [docs/postmortem/](docs/postmortem/) 장애 원인 분석
+- [DESIGN_GUIDE.md](DESIGN_GUIDE.md) 디자인 가이드
 
 ## 라이선스
 
