@@ -13,30 +13,34 @@ internal data class BubbleScreen(
 )
 
 /**
- * 배치할 창의 실측 크기와 성격.
+ * 배치할 창의 실측 크기.
  *
- * @param isAnchorLayout 이 창이 기준선을 정의하는 접힘(기본) 레이아웃인지.
- *   펼침 레이아웃은 일시적이라, 화면에 맞추느라 밀려난 만큼을 기준선에 반영하면
- *   접을 때 돌아갈 자리를 잃는다.
+ * @param baseHeight 기준 요소(접힘 "+" 버튼 또는 녹화 중 pill)의 높이.
+ *   나머지가 펼침 메뉴이며, 메뉴는 기준 요소의 위나 아래에 붙는다.
  */
 internal data class BubbleLayout(
     val width: Int,
     val height: Int,
-    val isAnchorLayout: Boolean,
-)
+    val baseHeight: Int,
+) {
+    /** 메뉴가 없어 창이 곧 기준 요소인 상태. 이때의 위치만 기준선이 된다. */
+    val isBaseOnly: Boolean get() = height <= baseHeight
+}
 
-/** 배치 결과 — 창 좌표와 다음 계산에 쓸 기준선. */
+/** 배치 결과 — 창 좌표, 다음 계산에 쓸 기준선, 메뉴를 그릴 방향. */
 internal data class BubblePlacement(
     val x: Int,
     val y: Int,
     val anchorBottom: Int,
+    val menuBelowBase: Boolean,
 )
 
 /**
- * 버블 창이 화면 안에 완전히 들어오도록 좌표를 계산한다.
+ * 버블 창이 화면 안에 들어오도록 좌표와 펼침 방향을 정한다 (기능명세서 11.1절).
  *
- * 세로 기준은 창의 아래 변([anchorBottom])이다. 펼치면 메뉴가 위로 자라므로,
- * 아래 변을 고정해야 사용자가 놓아둔 토글 버튼이 제자리에 머문다.
+ * 세로 기준은 기준 요소의 아래 변([anchorBottom])이다. 사용자가 놓아둔 버튼은 펼치고 접어도
+ * 움직이지 않아야 하므로, 메뉴는 그 위로 펼치는 것이 기본이고 위쪽이 모자라면 아래로 펼친다.
+ * 양쪽 어디에도 담기지 않을 때만 창 전체를 화면 안으로 밀어 넣는다.
  *
  * 상태 바·제스처 바(시스템 바 인셋)는 피한다. 그 영역에 겹치면 그려지기는 해도
  * 터치를 SystemUI가 가져가 버블을 눌러도 반응하지 않는다.
@@ -49,14 +53,28 @@ internal fun placeBubble(
     margin: Int,
 ): BubblePlacement {
     val minY = screen.insetTop + margin
-    val maxY = (screen.height - screen.insetBottom - layout.height - margin).coerceAtLeast(minY)
+    val maxBottom = screen.height - screen.insetBottom - margin
+    val topWithMenuAbove = anchorBottom - layout.height
+    val topWithMenuBelow = anchorBottom - layout.baseHeight
+    val menuBelowBase =
+        !layout.isBaseOnly &&
+            topWithMenuAbove < minY &&
+            topWithMenuBelow + layout.height <= maxBottom
+    val maxY = (maxBottom - layout.height).coerceAtLeast(minY)
+    val y = (if (menuBelowBase) topWithMenuBelow else topWithMenuAbove).coerceIn(minY, maxY)
     val x =
         if (snappedToRight) {
             screen.width - screen.insetRight - layout.width - margin
         } else {
             screen.insetLeft + margin
         }
-    val y = (anchorBottom - layout.height).coerceIn(minY, maxY)
-    val nextAnchorBottom = if (layout.isAnchorLayout) y + layout.height else anchorBottom
-    return BubblePlacement(x = x, y = y, anchorBottom = nextAnchorBottom)
+    // 펼침은 일시적인 모양이다. 화면에 맞추느라 밀려난 만큼을 기준선에 반영하면
+    // 접을 때 돌아갈 자리를 잃는다.
+    val nextAnchorBottom = if (layout.isBaseOnly) y + layout.height else anchorBottom
+    return BubblePlacement(
+        x = x,
+        y = y,
+        anchorBottom = nextAnchorBottom,
+        menuBelowBase = menuBelowBase,
+    )
 }

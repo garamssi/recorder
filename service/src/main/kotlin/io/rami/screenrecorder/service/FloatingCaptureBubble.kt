@@ -3,6 +3,7 @@ package io.rami.screenrecorder.service
 import android.content.Context
 import android.graphics.PixelFormat
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -66,14 +67,19 @@ internal class FloatingCaptureBubble(
     private val context: Context,
 ) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
-    private val layoutParams = overlayLayoutParams()
+    private val layoutParams = context.overlayLayoutParams()
 
     private var root: FrameLayout? = null
     private var content: LinearLayout? = null
     private var elapsedView: TextView? = null
 
     // 접힘 상태에서 드래그·탭을 받는 영역. 상태에 따라 "+" 버튼 또는 pill의 시간 영역이다.
-    private var dragHandle: android.view.View? = null
+    private var dragHandle: View? = null
+
+    // 펼쳐도 제자리를 지켜야 하는 요소 ("+" 버튼 또는 pill)와, 그 위나 아래에 붙는 메뉴 줄들.
+    private var baseView: View? = null
+    private var menuRows: List<View> = emptyList()
+    private var menuBelowBase = false
 
     private val position = BubbleWindowPosition(context, windowManager, layoutParams)
     private var actions: BubbleActions? = null
@@ -116,6 +122,9 @@ internal class FloatingCaptureBubble(
         content = null
         elapsedView = null
         dragHandle = null
+        baseView = null
+        menuRows = emptyList()
+        menuBelowBase = false
         actions = null
         expanded = false
         position.reset()
@@ -127,52 +136,48 @@ internal class FloatingCaptureBubble(
         stack.removeAllViews()
         elapsedView = null
         dragHandle = null
-        if (expanded) buildMenuRows(stack)
-        when (val current = state) {
-            is BubbleState.Idle -> buildToggle(stack)
-            is BubbleState.ScreenRecording ->
-                context.buildScreenRecordingPill(stack, current, actions).let { pill ->
-                    elapsedView = pill?.elapsed
-                    dragHandle = pill?.handle
-                }
-
-            is BubbleState.VoiceRecording ->
-                context.buildVoiceRecordingPill(stack, current, actions).let { pill ->
-                    elapsedView = pill?.elapsed
-                    dragHandle = pill?.handle
-                }
-        }
+        val base = createBase() ?: return
+        baseView = base
+        menuRows =
+            if (expanded) {
+                context.bubbleMenuRows(menuItemsFor(state, actions)) { collapseThen(it.onClick) }
+            } else {
+                emptyList()
+            }
+        // 총 높이는 순서와 무관하므로 잠정 배치로 재고, 방향이 정해지면 그때 순서를 바꾼다.
+        menuBelowBase = false
+        stack.arrange(menuRows, base, menuBelowBase = false)
         attachDrag()
-        // 실제 크기는 측정 후에 확정되므로 다음 레이아웃 패스에서 위치를 맞춘다.
-        // 그 사이 펼침 상태가 바뀔 수 있으므로 지금 그린 모양을 붙잡아 둔다.
-        val isAnchorLayout = !expanded
-        root?.post { root?.let { position.keepOnScreen(it, isAnchorLayout) } }
+        place(position::keepOnScreen)
     }
 
-    /** 펼침 상태의 메뉴 줄. 진행 중일 때는 겹칠 수 없는 캡처 동작을 빼고 "앱으로 가기"만 남긴다. */
-    private fun buildMenuRows(stack: LinearLayout) {
-        val callbacks = actions ?: return
-        val items =
-            if (state is BubbleState.Idle) idleMenuItems(callbacks) else inSessionMenuItems(callbacks)
-        items.forEachIndexed { index, item ->
-            stack.addStacked(
-                context.actionRow(
-                    iconRes = item.iconRes,
-                    label = context.getString(item.labelRes),
-                    accent = item.accent,
-                ) { collapseThen(item.onClick) },
-                withGap = index > 0,
-            )
+    /** 상태에 맞는 기준 요소 — 유휴면 토글 버튼, 진행 중이면 pill. */
+    private fun createBase(): View? =
+        when (val current = state) {
+            is BubbleState.Idle -> context.bubbleToggle(expanded, ::toggleExpanded).also { dragHandle = it }
+            is BubbleState.ScreenRecording -> context.buildScreenRecordingPill(current, actions)?.let(::adopt)
+            is BubbleState.VoiceRecording -> context.buildVoiceRecordingPill(current, actions)?.let(::adopt)
         }
+
+    private fun adopt(pill: PillViews): View {
+        elapsedView = pill.elapsed
+        dragHandle = pill.handle
+        return pill.root
     }
 
-    /** 접힘/펼침 토글 버튼 (유휴 상태의 아래쪽 요소). */
-    private fun buildToggle(stack: LinearLayout) {
-        val toggleIcon = if (expanded) R.drawable.ic_bubble_close else R.drawable.ic_bubble_add
-        val toggleLabel = context.getString(if (expanded) R.string.floating_collapse else R.string.floating_expand)
-        val toggle = context.circleButton(toggleIcon, toggleLabel, accent = !expanded) { toggleExpanded() }
-        stack.addStacked(toggle, withGap = expanded)
-        dragHandle = toggle
+    /**
+     * 창을 화면 안에 맞추고, 정해진 방향대로 메뉴를 다시 담는다.
+     *
+     * @param reposition 컨테이너와 기준 요소를 받아 "메뉴를 기준 요소 아래에 둘지"를 돌려준다.
+     */
+    private fun place(reposition: (container: View, base: View) -> Boolean) {
+        val container = root ?: return
+        val stack = content ?: return
+        val base = baseView ?: return
+        val below = reposition(container, base)
+        if (below == menuBelowBase) return
+        menuBelowBase = below
+        stack.arrange(menuRows, base, below)
     }
 
     /**
@@ -187,7 +192,7 @@ internal class FloatingCaptureBubble(
             windowManager = windowManager,
             layoutParams = layoutParams,
             onTap = { toggleExpanded() },
-            onSnapped = { toRight -> position.onSnapped(toRight, root, isAnchorLayout = !expanded) },
+            onSnapped = { toRight -> place { container, base -> position.onSnapped(toRight, container, base) } },
         ).attachTo(handle)
     }
 
@@ -201,29 +206,71 @@ internal class FloatingCaptureBubble(
         rebuild()
         action()
     }
+}
 
-    private fun overlayLayoutParams() =
-        WindowManager
-            .LayoutParams(
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                // FLAG_LAYOUT_IN_SCREEN이 없으면 y가 상태 바 아래를 0으로 잡아,
-                // 화면 크기 기준으로 계산한 위치가 상태 바 높이만큼 아래로 밀려 하단이 잘린다.
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT,
-            ).apply {
-                gravity = Gravity.TOP or Gravity.START
-                x = context.dpToPx(INITIAL_MARGIN_DP)
-                y = context.dpToPx(INITIAL_TOP_DP)
-            }
+private const val INITIAL_MARGIN_DP = 12f
+private const val INITIAL_TOP_DP = 160f
 
-    private companion object {
-        const val INITIAL_MARGIN_DP = 12f
-        const val INITIAL_TOP_DP = 160f
+/** 다른 앱 위에 뜨는 WRAP_CONTENT 창의 파라미터. */
+private fun Context.overlayLayoutParams() =
+    WindowManager
+        .LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            // FLAG_LAYOUT_IN_SCREEN이 없으면 y가 상태 바 아래를 0으로 잡아,
+            // 화면 크기 기준으로 계산한 위치가 상태 바 높이만큼 아래로 밀려 하단이 잘린다.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = dpToPx(INITIAL_MARGIN_DP)
+            y = dpToPx(INITIAL_TOP_DP)
+        }
+
+/** 접힘/펼침 토글 버튼. 펼침 상태에서는 닫기 아이콘이 된다. */
+private fun Context.bubbleToggle(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+): View {
+    val icon = if (expanded) R.drawable.ic_bubble_close else R.drawable.ic_bubble_add
+    val label = getString(if (expanded) R.string.floating_collapse else R.string.floating_expand)
+    return circleButton(icon, label, accent = !expanded, onClick = onToggle)
+}
+
+/** 펼침 메뉴 줄들. */
+private fun Context.bubbleMenuRows(
+    items: List<BubbleMenuItem>,
+    onSelect: (BubbleMenuItem) -> Unit,
+): List<View> =
+    items.map { item ->
+        actionRow(
+            iconRes = item.iconRes,
+            label = getString(item.labelRes),
+            accent = item.accent,
+        ) { onSelect(item) }
     }
+
+/** 진행 중일 때는 겹칠 수 없는 캡처 동작을 빼고 "앱으로 가기"만 남긴다. */
+private fun menuItemsFor(
+    state: BubbleState,
+    actions: BubbleActions?,
+): List<BubbleMenuItem> {
+    val callbacks = actions ?: return emptyList()
+    return if (state is BubbleState.Idle) idleMenuItems(callbacks) else inSessionMenuItems(callbacks)
+}
+
+/** 기준 요소와 메뉴 줄을 방향에 맞는 순서로 다시 담는다. */
+private fun LinearLayout.arrange(
+    menuRows: List<View>,
+    base: View,
+    menuBelowBase: Boolean,
+) {
+    removeAllViews()
+    val ordered = if (menuBelowBase) listOf(base) + menuRows else menuRows + base
+    ordered.forEachIndexed { index, view -> addStacked(view, withGap = index > 0) }
 }
 
 /** 모양(펼침 여부·버튼 구성)이 같아 텍스트만 갱신하면 되는지. */
