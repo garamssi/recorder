@@ -14,13 +14,17 @@
   - 전체 화면 녹화 및 부분 화면 녹화(단일 앱 캡처 + 사용자 지정 영역 크롭)
   - 백그라운드 녹화: 사용자가 다른 앱을 사용하는 동안에도 녹화 지속 (Foreground Service)
   - 오디오 녹음: 내부 재생 오디오(AudioPlaybackCapture) + 마이크, 개별/동시 선택 가능
-- 개발 환경: macOS, Android Studio, Kotlin
+- 개발 환경: macOS 또는 Windows(Git Bash), Android Studio, Kotlin
 - 배포 대상: Android 16 태블릿 (실기기 설치, USB 디버깅)
 
 ## 2. 기술 스택 (고정, 임의 변경 금지)
 
 - 언어: Kotlin (100%, Java 코드 작성 금지)
 - 최소 SDK: 34 (Android 14) / 타겟 SDK: 36 (Android 16)
+- 자바: 컴파일 JDK와 바이트코드 타깃은 `gradle/libs.versions.toml`의
+  `javaToolchain`, `javaTarget`이 단일 출처다. 모듈 빌드 스크립트에 버전 숫자를
+  직접 쓰지 않는다. 타깃을 올릴 때는 AGP 기본 툴체인, Hilt의 `hiltJavaCompile*`,
+  detekt 내장 컴파일러 상한을 함께 확인한다(README 참고).
 - UI: Jetpack Compose + Material 3
 - 아키텍처: Clean Architecture + MVVM (presentation) + UseCase (domain)
 - DI: Hilt
@@ -128,7 +132,7 @@ service/                  # RecordingForegroundService
 
 개발 기기(태블릿) 보안:
 
-- USB 디버깅은 개발 중에만 켜고, "이 컴퓨터에서 항상 허용"은 개발용 맥북에만 지정한다.
+- USB 디버깅은 개발 중에만 켜고, "이 컴퓨터에서 항상 허용"은 개발용 PC에만 지정한다.
 - 무선 디버깅(adb over Wi-Fi)은 신뢰할 수 있는 네트워크에서만 사용하고 작업 후 끈다.
 - debug keystore는 저장소에 커밋하지 않는다. release 서명 키는 별도 보관하며 `signing.properties`는 `.gitignore`에 포함한다.
 - 테스트 녹화물에 개인정보가 포함될 수 있으므로 커밋 전 `*.mp4`가 `.gitignore`에 있는지 확인한다.
@@ -144,15 +148,25 @@ service/                  # RecordingForegroundService
 ## 9. 빌드 및 명령어
 
 ```bash
+scripts/verify-all.sh                 # 전체 검증 (환경~실기기 녹화까지 8단계)
+scripts/doctor.sh                     # 개발 환경 점검
+scripts/device.sh build               # 디버그 빌드
+scripts/device.sh install             # 빌드 후 재설치
+scripts/device.sh help                # 기기 제어 명령 전체
+
 ./gradlew ktlintCheck detekt          # 정적 분석
 ./gradlew test                        # JVM 단위 테스트
 ./gradlew connectedAndroidTest        # 실기기 계측 테스트
-./gradlew assembleDebug               # 디버그 빌드
-adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 - 모든 커밋 전에 `ktlintCheck`, `detekt`, `test`가 통과해야 한다.
 - CI가 구성되면 위 세 가지를 PR 게이트로 강제한다.
+- `scripts/device.sh`는 JDK와 Android SDK 경로를 스스로 찾아 Gradle에 넘기므로
+  `JAVA_HOME`이나 `local.properties`를 미리 맞출 필요가 없다. `./gradlew`를 직접
+  쓸 때는 두 값을 환경에 설정한다.
+- 스크립트를 새로 쓰거나 고칠 때는 `scripts/lib/env.sh`를 source하고 그 안의 `adb`
+  래퍼를 쓴다. Windows(Git Bash)는 네이티브 실행 파일에 넘기는 `/sdcard/...` 인자를
+  로컬 경로로 바꿔 버리므로, 래퍼를 거치지 않으면 기기 경로가 조용히 어긋난다.
 
 ## 10. 작업 진행 방식
 
