@@ -1,0 +1,8 @@
+# 줄바꿈 정책.
+#
+# 셸 스크립트는 반드시 LF 여야 한다. macOS/Linux 의 bash 는 줄 끝의 CR 을
+# 토큰의 일부로 읽어 실패하고, Windows 에서 편집하다 CRLF 로 바뀌면 조용히 깨진다.
+* text=auto
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf

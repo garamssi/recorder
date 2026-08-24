@@ -13,8 +13,10 @@
 # 종료 코드: 0 = 통과, 1 = 시간 불일치(실패), 2 = 준비/조작 오류
 set -euo pipefail
 
-PACKAGE="io.rami.screenrecorder"
-RECORD_DIR="/sdcard/Movies/ScreenRecorder"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/env.sh"
+
+RECORD_DIR="$VIDEO_DIR"
 SECONDS_WANTED=30
 TARGET_APP=""
 TARGET_LABEL=""
@@ -23,8 +25,10 @@ TOLERANCE=1.5
 KEEP_FILE=0
 
 usage() {
-    sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'
-    exit 2
+    # 헤더 주석 블록을 그대로 사용법으로 출력한다. 줄 번호를 박아 두면 헤더를
+    # 고칠 때마다 범위가 어긋나 코드까지 흘러나온다.
+    awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "${BASH_SOURCE[0]}"
+    exit "${1:-2}"
 }
 
 while getopts "s:a:l:m:t:kh" opt; do
@@ -39,29 +43,26 @@ while getopts "s:a:l:m:t:kh" opt; do
     esac
 done
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UIAUTO="$SCRIPT_DIR/uiauto.py"
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+make_work_dir
 
-log() { printf '\033[36m▸\033[0m %s\n' "$*"; }
-fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 2; }
+# log 과 die 는 lib/env.sh 가 제공한다. fail 은 기존 호출부를 유지하기 위한 별칭이다.
+fail() { die "$@"; }
+
+# uiauto.py 는 네이티브 python 으로 실행되므로 파일 경로를 호스트 형식으로 바꿔 넘긴다.
+uiauto() { python_run "$UIAUTO" "$1" "$(to_host_path "$2")" "${@:3}"; }
 
 # ── 준비 확인 ────────────────────────────────────────────────────────────────
-for cmd in adb python3 ffprobe; do
-    command -v "$cmd" >/dev/null || fail "$cmd 가 필요하다 (PATH 확인)"
-done
-python3 -c "import PIL" 2>/dev/null || fail "python3 Pillow 가 필요하다: pip3 install Pillow"
-[ "$(adb devices | grep -c 'device$')" -eq 1 ] || fail "연결된 기기가 정확히 1대여야 한다"
-adb shell pm list packages | grep -q "^package:$PACKAGE$" || fail "$PACKAGE 가 설치되어 있지 않다"
+require_tools adb python ffprobe
+require_single_device
+require_app_installed
 case "$MODE" in
     full|single) ;;
     *) fail "-m 은 full 또는 single 이어야 한다 (부분 영역은 영역 지정이 필요해 자동화하지 않는다)" ;;
 esac
 [ "$SECONDS_WANTED" -ge 10 ] || fail "시간 제한 최소값은 10초다 (기능명세서 11.4절)"
 
-DENSITY="$(adb shell wm density | grep -oE '[0-9]+' | head -1)"
-DENSITY_SCALE="$(python3 -c "print($DENSITY/160)")"
+DENSITY_SCALE="$(device_density_scale)"
 
 # ── UI 조작 헬퍼 ─────────────────────────────────────────────────────────────
 ui_dump() {
@@ -74,7 +75,7 @@ wait_text() {
     local needle="$1" limit="${2:-10}" waited=0
     while [ "$waited" -lt "$limit" ]; do
         ui_dump
-        if python3 "$UIAUTO" node "$WORK/ui.xml" "$needle" >/dev/null 2>&1; then return 0; fi
+        if uiauto node "$WORK/ui.xml" "$needle" >/dev/null 2>&1; then return 0; fi
         sleep 1
         waited=$((waited + 1))
     done
@@ -84,7 +85,7 @@ wait_text() {
 tap_text() {
     local needle="$1"
     wait_text "$needle" "${2:-10}" || fail "화면에서 '$needle' 을(를) 찾지 못했다"
-    adb shell input tap $(python3 "$UIAUTO" node "$WORK/ui.xml" "$needle")
+    adb shell input tap $(uiauto node "$WORK/ui.xml" "$needle")
     sleep 1
 }
 
@@ -93,7 +94,7 @@ tap_desc() {
     local needle="$1" limit="${2:-10}" waited=0 point=""
     while [ "$waited" -lt "$limit" ]; do
         ui_dump
-        point="$(python3 "$UIAUTO" desc "$WORK/ui.xml" "$needle" 2>/dev/null || true)"
+        point="$(uiauto desc "$WORK/ui.xml" "$needle" 2>/dev/null || true)"
         [ -n "$point" ] && break
         sleep 1
         waited=$((waited + 1))
@@ -107,7 +108,7 @@ tap_desc() {
 tap_any_text() {
     ui_dump
     local point
-    point="$(python3 "$UIAUTO" any-node "$WORK/ui.xml" "$@" 2>/dev/null)" \
+    point="$(uiauto any-node "$WORK/ui.xml" "$@" 2>/dev/null)" \
         || fail "화면에서 [$*] 중 아무것도 찾지 못했다"
     adb shell input tap $point
     sleep 1
@@ -118,7 +119,7 @@ tap_bubble() {
     adb shell screencap -p /sdcard/_shot.png >/dev/null
     adb pull /sdcard/_shot.png "$WORK/shot.png" >/dev/null 2>&1
     local point
-    point="$(python3 "$UIAUTO" bubble "$WORK/shot.png" "$DENSITY_SCALE")" \
+    point="$(uiauto bubble "$WORK/shot.png" "$DENSITY_SCALE")" \
         || fail "플로팅 버블을 찾지 못했다 — 설정 > 녹화 > 플로팅 캡처 버튼을 켜라"
     adb shell input tap $point
     sleep 1
@@ -139,7 +140,7 @@ hide_keyboard() {
 set_number_field() {
     local index="$1" value="$2" coords
     ui_dump
-    coords="$(python3 "$UIAUTO" edit-texts "$WORK/ui.xml" | sed -n "$((index + 1))p")"
+    coords="$(uiauto edit-texts "$WORK/ui.xml" | sed -n "$((index + 1))p")"
     [ -n "$coords" ] || fail "입력 필드 $index 번을 찾지 못했다"
     adb shell input tap $coords
     adb shell input keyevent KEYCODE_MOVE_END
@@ -224,7 +225,7 @@ log "저장된 파일: $NEW_FILE"
 adb pull "$RECORD_DIR/$NEW_FILE" "$WORK/$NEW_FILE" >/dev/null 2>&1 \
     || fail "파일을 가져오지 못했다: $NEW_FILE"
 # ffprobe 는 스트림 앞부분 디코딩 경고를 stderr 로 쏟는다. 길이 계산에는 영향이 없어 버린다.
-ACTUAL="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$WORK/$NEW_FILE" 2>/dev/null)"
+ACTUAL="$(ffprobe_run -v error -show_entries format=duration -of csv=p=0 "$(to_host_path "$WORK/$NEW_FILE")" 2>/dev/null)"
 [ -n "$ACTUAL" ] || fail "재생 시간을 읽지 못했다 (파일이 손상됐을 수 있다)"
 
 if [ "$KEEP_FILE" -eq 1 ]; then
@@ -232,7 +233,7 @@ if [ "$KEEP_FILE" -eq 1 ]; then
     log "파일 사본: ./$NEW_FILE"
 fi
 
-python3 - "$SECONDS_WANTED" "$ACTUAL" "$TOLERANCE" "$NEW_FILE" <<'PY'
+"$PYTHON_BIN" - "$SECONDS_WANTED" "$ACTUAL" "$TOLERANCE" "$NEW_FILE" <<'PY'
 import sys
 
 wanted, actual, tolerance, name = float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3]), sys.argv[4]
