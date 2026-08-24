@@ -35,6 +35,10 @@ keystore.properties
 *.aab
 *.aar
 
+# 기기 제어 스크립트 산출물 (scripts/device.sh shot|dump 의 기본 저장 위치)
+/shot.png
+/ui.xml
+
 # 진단 덤프 / 로그
 *.hprof
 *.log
