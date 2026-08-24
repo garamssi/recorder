@@ -2,6 +2,7 @@ package io.rami.screenrecorder.service
 
 import android.content.Context
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
 
 /**
@@ -10,6 +11,8 @@ import android.view.WindowManager
  * 펼치면 창이 넓고 길어지므로, 붙어 있던 좌우 변과 "아래쪽 기준선"을 기억해 다시 계산한다.
  * 덕분에 가장자리·최상단·최하단에서 펼쳐도 메뉴가 화면 밖으로 잘려 나가지 않고,
  * 토글 버튼은 제자리에 머문다.
+ *
+ * 좌표 계산 자체는 [placeBubble]에 있다.
  */
 internal class BubbleWindowPosition(
     private val context: Context,
@@ -23,50 +26,62 @@ internal class BubbleWindowPosition(
     fun onSnapped(
         toRight: Boolean,
         container: View?,
+        isAnchorLayout: Boolean,
     ) {
         snappedToRight = toRight
         val view = container ?: return
+        // 펼침 상태에서도 토글 버튼은 스택 맨 아래에 있으므로 창의 아래 변이 곧 기준선이다.
         anchorBottom = layoutParams.y + view.height
-        keepOnScreen(view)
+        keepOnScreen(view, isAnchorLayout)
     }
 
     /**
      * 창이 화면 안에 완전히 들어오도록 위치를 맞춘다. 측정이 끝난 뒤(post) 호출해야 한다.
      *
-     * 상태 바·제스처 바(시스템 바 인셋)는 피한다. 그 영역에 겹치면 그려지기는 해도
-     * 터치를 SystemUI가 가져가 버블을 눌러도 반응하지 않는다.
+     * @param isAnchorLayout 접힘(기본) 레이아웃이면 true. 펼침 레이아웃은 기준선을 건드리지 않는다.
      */
-    fun keepOnScreen(container: View) {
-        val metrics = windowManager.currentWindowMetrics
-        val bounds = metrics.bounds
-        val insets =
-            metrics.windowInsets.getInsets(
-                android.view.WindowInsets.Type
-                    .systemBars(),
-            )
-        val margin = context.dpToPx(EDGE_MARGIN_DP)
+    fun keepOnScreen(
+        container: View,
+        isAnchorLayout: Boolean,
+    ) {
         if (anchorBottom == UNSET_ANCHOR) anchorBottom = layoutParams.y + container.height
-        val minY = insets.top + margin
-        val wantedX =
-            if (snappedToRight) {
-                bounds.width() - insets.right - container.width - margin
-            } else {
-                insets.left + margin
-            }
-        val maxY =
-            (bounds.height() - insets.bottom - container.height - margin).coerceAtLeast(minY)
-        val wantedY = (anchorBottom - container.height).coerceIn(minY, maxY)
-        // 화면에 맞춰 잘려 나간 만큼 기준선도 옮겨 다음 펼침이 어긋나지 않게 한다.
-        anchorBottom = wantedY + container.height
-        if (wantedX == layoutParams.x && wantedY == layoutParams.y) return
-        layoutParams.x = wantedX
-        layoutParams.y = wantedY
+        val placement =
+            placeBubble(
+                anchorBottom = anchorBottom,
+                snappedToRight = snappedToRight,
+                layout =
+                    BubbleLayout(
+                        width = container.width,
+                        height = container.height,
+                        isAnchorLayout = isAnchorLayout,
+                    ),
+                screen = currentScreen(),
+                margin = context.dpToPx(EDGE_MARGIN_DP),
+            )
+        anchorBottom = placement.anchorBottom
+        if (placement.x == layoutParams.x && placement.y == layoutParams.y) return
+        layoutParams.x = placement.x
+        layoutParams.y = placement.y
         windowManager.updateViewLayout(container, layoutParams)
     }
 
     /** 버블을 닫을 때 기준선을 지운다. */
     fun reset() {
         anchorBottom = UNSET_ANCHOR
+    }
+
+    private fun currentScreen(): BubbleScreen {
+        val metrics = windowManager.currentWindowMetrics
+        val bounds = metrics.bounds
+        val insets = metrics.windowInsets.getInsets(WindowInsets.Type.systemBars())
+        return BubbleScreen(
+            width = bounds.width(),
+            height = bounds.height(),
+            insetLeft = insets.left,
+            insetTop = insets.top,
+            insetRight = insets.right,
+            insetBottom = insets.bottom,
+        )
     }
 
     private companion object {

@@ -12,10 +12,17 @@ internal data class BubbleScreen(
     val insetBottom: Int,
 )
 
-/** 배치할 창의 실측 크기. */
+/**
+ * 배치할 창의 실측 크기와 성격.
+ *
+ * @param isAnchorLayout 이 창이 기준선을 정의하는 접힘(기본) 레이아웃인지.
+ *   펼침 레이아웃은 일시적이라, 화면에 맞추느라 밀려난 만큼을 기준선에 반영하면
+ *   접을 때 돌아갈 자리를 잃는다.
+ */
 internal data class BubbleLayout(
     val width: Int,
     val height: Int,
+    val isAnchorLayout: Boolean,
 )
 
 /** 배치 결과 — 창 좌표와 다음 계산에 쓸 기준선. */
@@ -40,7 +47,6 @@ internal fun placeBubble(
     layout: BubbleLayout,
     screen: BubbleScreen,
     margin: Int,
-    isAnchorLayout: Boolean,
 ): BubblePlacement {
     val minY = screen.insetTop + margin
     val maxY = (screen.height - screen.insetBottom - layout.height - margin).coerceAtLeast(minY)
@@ -51,5 +57,6 @@ internal fun placeBubble(
             screen.insetLeft + margin
         }
     val y = (anchorBottom - layout.height).coerceIn(minY, maxY)
-    return BubblePlacement(x = x, y = y, anchorBottom = y + layout.height)
+    val nextAnchorBottom = if (layout.isAnchorLayout) y + layout.height else anchorBottom
+    return BubblePlacement(x = x, y = y, anchorBottom = nextAnchorBottom)
 }

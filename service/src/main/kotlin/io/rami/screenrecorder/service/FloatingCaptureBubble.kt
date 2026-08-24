@@ -144,7 +144,9 @@ internal class FloatingCaptureBubble(
         }
         attachDrag()
         // 실제 크기는 측정 후에 확정되므로 다음 레이아웃 패스에서 위치를 맞춘다.
-        root?.post { root?.let(position::keepOnScreen) }
+        // 그 사이 펼침 상태가 바뀔 수 있으므로 지금 그린 모양을 붙잡아 둔다.
+        val isAnchorLayout = !expanded
+        root?.post { root?.let { position.keepOnScreen(it, isAnchorLayout) } }
     }
 
     /** 펼침 상태의 메뉴 줄. 진행 중일 때는 겹칠 수 없는 캡처 동작을 빼고 "앱으로 가기"만 남긴다. */
@@ -185,7 +187,7 @@ internal class FloatingCaptureBubble(
             windowManager = windowManager,
             layoutParams = layoutParams,
             onTap = { toggleExpanded() },
-            onSnapped = { toRight -> position.onSnapped(toRight, root) },
+            onSnapped = { toRight -> position.onSnapped(toRight, root, isAnchorLayout = !expanded) },
         ).attachTo(handle)
     }
 
