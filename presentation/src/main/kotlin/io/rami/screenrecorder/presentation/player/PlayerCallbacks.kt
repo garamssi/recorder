@@ -11,6 +11,10 @@ internal class PlayerCallbacks(
     val onSpeedSelected: (Float) -> Unit,
     /** 화면 채우기(확대·크롭) 토글. */
     val onToggleFillScreen: () -> Unit,
+    /** 시스템 미디어 볼륨을 비율로 설정. */
+    val onVolumeChange: (Float) -> Unit,
+    /** 음소거 토글. */
+    val onToggleMute: () -> Unit,
     val onRename: (String) -> Unit,
     val onDelete: () -> Unit,
 )

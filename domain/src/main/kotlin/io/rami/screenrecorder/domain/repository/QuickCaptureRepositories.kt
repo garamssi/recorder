@@ -1,6 +1,7 @@
 package io.rami.screenrecorder.domain.repository
 
 import io.rami.screenrecorder.domain.model.CapturedImage
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.VoiceMemo
 import io.rami.screenrecorder.domain.model.VoiceRecordingState
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,13 @@ interface ScreenshotRepository {
 interface VoiceRecordingRepository {
     /** 현재 녹음 상태 스트림. */
     fun observeState(): Flow<VoiceRecordingState>
+
+    /**
+     * 선택한 마이크 입력 장치를 쓸 수 없어 시스템 기본으로 폴백한 시점 알림 (기능명세서 4.2절 [결정]).
+     *
+     * 값은 사용자가 요청했던 장치다. 화면 녹화의 [RecordingSessionEvent.MicrophoneFellBack]과 같은 역할이다.
+     */
+    fun observeMicrophoneFallbacks(): Flow<MicrophoneDevice>
 
     /** 마이크 녹음을 시작한다. */
     suspend fun start()

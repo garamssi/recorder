@@ -115,7 +115,7 @@ class AutoStopTest {
 
                 override fun createMuxer(): MuxerWriter = muxer
 
-                override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? = null
+                override suspend fun createAudioRecorder(config: RecordingConfig): AudioSetup? = null
 
                 override fun createFrameProcessor(): FrameProcessor = error("사용하지 않는다")
             }

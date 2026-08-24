@@ -214,7 +214,7 @@ internal class CoordinatorHarness {
 
                 override fun createMuxer(): MuxerWriter = NoopMuxer()
 
-                override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? = null
+                override suspend fun createAudioRecorder(config: RecordingConfig): AudioSetup? = null
 
                 override fun createFrameProcessor(): FrameProcessor = frameProcessor
             }

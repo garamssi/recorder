@@ -34,6 +34,16 @@ sealed interface RecordingSessionEvent {
     ) : RecordingSessionEvent
 
     /**
+     * 선택한 마이크 입력 장치를 쓸 수 없어 시스템 기본 마이크로 녹음 중 (기능명세서 4.2절 [결정]).
+     *
+     * 블루투스 헤드셋 미연결, SCO/LE 링크 실패 등이 원인이다. 조용히 다른 마이크로 녹음되면
+     * 사용자가 나중에야 알게 되므로 시작 직후 알린다.
+     */
+    data class MicrophoneFellBack(
+        val requested: MicrophoneDevice,
+    ) : RecordingSessionEvent
+
+    /**
      * 부분 영역 녹화 중 회전 감지로 자동 일시정지됨 (기능명세서 5절 [결정]).
      *
      * UI는 "영역을 다시 지정하거나 중지하세요" 알림을 표시한다.

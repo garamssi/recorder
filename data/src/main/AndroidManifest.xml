@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <!-- 마이크 입력 장치 라우팅(블루투스 SCO/LE 활성화)과 미디어 볼륨 음소거에 필요하다.
+         설치 시 자동 부여되는 normal 권한이며 오디오 라우팅 외의 용도로 쓰지 않는다. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application>
         <!-- WorkManager 포그라운드 워커(압축 진행률 알림)의 FGS 타입 지정 (Android 14+) -->

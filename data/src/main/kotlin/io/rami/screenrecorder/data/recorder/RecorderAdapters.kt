@@ -155,6 +155,16 @@ interface FrameProcessor {
     fun stop()
 }
 
+/**
+ * 오디오 레코더와 시작 시점에 확인된 경고를 함께 전달한다.
+ *
+ * [microphoneFallback]이 있으면 그 장치를 요청했지만 쓸 수 없어 시스템 기본 마이크로 녹음한다.
+ */
+data class AudioSetup(
+    val recorder: AudioRecorder,
+    val microphoneFallback: io.rami.screenrecorder.domain.model.MicrophoneDevice? = null,
+)
+
 /** 세션별 어댑터 생성 팩토리 (MediaCodec/MediaProjection은 세션 간 재사용 불가). */
 interface RecorderSessionFactory {
     /** 새 비디오 인코더를 만든다. */
@@ -169,8 +179,10 @@ interface RecorderSessionFactory {
     /**
      * 설정에 맞는 오디오 레코더를 만든다. 무음 설정이면 null.
      * 내부 오디오 캡처는 [createCaptureSource]가 만든 세션의 MediaProjection을 공유한다.
+     *
+     * 블루투스 마이크는 SCO/LE 링크 활성화를 기다려야 하므로 suspend 함수다.
      */
-    fun createAudioRecorder(config: io.rami.screenrecorder.domain.model.RecordingConfig): AudioRecorder?
+    suspend fun createAudioRecorder(config: io.rami.screenrecorder.domain.model.RecordingConfig): AudioSetup?
 
     /** 부분 영역 크롭용 GPU 프레임 프로세서를 만든다. */
     fun createFrameProcessor(): FrameProcessor

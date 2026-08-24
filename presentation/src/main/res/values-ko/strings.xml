@@ -208,4 +208,6 @@
     <string name="player_replay">처음부터 재생</string>
     <string name="player_fill_screen">화면 채우기</string>
     <string name="player_fit_screen">원본 비율</string>
+    <string name="player_mute">음소거</string>
+    <string name="player_unmute">음소거 해제</string>
 </resources>

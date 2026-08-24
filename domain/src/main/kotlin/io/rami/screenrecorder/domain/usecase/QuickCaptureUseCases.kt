@@ -1,6 +1,7 @@
 package io.rami.screenrecorder.domain.usecase
 
 import io.rami.screenrecorder.domain.model.CapturedImage
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.VoiceMemo
 import io.rami.screenrecorder.domain.model.VoiceRecordingState
 import io.rami.screenrecorder.domain.repository.ScreenshotRepository
@@ -67,4 +68,14 @@ class ObserveVoiceRecordingStateUseCase
     ) {
         /** 현재 상태 스트림을 반환한다. */
         operator fun invoke(): Flow<VoiceRecordingState> = voiceRecordingRepository.observeState()
+    }
+
+/** 음성 녹음 마이크 폴백 알림 스트림 (기능명세서 4.2절 [결정]). */
+class ObserveVoiceMicrophoneFallbackUseCase
+    @Inject
+    constructor(
+        private val voiceRecordingRepository: VoiceRecordingRepository,
+    ) {
+        /** 요청했던 마이크 장치를 쓸 수 없었던 시점 스트림을 반환한다. */
+        operator fun invoke(): Flow<MicrophoneDevice> = voiceRecordingRepository.observeMicrophoneFallbacks()
     }

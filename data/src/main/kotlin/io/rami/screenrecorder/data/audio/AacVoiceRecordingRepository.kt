@@ -1,6 +1,7 @@
 package io.rami.screenrecorder.data.audio
 
 import android.content.Context
+import android.media.AudioManager
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -8,6 +9,7 @@ import io.rami.screenrecorder.data.recorder.AudioRecorder
 import io.rami.screenrecorder.data.recorder.EncodedSample
 import io.rami.screenrecorder.data.recorder.PauseOffsetTracker
 import io.rami.screenrecorder.data.storage.MediaStoreQuickCaptureStore
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.RecordingFileNameFactory
 import io.rami.screenrecorder.domain.model.VoiceMemo
 import io.rami.screenrecorder.domain.model.VoiceRecordingState
@@ -18,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -50,8 +53,12 @@ class AacVoiceRecordingRepository
         private val mutableState = MutableStateFlow<VoiceRecordingState>(VoiceRecordingState.Idle)
         private var session: VoiceSession? = null
         private var tickerJob: Job? = null
+        private val microphoneFallbacks =
+            MutableSharedFlow<MicrophoneDevice>(extraBufferCapacity = FALLBACK_BUFFER)
 
         override fun observeState(): Flow<VoiceRecordingState> = mutableState.asStateFlow()
+
+        override fun observeMicrophoneFallbacks(): Flow<MicrophoneDevice> = microphoneFallbacks
 
         override suspend fun start() {
             check(session == null) { "이미 음성 녹음 중이다" }
@@ -64,13 +71,35 @@ class AacVoiceRecordingRepository
                     extension = RecordingFileNameFactory.AUDIO_EXTENSION,
                 )
             val tempFile = File(context.cacheDir, TEMP_DIRECTORY).apply { mkdirs() }.resolve(fileName)
+            // 블루투스 헤드셋 마이크는 SCO/LE 링크가 열린 뒤에야 입력 장치로 존재한다.
+            val router =
+                MicrophoneRouter(
+                    AndroidCommunicationDeviceController(
+                        audioManager = context.getSystemService(AudioManager::class.java),
+                        callbackExecutor = context.mainExecutor,
+                    ),
+                )
+            val routing = router.activate(settings.recording.microphoneDevice)
+            val requestedDevice =
+                if (routing == MicrophoneRouting.Unavailable) {
+                    MicrophoneDevice.AUTO
+                } else {
+                    settings.recording.microphoneDevice
+                }
+            val capture = createMicrophonePcmSource(context, requestedDevice)
+            if (routing == MicrophoneRouting.Unavailable || capture.fellBackToSystemDefault) {
+                microphoneFallbacks.emit(settings.recording.microphoneDevice)
+            }
             val recorder =
-                AacAudioRecorder(
-                    internalSource = null,
-                    microphoneSource =
-                        createMicrophonePcmSource(context, settings.recording.microphoneDevice),
-                    internalGain = 0f,
-                    microphoneGain = settings.recording.microphoneVolume.asGain(),
+                RoutedAudioRecorder(
+                    delegate =
+                        AacAudioRecorder(
+                            internalSource = null,
+                            microphoneSource = capture.source,
+                            internalGain = 0f,
+                            microphoneGain = settings.recording.microphoneVolume.asGain(),
+                        ),
+                    router = router,
                 )
             val newSession = VoiceSession(tempFile, fileName, recorder, clock.elapsedRealtimeMillis())
             recorder.start(newSession, PauseOffsetTracker())
@@ -107,6 +136,7 @@ class AacVoiceRecordingRepository
 
         private companion object {
             const val TEMP_DIRECTORY = "voice"
+            const val FALLBACK_BUFFER = 4
             const val TICK_INTERVAL_MILLIS = 1_000L
         }
     }

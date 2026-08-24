@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.core.designsystem.component.rememberPressScale
 import io.rami.screenrecorder.core.designsystem.theme.tabularNumbers
+import io.rami.screenrecorder.domain.model.MediaVolume
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.presentation.R
 import kotlin.time.Duration.Companion.milliseconds
@@ -60,6 +61,7 @@ internal fun PlayerControlsOverlay(
     playback: PlaybackState,
     playbackSpeed: Float,
     fillScreen: Boolean,
+    volume: MediaVolume,
     callbacks: PlayerCallbacks,
 ) {
     var visible by remember { mutableStateOf(true) }
@@ -96,6 +98,7 @@ internal fun PlayerControlsOverlay(
                 playback = playback,
                 playbackSpeed = playbackSpeed,
                 fillScreen = fillScreen,
+                volume = volume,
                 callbacks = callbacks,
                 alpha = alpha,
                 onInteraction = ::show,
@@ -110,6 +113,7 @@ private fun ControlsLayer(
     playback: PlaybackState,
     playbackSpeed: Float,
     fillScreen: Boolean,
+    volume: MediaVolume,
     callbacks: PlayerCallbacks,
     alpha: Float,
     onInteraction: () -> Unit,
@@ -131,6 +135,7 @@ private fun ControlsLayer(
             playback = playback,
             playbackSpeed = playbackSpeed,
             fillScreen = fillScreen,
+            volume = volume,
             callbacks = callbacks,
             onInteraction = onInteraction,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -264,6 +269,7 @@ private fun PlayerBottomBar(
     playback: PlaybackState,
     playbackSpeed: Float,
     fillScreen: Boolean,
+    volume: MediaVolume,
     callbacks: PlayerCallbacks,
     onInteraction: () -> Unit,
     modifier: Modifier = Modifier,
@@ -299,28 +305,44 @@ private fun PlayerBottomBar(
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            // 배속 pill과 화면 채우기 버튼이 붙어 보이지 않게 넉넉히 띄운다.
-            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.End),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SpeedSelector(
-                playbackSpeed = playbackSpeed,
-                onSpeedSelected = {
+            VolumeControl(
+                volume = volume,
+                onVolumeChange = {
                     onInteraction()
-                    callbacks.onSpeedSelected(it)
+                    callbacks.onVolumeChange(it)
+                },
+                onToggleMute = {
+                    onInteraction()
+                    callbacks.onToggleMute()
                 },
             )
-            GlassIconButton(
-                icon = if (fillScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                contentDescription =
-                    stringResource(
-                        if (fillScreen) R.string.player_fit_screen else R.string.player_fill_screen,
-                    ),
-                onClick = {
-                    onInteraction()
-                    callbacks.onToggleFillScreen()
-                },
-            )
+            Row(
+                // 배속 pill과 화면 채우기 버튼이 붙어 보이지 않게 넉넉히 띄운다.
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SpeedSelector(
+                    playbackSpeed = playbackSpeed,
+                    onSpeedSelected = {
+                        onInteraction()
+                        callbacks.onSpeedSelected(it)
+                    },
+                )
+                GlassIconButton(
+                    icon = if (fillScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                    contentDescription =
+                        stringResource(
+                            if (fillScreen) R.string.player_fit_screen else R.string.player_fill_screen,
+                        ),
+                    onClick = {
+                        onInteraction()
+                        callbacks.onToggleFillScreen()
+                    },
+                )
+            }
         }
     }
 }

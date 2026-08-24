@@ -4,10 +4,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.rami.screenrecorder.domain.model.MediaVolume
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.SortOrder
 import io.rami.screenrecorder.domain.usecase.GetRecordingsUseCase
+import io.rami.screenrecorder.domain.usecase.MediaVolumeUseCases
 import io.rami.screenrecorder.domain.usecase.MoveToTrashUseCase
 import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,9 +40,17 @@ class PlayerViewModel
     constructor(
         savedStateHandle: SavedStateHandle,
         getRecordings: GetRecordingsUseCase,
+        private val volumeUseCases: MediaVolumeUseCases,
         private val renameRecording: RenameRecordingUseCase,
         private val moveToTrash: MoveToTrashUseCase,
     ) : ViewModel() {
+        /** 시스템 미디어 볼륨 (기능명세서 10절). 하드웨어 키로 바뀌어도 갱신된다. */
+        val volume: StateFlow<MediaVolume> =
+            volumeUseCases.observe().stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(STOP_SHARING_TIMEOUT_MS),
+                initialValue = MediaVolume(level = 0, max = 0, isMuted = false),
+            )
         private val recordingId =
             RecordingId(checkNotNull(savedStateHandle.get<Long>(ARG_RECORDING_ID)))
 
@@ -55,6 +65,16 @@ class PlayerViewModel
                     started = SharingStarted.WhileSubscribed(STOP_SHARING_TIMEOUT_MS),
                     initialValue = PlayerTarget.Loading,
                 )
+
+        /** 슬라이더 비율로 볼륨을 바꾼다 (기능명세서 10절). */
+        fun onVolumeChanged(fraction: Float) {
+            viewModelScope.launch { volumeUseCases.set(fraction) }
+        }
+
+        /** 음소거 토글 (기능명세서 10절). */
+        fun onToggleMute() {
+            viewModelScope.launch { volumeUseCases.toggleMute() }
+        }
 
         /** 이름 변경 (기능명세서 6.3절). */
         fun onRenameConfirmed(newName: String) {

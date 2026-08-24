@@ -5,18 +5,21 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.CaptureMode
 import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.model.CaptureRegion
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.usecase.CaptureScreenshotUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
+import io.rami.screenrecorder.domain.usecase.ObserveVoiceMicrophoneFallbackUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveVoiceRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.PauseRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.ResumeRecordingUseCase
@@ -62,6 +65,8 @@ class RecordingForegroundService : Service() {
 
     @Inject lateinit var observeVoiceRecordingState: ObserveVoiceRecordingStateUseCase
 
+    @Inject lateinit var observeVoiceMicrophoneFallback: ObserveVoiceMicrophoneFallbackUseCase
+
     @Inject lateinit var skipCountdown: SkipCountdownUseCase
 
     @Inject lateinit var observeSettings: io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
@@ -96,6 +101,10 @@ class RecordingForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         notifications.createChannel()
+        // 음성 전용 녹음은 세션 이벤트 스트림을 쓰지 않으므로 별도로 관찰한다.
+        serviceScope.launch {
+            observeVoiceMicrophoneFallback().collect(::showMicrophoneFallback)
+        }
     }
 
     override fun onStartCommand(
@@ -231,6 +240,8 @@ class RecordingForegroundService : Service() {
                 is RecordingSessionEvent.AutoStopped ->
                     notifications.showCompleted(autoStopText(event.reason))
 
+                is RecordingSessionEvent.MicrophoneFellBack -> showMicrophoneFallback(event.requested)
+
                 is RecordingSessionEvent.RegionInvalidatedByRotation ->
                     // 명세 5절 [결정]: "영역을 다시 지정하거나 중지하세요"
                     notifications.updateOngoing(
@@ -239,6 +250,22 @@ class RecordingForegroundService : Service() {
                     )
             }
         }
+    }
+
+    /**
+     * 선택한 마이크를 쓸 수 없을 때 알린다 (기능명세서 4.2절 [결정]).
+     *
+     * 다른 앱 위에서 녹화를 시작했을 수도 있으므로 앱 내 스낵바가 아닌 토스트를 쓴다.
+     * 진행 알림 문구는 경과 시간 갱신으로 곧 덮이므로 쓰지 않는다.
+     */
+    private fun showMicrophoneFallback(requested: MicrophoneDevice) {
+        val message =
+            getString(
+                R.string.recording_microphone_fell_back,
+                getString(microphoneDeviceNameRes(requested)),
+            )
+        // 이벤트 수집은 백그라운드 디스패처에서 일어나므로 토스트는 메인 스레드로 올린다.
+        mainExecutor.execute { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
     }
 
     companion object {
@@ -322,3 +349,11 @@ class RecordingForegroundService : Service() {
             Intent(context, RecordingForegroundService::class.java).setAction(ACTION_STOP_VOICE)
     }
 }
+
+/** 폴백 안내에 쓸 마이크 장치 이름. 자동은 폴백 대상이 아니므로 나타나지 않는다. */
+private fun microphoneDeviceNameRes(device: MicrophoneDevice): Int =
+    when (device) {
+        MicrophoneDevice.BUILT_IN, MicrophoneDevice.AUTO -> R.string.microphone_device_built_in
+        MicrophoneDevice.BLUETOOTH -> R.string.microphone_device_bluetooth
+        MicrophoneDevice.WIRED -> R.string.microphone_device_wired
+    }

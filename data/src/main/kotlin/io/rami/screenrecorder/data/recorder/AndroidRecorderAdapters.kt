@@ -1,14 +1,21 @@
 package io.rami.screenrecorder.data.recorder
 
 import android.content.Context
+import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.SystemClock
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.rami.screenrecorder.data.audio.AacAudioRecorder
+import io.rami.screenrecorder.data.audio.AndroidCommunicationDeviceController
+import io.rami.screenrecorder.data.audio.MicrophoneCapture
+import io.rami.screenrecorder.data.audio.MicrophoneRouter
+import io.rami.screenrecorder.data.audio.MicrophoneRouting
+import io.rami.screenrecorder.data.audio.RoutedAudioRecorder
 import io.rami.screenrecorder.data.audio.createMicrophonePcmSource
 import io.rami.screenrecorder.data.audio.createPlaybackCapturePcmSource
 import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.FileNamePrefix
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingFileNameFactory
 import io.rami.screenrecorder.domain.model.Resolution
@@ -86,7 +93,7 @@ class ProjectionRecorderSessionFactory
 
         override fun createFrameProcessor(): FrameProcessor = GlFrameProcessor()
 
-        override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? {
+        override suspend fun createAudioRecorder(config: RecordingConfig): AudioSetup? {
             val needsInternal =
                 config.audioSource == AudioSource.INTERNAL ||
                     config.audioSource == AudioSource.INTERNAL_AND_MICROPHONE
@@ -101,17 +108,48 @@ class ProjectionRecorderSessionFactory
                 } else {
                     null
                 }
-            val microphoneSource =
-                if (needsMicrophone) {
-                    createMicrophonePcmSource(context, config.microphoneDevice)
-                } else {
-                    null
-                }
-            return AacAudioRecorder(
-                internalSource = internalSource,
-                microphoneSource = microphoneSource,
-                internalGain = config.internalVolume.asGain(),
-                microphoneGain = config.microphoneVolume.asGain(),
+            val microphone = if (needsMicrophone) prepareMicrophone(config) else null
+            val recorder =
+                AacAudioRecorder(
+                    internalSource = internalSource,
+                    microphoneSource = microphone?.capture?.source,
+                    internalGain = config.internalVolume.asGain(),
+                    microphoneGain = config.microphoneVolume.asGain(),
+                )
+            return AudioSetup(
+                recorder = microphone?.let { RoutedAudioRecorder(recorder, it.router) } ?: recorder,
+                microphoneFallback = config.microphoneDevice.takeIf { microphone?.fellBack == true },
             )
         }
+
+        /** 마이크 경로를 활성화하고 캡처 소스를 만든다. 블루투스는 SCO 링크 수립을 기다린다. */
+        private suspend fun prepareMicrophone(config: RecordingConfig): PreparedMicrophone {
+            val router =
+                MicrophoneRouter(
+                    AndroidCommunicationDeviceController(
+                        audioManager = context.getSystemService(AudioManager::class.java),
+                        callbackExecutor = context.mainExecutor,
+                    ),
+                )
+            val routing = router.activate(config.microphoneDevice)
+            // 통신 경로 전환이 실패했다면 입력 장치 지정도 무의미하므로 시스템 기본으로 녹음한다.
+            val requested =
+                if (routing == MicrophoneRouting.Unavailable) {
+                    MicrophoneDevice.AUTO
+                } else {
+                    config.microphoneDevice
+                }
+            val capture = createMicrophonePcmSource(context, requested)
+            return PreparedMicrophone(
+                capture = capture,
+                router = router,
+                fellBack = routing == MicrophoneRouting.Unavailable || capture.fellBackToSystemDefault,
+            )
+        }
+
+        private class PreparedMicrophone(
+            val capture: MicrophoneCapture,
+            val router: MicrophoneRouter,
+            val fellBack: Boolean,
+        )
     }

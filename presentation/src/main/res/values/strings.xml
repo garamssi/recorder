@@ -208,4 +208,6 @@
     <string name="player_replay">Play from start</string>
     <string name="player_fill_screen">Fill screen</string>
     <string name="player_fit_screen">Fit to video</string>
+    <string name="player_mute">Mute</string>
+    <string name="player_unmute">Unmute</string>
 </resources>

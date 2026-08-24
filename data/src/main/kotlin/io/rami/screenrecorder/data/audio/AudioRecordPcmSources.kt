@@ -80,12 +80,22 @@ fun createPlaybackCapturePcmSource(projection: MediaProjection): PcmSource {
     return AudioRecordPcmSource(audioRecord)
 }
 
-/** 마이크 캡처 소스. [preferredDevice] 미연결 시 자동으로 폴백한다 (기능명세서 4.2절). */
+/**
+ * 마이크 캡처 결과.
+ *
+ * [fellBackToSystemDefault]가 true면 요청한 입력 장치를 찾지 못해 시스템 기본 마이크로 녹음한다.
+ */
+data class MicrophoneCapture(
+    val source: PcmSource,
+    val fellBackToSystemDefault: Boolean,
+)
+
+/** 마이크 캡처 소스. [preferredDevice] 미연결 시 시스템 기본으로 폴백한다 (기능명세서 4.2절). */
 @SuppressLint("MissingPermission")
 fun createMicrophonePcmSource(
     context: Context,
     preferredDevice: MicrophoneDevice,
-): PcmSource {
+): MicrophoneCapture {
     val audioRecord =
         AudioRecord
             .Builder()
@@ -93,8 +103,13 @@ fun createMicrophonePcmSource(
             .setAudioFormat(pcmFormat(AudioFormat.CHANNEL_IN_MONO))
             .setBufferSizeInBytes(bufferSizeBytes(AudioFormat.CHANNEL_IN_MONO))
             .build()
-    resolvePreferredDevice(context, preferredDevice)?.let(audioRecord::setPreferredDevice)
-    return AudioRecordPcmSource(audioRecord)
+    val wantedTypes = microphoneInputTypes(preferredDevice)
+    val resolved = wantedTypes?.let { resolveInputDevice(context, it) }
+    resolved?.let(audioRecord::setPreferredDevice)
+    return MicrophoneCapture(
+        source = AudioRecordPcmSource(audioRecord),
+        fellBackToSystemDefault = wantedTypes != null && resolved == null,
+    )
 }
 
 private fun pcmFormat(channelMask: Int): AudioFormat =
@@ -118,28 +133,13 @@ private fun bufferSizeBytes(channelMask: Int): Int {
     return minimumSize * BUFFER_SIZE_MULTIPLIER
 }
 
-private fun resolvePreferredDevice(
+private fun resolveInputDevice(
     context: Context,
-    preferred: MicrophoneDevice,
-): AudioDeviceInfo? {
-    val wantedTypes =
-        when (preferred) {
-            MicrophoneDevice.AUTO -> return null
-            MicrophoneDevice.BUILT_IN -> intArrayOf(AudioDeviceInfo.TYPE_BUILTIN_MIC)
-            MicrophoneDevice.BLUETOOTH ->
-                intArrayOf(AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET)
-
-            MicrophoneDevice.WIRED ->
-                intArrayOf(
-                    AudioDeviceInfo.TYPE_WIRED_HEADSET,
-                    AudioDeviceInfo.TYPE_USB_DEVICE,
-                    AudioDeviceInfo.TYPE_USB_HEADSET,
-                )
-        }
-    return context
+    wantedTypes: List<Int>,
+): AudioDeviceInfo? =
+    context
         .getSystemService(AudioManager::class.java)
         .getDevices(AudioManager.GET_DEVICES_INPUTS)
         .firstOrNull { it.type in wantedTypes }
-}
 
 private const val BUFFER_SIZE_MULTIPLIER = 4

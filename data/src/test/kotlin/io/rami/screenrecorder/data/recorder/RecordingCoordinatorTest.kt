@@ -6,7 +6,9 @@ import app.cash.turbine.test
 import io.mockk.mockk
 import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.CountdownDuration
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.RecordingConfig
+import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.session.MonotonicClock
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -173,6 +176,24 @@ class RecordingCoordinatorTest {
         }
     }
 
+    @Test
+    fun `선택한 마이크를 쓸 수 없으면 폴백 이벤트를 알린다`() =
+        runTest {
+            // 조용히 다른 마이크로 녹음되면 사용자가 녹화가 끝난 뒤에야 알게 된다 (기능명세서 4.2절).
+            microphoneFallback = MicrophoneDevice.BLUETOOTH
+            val coordinator = coordinator()
+
+            coordinator.sessionEvents.test {
+                coordinator.start(noCountdownConfig.copy(audioSource = AudioSource.MICROPHONE))
+                advanceUntilIdle()
+
+                assertEquals(
+                    RecordingSessionEvent.MicrophoneFellBack(MicrophoneDevice.BLUETOOTH),
+                    awaitItem(),
+                )
+            }
+        }
+
     // --- 테스트 픽스처 ---
 
     private val encoder = FakeEncoder()
@@ -180,6 +201,7 @@ class RecordingCoordinatorTest {
     private val muxer = FakeMuxer()
     private val fileStore = FakeFileStore()
     private val audioRecorder = FakeAudioRecorder()
+    private var microphoneFallback: MicrophoneDevice? = null
 
     private fun TestScope.coordinator(): RecordingCoordinator {
         val clock = MonotonicClock { testScheduler.currentTime }
@@ -191,8 +213,12 @@ class RecordingCoordinatorTest {
 
                 override fun createMuxer(): MuxerWriter = muxer
 
-                override fun createAudioRecorder(config: RecordingConfig): AudioRecorder? =
-                    if (config.audioSource == AudioSource.SILENT) null else audioRecorder
+                override suspend fun createAudioRecorder(config: RecordingConfig): AudioSetup? =
+                    if (config.audioSource == AudioSource.SILENT) {
+                        null
+                    } else {
+                        AudioSetup(audioRecorder, microphoneFallback)
+                    }
 
                 override fun createFrameProcessor(): FrameProcessor = error("전체 화면 테스트에서는 프레임 프로세서를 만들지 않는다")
             }

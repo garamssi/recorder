@@ -1,11 +1,13 @@
 package io.rami.screenrecorder.domain.usecase
 
 import io.rami.screenrecorder.domain.model.CapturedImage
+import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.VoiceMemo
 import io.rami.screenrecorder.domain.model.VoiceRecordingState
 import io.rami.screenrecorder.domain.repository.ScreenshotRepository
 import io.rami.screenrecorder.domain.repository.VoiceRecordingRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -124,10 +126,13 @@ private class FakeVoiceRecordingRepository(
     private val stopResult: VoiceMemo? = null,
 ) : VoiceRecordingRepository {
     val state = MutableStateFlow<VoiceRecordingState>(VoiceRecordingState.Idle)
+    val microphoneFallbacks = MutableSharedFlow<MicrophoneDevice>(extraBufferCapacity = 1)
     var startCount = 0
     var stopCount = 0
 
     override fun observeState(): Flow<VoiceRecordingState> = state
+
+    override fun observeMicrophoneFallbacks(): Flow<MicrophoneDevice> = microphoneFallbacks
 
     override suspend fun start() {
         startCount++

@@ -37,4 +37,8 @@
     <string name="floating_notification_hide">Hide</string>
     <string name="countdown_skip_hint">Tap to start now</string>
     <string name="floating_open_app">Open app</string>
+    <string name="recording_microphone_fell_back">%1$s is unavailable — recording with the default mic</string>
+    <string name="microphone_device_built_in">Built-in mic</string>
+    <string name="microphone_device_bluetooth">Bluetooth headset</string>
+    <string name="microphone_device_wired">Wired mic</string>
 </resources>

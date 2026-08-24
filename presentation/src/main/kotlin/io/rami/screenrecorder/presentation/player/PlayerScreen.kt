@@ -95,6 +95,7 @@ private fun PlayerContent(
     DisposableEffect(Unit) { onDispose { applyImmersive(view, immersive = false) } }
 
     val playback = rememberPlaybackState(player)
+    val volume by viewModel.volume.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         PlayerSurface(
@@ -107,6 +108,7 @@ private fun PlayerContent(
             playback = playback,
             playbackSpeed = playbackSpeed,
             fillScreen = fillScreen,
+            volume = volume,
             callbacks =
                 PlayerCallbacks(
                     onBack = onBack,
@@ -116,6 +118,8 @@ private fun PlayerContent(
                     onSeekTo = player::seekTo,
                     onSpeedSelected = { playbackSpeed = it },
                     onToggleFillScreen = { fillScreen = !fillScreen },
+                    onVolumeChange = viewModel::onVolumeChanged,
+                    onToggleMute = viewModel::onToggleMute,
                     onRename = viewModel::onRenameConfirmed,
                     onDelete = viewModel::onDeleteConfirmed,
                 ),

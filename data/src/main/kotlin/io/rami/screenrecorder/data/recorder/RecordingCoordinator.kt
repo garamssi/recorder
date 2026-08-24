@@ -141,22 +141,13 @@ class RecordingCoordinator(
     private suspend fun startPipeline(config: RecordingConfig) {
         val displayResolution = displayInfo.currentResolution()
         val regionMode = config.captureMode as? CaptureMode.Region
-        // 부분 영역이면 인코더 출력 = 짝수 정렬된 영역 크기 (H.264 색차 정렬)
-        val resolution =
-            if (regionMode != null) {
-                Resolution(evenDown(regionMode.region.width), evenDown(regionMode.region.height))
-            } else {
-                config.resolution.resolve(displayResolution)
-            }
-        val bitrateBps =
-            when (val bitrate = config.bitrate) {
-                is BitrateOption.Auto -> AutoBitratePolicy.bitrateBpsFor(resolution, config.frameRate)
-                is BitrateOption.Fixed -> bitrate.megabitsPerSecond * BPS_PER_MBPS
-            }
+        val resolution = encoderResolution(config, regionMode, displayResolution)
+        val bitrateBps = bitrateBpsFor(config, resolution)
         val fileName = fileNameProvider.nextFileName()
         val tempFile = fileStore.createTempFile(fileName)
         val muxer = sessionFactory.createMuxer()
         var startedProcessor: FrameProcessor? = null
+        var audioSetup: AudioSetup? = null
         try {
             withContext(blockingDispatcher) {
                 muxer.open(tempFile)
@@ -168,7 +159,11 @@ class RecordingCoordinator(
                             SessionMedia(
                                 encoder = sessionFactory.createVideoEncoder(),
                                 capture = captureSource,
-                                audioRecorder = sessionFactory.createAudioRecorder(config),
+                                audioRecorder =
+                                    sessionFactory
+                                        .createAudioRecorder(config)
+                                        ?.also { audioSetup = it }
+                                        ?.recorder,
                                 muxer = muxer,
                                 frameProcessor =
                                     if (regionMode != null) sessionFactory.createFrameProcessor() else null,
@@ -196,6 +191,9 @@ class RecordingCoordinator(
             throw startFailure
         }
         val session = checkNotNull(activeSession)
+        audioSetup?.microphoneFallback?.let {
+            mutableEvents.emit(RecordingSessionEvent.MicrophoneFellBack(it))
+        }
         mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
         session.ticker = scope.launch { tickElapsed(session, config.timeLimit) }
         session.storageWatch = scope.launch { watchStorage() }
@@ -415,12 +413,37 @@ class RecordingCoordinator(
     }
 
     private companion object {
-        /** H.264/HEVC 색차 서브샘플링 정렬을 위한 짝수 내림. */
-        fun evenDown(value: Int): Int = value - (value % 2)
-
         const val ELAPSED_TICK_MS = 1_000L
         const val US_PER_MS = 1_000L
-        const val BPS_PER_MBPS = 1_000_000
         const val EVENT_BUFFER = 16
     }
 }
+
+/** 인코더 출력 해상도. 부분 영역이면 짝수 정렬된 영역 크기다 (H.264 색차 정렬). */
+private fun encoderResolution(
+    config: RecordingConfig,
+    regionMode: CaptureMode.Region?,
+    displayResolution: Resolution,
+): Resolution =
+    if (regionMode != null) {
+        Resolution(
+            evenDown(regionMode.region.width),
+            evenDown(regionMode.region.height),
+        )
+    } else {
+        config.resolution.resolve(displayResolution)
+    }
+
+private fun bitrateBpsFor(
+    config: RecordingConfig,
+    resolution: Resolution,
+): Int =
+    when (val bitrate = config.bitrate) {
+        is BitrateOption.Auto -> AutoBitratePolicy.bitrateBpsFor(resolution, config.frameRate)
+        is BitrateOption.Fixed -> bitrate.megabitsPerSecond * BPS_PER_MBPS
+    }
+
+/** H.264/HEVC 색차 서브샘플링 정렬을 위한 짝수 내림. */
+private fun evenDown(value: Int): Int = value - (value % 2)
+
+private const val BPS_PER_MBPS = 1_000_000

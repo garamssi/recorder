@@ -73,6 +73,16 @@ internal abstract class DataBindsModule {
 @InstallIn(SingletonComponent::class)
 internal abstract class QuickCaptureBindsModule {
     @Binds
+    abstract fun bindMediaVolumeRepository(
+        implementation: io.rami.screenrecorder.data.audio.SystemMediaVolumeRepository,
+    ): io.rami.screenrecorder.domain.repository.MediaVolumeRepository
+
+    @Binds
+    abstract fun bindSystemVolumeGateway(
+        implementation: io.rami.screenrecorder.data.audio.AudioManagerVolumeGateway,
+    ): io.rami.screenrecorder.data.audio.SystemVolumeGateway
+
+    @Binds
     abstract fun bindScreenshotRepository(
         implementation: io.rami.screenrecorder.data.recorder.MediaProjectionScreenshotRepository,
     ): io.rami.screenrecorder.domain.repository.ScreenshotRepository
