@@ -2,6 +2,7 @@ package io.rami.screenrecorder.service
 
 import android.content.Context
 import io.rami.screenrecorder.domain.model.TimeLimit
+import io.rami.screenrecorder.domain.model.TimeLimitField
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -13,6 +14,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * 버블에서 여는 녹화 시간 제한 입력 창 (기능명세서 11.4절).
@@ -109,6 +111,68 @@ class TimeLimitInputViewTest {
         views.clear.performClick()
 
         assertEquals(TimeLimit.None, result)
+    }
+
+    @Test
+    fun `증가 버튼은 칸 값을 1씩 올린다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("0", "10", "30")
+        views.stepUp(TimeLimitField.MINUTES).performClick()
+
+        assertEquals("11", views.minutes.text.toString())
+    }
+
+    @Test
+    fun `감소 버튼은 칸 값을 1씩 내린다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("1", "10", "30")
+        views.stepDown(TimeLimitField.HOURS).performClick()
+
+        assertEquals("0", views.hours.text.toString())
+    }
+
+    @Test
+    fun `분은 59에서 더 오르지 않고 시로 넘어가지도 않는다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("0", "59", "0")
+        views.stepUp(TimeLimitField.MINUTES).performClick()
+
+        assertEquals("59", views.minutes.text.toString())
+        assertEquals("0", views.hours.text.toString())
+    }
+
+    @Test
+    fun `0에서 더 내려가지 않는다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("0", "0", "0")
+        views.stepDown(TimeLimitField.SECONDS).performClick()
+
+        assertEquals("0", views.seconds.text.toString())
+    }
+
+    @Test
+    fun `증감으로 범위를 벗어나면 검증도 따라 막는다`() {
+        val views = build(TimeLimit.Limited(11.hours + 59.minutes + 59.seconds))
+
+        views.stepUp(TimeLimitField.HOURS).performClick()
+
+        assertFalse("12시 59분 59초는 12시간을 넘는다", views.confirm.isEnabled)
+        assertEquals("최대 12시간까지 설정할 수 있습니다", views.error.text.toString())
+    }
+
+    @Test
+    fun `증감으로 맞춘 값을 그대로 저장한다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("0", "9", "0")
+        views.stepUp(TimeLimitField.MINUTES).performClick()
+        views.confirm.performClick()
+
+        assertEquals(TimeLimit.Limited(10.minutes), result)
     }
 
     @Test
