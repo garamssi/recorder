@@ -50,8 +50,7 @@ class BubbleMenuItemsTest {
             }
         }
 
-    private fun idleMenu(timeLimit: TimeLimit) =
-        context.menuItemsFor(BubbleState.Idle(timeLimit), actions)
+    private fun idleMenu(timeLimit: TimeLimit) = context.menuItemsFor(BubbleState.Idle(timeLimit), actions)
 
     private fun timeLimitLabelOf(timeLimit: TimeLimit) =
         idleMenu(timeLimit).single { it.iconRes == R.drawable.ic_bubble_time_limit }.label

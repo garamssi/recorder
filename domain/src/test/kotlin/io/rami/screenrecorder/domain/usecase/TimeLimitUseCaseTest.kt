@@ -68,8 +68,7 @@ class TimeLimitUseCaseTest {
         }
 }
 
-private fun AppSettings.withTimeLimit(timeLimit: TimeLimit) =
-    copy(recording = recording.copy(timeLimit = timeLimit))
+private fun AppSettings.withTimeLimit(timeLimit: TimeLimit) = copy(recording = recording.copy(timeLimit = timeLimit))
 
 private class FakeSettingsRepository : SettingsRepository {
     val settingsState = MutableStateFlow(AppSettings.DEFAULT)

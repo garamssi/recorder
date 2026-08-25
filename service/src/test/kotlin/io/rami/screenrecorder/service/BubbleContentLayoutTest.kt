@@ -27,8 +27,8 @@ class BubbleContentLayoutTest {
 
     private fun menuItems() =
         listOf(
-            BubbleMenuItem(R.drawable.ic_bubble_record, R.string.floating_record, accent = true) {},
-            BubbleMenuItem(R.drawable.ic_bubble_open_app, R.string.floating_open_app) {},
+            BubbleMenuItem(R.drawable.ic_bubble_record, context.getString(R.string.floating_record), accent = true) {},
+            BubbleMenuItem(R.drawable.ic_bubble_open_app, context.getString(R.string.floating_open_app)) {},
         )
 
     /** 실제 빌더로 스택을 꾸미고 측정·배치까지 마친다. */

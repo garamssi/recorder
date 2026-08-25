@@ -11,9 +11,12 @@ import android.provider.Settings
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.RecordingState
+import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.model.VoiceRecordingState
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
+import io.rami.screenrecorder.domain.usecase.ObserveTimeLimitUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveVoiceRecordingStateUseCase
+import io.rami.screenrecorder.domain.usecase.SetTimeLimitUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,9 +38,17 @@ class FloatingCaptureService : Service() {
 
     @Inject lateinit var observeVoiceRecordingState: ObserveVoiceRecordingStateUseCase
 
+    @Inject lateinit var observeTimeLimit: ObserveTimeLimitUseCase
+
+    @Inject lateinit var setTimeLimit: SetTimeLimitUseCase
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val notifications by lazy { RecordingNotifications(this) }
     private val bubble by lazy { FloatingCaptureBubble(this) }
+    private val timeLimitInput by lazy { TimeLimitInputWindow(this) }
+
+    // 입력 창을 열 때 미리 채울 값. 관찰 스트림이 갱신하므로 별도 조회가 필요 없다.
+    private var currentTimeLimit: TimeLimit = TimeLimit.None
     private val mainHandler = Handler(Looper.getMainLooper())
     private var stateObserverJob: kotlinx.coroutines.Job? = null
 
@@ -67,29 +78,49 @@ class FloatingCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        mainHandler.post { bubble.dismiss() }
+        mainHandler.post {
+            timeLimitInput.dismiss()
+            bubble.dismiss()
+        }
         serviceScope.cancel()
         super.onDestroy()
     }
 
     private fun showBubble() {
         // 중복 START는 무시된다 (show가 이미 떠 있으면 아무것도 하지 않는다).
-        bubble.show(BubbleActionDelegate(this))
+        bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
         // 구독도 한 번만 — START가 반복돼도 수집기가 겹쳐 같은 상태를 여러 번 그리지 않게 한다.
         if (stateObserverJob?.isActive == true) return
         stateObserverJob = serviceScope.launch { observeCaptureState() }
     }
 
-    /** 진행 중인 캡처에 따라 버블 모양을 바꾼다. */
+    /**
+     * 진행 중인 캡처와 설정에 따라 버블 모양을 바꾼다.
+     *
+     * 시간 제한은 유휴 메뉴가 현재 값을 보여 줘야 해서 함께 구독한다 (기능명세서 11.4절).
+     */
     private suspend fun observeCaptureState() {
-        combine(observeRecordingState(), observeVoiceRecordingState()) { screen, voice ->
-            bubbleStateFor(screen, voice)
+        combine(
+            observeRecordingState(),
+            observeVoiceRecordingState(),
+            observeTimeLimit(),
+        ) { screen, voice, timeLimit ->
+            currentTimeLimit = timeLimit
+            bubbleStateFor(screen, voice, timeLimit)
         }.collect(bubble::render)
+    }
+
+    /** 시간 제한 직접 입력 창을 띄우고, 확정된 값을 설정에 저장한다. */
+    private fun showTimeLimitInput() {
+        timeLimitInput.show(currentTimeLimit) { limit ->
+            serviceScope.launch { setTimeLimit(limit) }
+        }
     }
 
     private fun bubbleStateFor(
         screen: RecordingState,
         voice: VoiceRecordingState,
+        timeLimit: TimeLimit,
     ): BubbleState =
         when {
             screen is RecordingState.Recording ->
@@ -101,7 +132,7 @@ class FloatingCaptureService : Service() {
             voice is VoiceRecordingState.Recording ->
                 BubbleState.VoiceRecording(DurationFormatter.formatElapsed(voice.elapsed))
 
-            else -> BubbleState.Idle
+            else -> BubbleState.Idle(timeLimit)
         }
 
     companion object {
@@ -127,10 +158,13 @@ class FloatingCaptureService : Service() {
  */
 private class BubbleActionDelegate(
     private val context: Context,
+    private val onEditTimeLimit: () -> Unit,
 ) : BubbleActions {
     override fun onStartRecording() = launchConsent(CONSENT_ACTION_RECORD)
 
     override fun onCaptureScreenshot() = launchConsent(CONSENT_ACTION_SCREENSHOT)
+
+    override fun onEditTimeLimit() = onEditTimeLimit.invoke()
 
     override fun onStopRecording() {
         context.startService(RecordingForegroundService.stopIntent(context))

@@ -39,6 +39,16 @@
     <string name="floating_open_app">앱으로 가기</string>
     <string name="floating_time_limit">시간 제한 · %1$s</string>
     <string name="floating_time_limit_none">제한 없음</string>
+    <string name="floating_time_limit_title">녹화 시간 제한</string>
+    <string name="floating_time_limit_range">10초 ~ 12시간</string>
+    <string name="floating_time_limit_too_short">최소 10초 이상이어야 합니다</string>
+    <string name="floating_time_limit_too_long">최대 12시간까지 설정할 수 있습니다</string>
+    <string name="floating_time_unit_hours">시</string>
+    <string name="floating_time_unit_minutes">분</string>
+    <string name="floating_time_unit_seconds">초</string>
+    <string name="floating_time_limit_clear">제한 없음</string>
+    <string name="floating_time_limit_confirm">저장</string>
+    <string name="floating_time_limit_cancel">취소</string>
     <string name="recording_microphone_fell_back">%1$s 사용 불가 — 기본 마이크로 녹음합니다</string>
     <string name="microphone_device_built_in">내장 마이크</string>
     <string name="microphone_device_bluetooth">블루투스 헤드셋</string>

@@ -57,7 +57,9 @@ class TimeLimitInputViewTest {
     fun `제한이 없으면 0으로 시작한다`() {
         val views = build(TimeLimit.None)
 
-        assertEquals(listOf("0", "0", "0"), listOf(views.hours, views.minutes, views.seconds).map { it.text.toString() })
+        val typed = listOf(views.hours, views.minutes, views.seconds).map { it.text.toString() }
+
+        assertEquals(listOf("0", "0", "0"), typed)
     }
 
     @Test

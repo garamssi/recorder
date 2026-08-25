@@ -39,6 +39,16 @@
     <string name="floating_open_app">Open app</string>
     <string name="floating_time_limit">Time limit · %1$s</string>
     <string name="floating_time_limit_none">No limit</string>
+    <string name="floating_time_limit_title">Recording time limit</string>
+    <string name="floating_time_limit_range">10 seconds to 12 hours</string>
+    <string name="floating_time_limit_too_short">Must be at least 10 seconds</string>
+    <string name="floating_time_limit_too_long">Can be at most 12 hours</string>
+    <string name="floating_time_unit_hours">h</string>
+    <string name="floating_time_unit_minutes">m</string>
+    <string name="floating_time_unit_seconds">s</string>
+    <string name="floating_time_limit_clear">No limit</string>
+    <string name="floating_time_limit_confirm">Save</string>
+    <string name="floating_time_limit_cancel">Cancel</string>
     <string name="recording_microphone_fell_back">%1$s is unavailable — recording with the default mic</string>
     <string name="microphone_device_built_in">Built-in mic</string>
     <string name="microphone_device_bluetooth">Bluetooth headset</string>
