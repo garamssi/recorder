@@ -37,6 +37,8 @@
     <string name="floating_notification_hide">숨기기</string>
     <string name="countdown_skip_hint">탭하면 바로 시작합니다</string>
     <string name="floating_open_app">앱으로 가기</string>
+    <string name="floating_time_limit">시간 제한 · %1$s</string>
+    <string name="floating_time_limit_none">제한 없음</string>
     <string name="recording_microphone_fell_back">%1$s 사용 불가 — 기본 마이크로 녹음합니다</string>
     <string name="microphone_device_built_in">내장 마이크</string>
     <string name="microphone_device_bluetooth">블루투스 헤드셋</string>

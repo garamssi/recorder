@@ -8,11 +8,19 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import io.rami.screenrecorder.core.common.time.DurationFormatter
+import io.rami.screenrecorder.domain.model.TimeLimit
 
 /** 버블이 그려야 할 상태 (기능명세서 11.1절). */
 internal sealed interface BubbleState {
-    /** 아무 캡처도 진행 중이 아님 — 접힘/펼침 캡처 메뉴. */
-    data object Idle : BubbleState
+    /**
+     * 아무 캡처도 진행 중이 아님 — 접힘/펼침 캡처 메뉴.
+     *
+     * @param timeLimit 펼침 메뉴가 보여 줄 현재 녹화 시간 제한 (기능명세서 11.4절).
+     */
+    data class Idle(
+        val timeLimit: TimeLimit = TimeLimit.None,
+    ) : BubbleState
 
     /** 화면 녹화 중 — 경과 시간과 일시정지/중지. */
     data class ScreenRecording(
@@ -26,10 +34,15 @@ internal sealed interface BubbleState {
     ) : BubbleState
 }
 
-/** 펼침 메뉴 한 줄의 구성. */
+/**
+ * 펼침 메뉴 한 줄의 구성.
+ *
+ * @param label 이미 지역화된 문구. 시간 제한 줄처럼 현재 설정값이 붙는 줄이 있어
+ *   문자열 리소스 ID만으로는 표현할 수 없다.
+ */
 internal class BubbleMenuItem(
     val iconRes: Int,
-    val labelRes: Int,
+    val label: String,
     val accent: Boolean = false,
     val onClick: () -> Unit,
 )
@@ -50,6 +63,9 @@ internal interface BubbleActions {
 
     fun onStopVoiceRecording()
 
+    /** 녹화 시간 제한 입력 창을 연다 (기능명세서 11.4절). */
+    fun onEditTimeLimit()
+
     /** 앱 화면을 연다 (기능명세서 11.1절: 다른 앱에서 앱으로 돌아가기). */
     fun onOpenApp()
 }
@@ -57,7 +73,7 @@ internal interface BubbleActions {
 /**
  * 다른 앱 위에 떠 있는 캡처 버블 (기능명세서 11.1절).
  *
- * 접힘 상태는 원형 "+" 버튼이고, 탭하면 화면 녹화·화면 캡처·음성 녹음 메뉴가 펼쳐진다.
+ * 접힘 상태는 원형 "+" 버튼이고, 탭하면 화면 녹화·화면 캡처·음성 녹음·시간 제한 메뉴가 펼쳐진다.
  * 드래그로 옮길 수 있고 손을 떼면 가까운 가장자리에 붙는다 ([BubbleDragHandler]).
  * 녹화가 시작되면 경과 시간과 제어 버튼을 담은 pill로 바뀐다.
  *
@@ -83,7 +99,7 @@ internal class FloatingCaptureBubble(
 
     private val position = BubbleWindowPosition(context, windowManager, layoutParams)
     private var actions: BubbleActions? = null
-    private var state: BubbleState = BubbleState.Idle
+    private var state: BubbleState = BubbleState.Idle()
     private var expanded = false
 
     /** 버블을 띄운다. 이미 떠 있으면 무시한다. */
@@ -96,12 +112,12 @@ internal class FloatingCaptureBubble(
         root = container
         content = stack
         windowManager.addView(container, layoutParams)
-        render(BubbleState.Idle)
+        rebuild()
     }
 
-    /** 상태를 반영해 다시 그린다. 경과 시간만 바뀌면 텍스트만 갱신한다. */
+    /** 상태를 반영해 다시 그린다. 값이 그대로면 아무것도 하지 않고, 경과 시간만 바뀌면 텍스트만 갱신한다. */
     fun render(newState: BubbleState) {
-        if (root == null) return
+        if (root == null || newState == state) return
         val onlyElapsedChanged = state.sameShapeAs(newState)
         state = newState
         if (onlyElapsedChanged) {
@@ -136,7 +152,7 @@ internal class FloatingCaptureBubble(
         baseView = base
         menuRows =
             if (expanded) {
-                context.bubbleMenuRows(menuItemsFor(state, actions), position.snappedToRight) {
+                context.bubbleMenuRows(context.menuItemsFor(state, actions), position.snappedToRight) {
                     collapseThen(it.onClick)
                 }
             } else {
@@ -252,19 +268,23 @@ internal fun Context.bubbleMenuRows(
     items.map { item ->
         actionRow(
             iconRes = item.iconRes,
-            label = getString(item.labelRes),
+            label = item.label,
             accent = item.accent,
             labelFirst = snappedToRight,
         ) { onSelect(item) }
     }
 
 /** 진행 중일 때는 겹칠 수 없는 캡처 동작을 빼고 "앱으로 가기"만 남긴다. */
-private fun menuItemsFor(
+internal fun Context.menuItemsFor(
     state: BubbleState,
     actions: BubbleActions?,
 ): List<BubbleMenuItem> {
     val callbacks = actions ?: return emptyList()
-    return if (state is BubbleState.Idle) idleMenuItems(callbacks) else inSessionMenuItems(callbacks)
+    return if (state is BubbleState.Idle) {
+        idleMenuItems(state.timeLimit, callbacks)
+    } else {
+        inSessionMenuItems(callbacks)
+    }
 }
 
 /** 기준 요소와 메뉴 줄을 방향에 맞는 순서와 정렬로 다시 담는다. */
@@ -300,38 +320,63 @@ private fun BubbleState.elapsedText(): String =
         is BubbleState.Idle -> ""
     }
 
-/** 펼침 메뉴 항목 — 캡처 동작 3개 뒤에 앱으로 이동을 둔다 (DESIGN_GUIDE.md 4절). */
-private fun idleMenuItems(callbacks: BubbleActions) =
-    listOf(
-        BubbleMenuItem(
-            R.drawable.ic_bubble_record,
-            R.string.floating_record,
-            accent = true,
-            onClick = callbacks::onStartRecording,
-        ),
-        BubbleMenuItem(
-            R.drawable.ic_bubble_screenshot,
-            R.string.floating_screenshot,
-            onClick = callbacks::onCaptureScreenshot,
-        ),
-        BubbleMenuItem(
-            R.drawable.ic_bubble_mic,
-            R.string.floating_voice,
-            onClick = callbacks::onStartVoiceRecording,
-        ),
-        BubbleMenuItem(
-            R.drawable.ic_bubble_open_app,
-            R.string.floating_open_app,
-            onClick = callbacks::onOpenApp,
-        ),
+/** 시간 제한 줄에 붙는 현재 값 — 없으면 "제한 없음". */
+internal fun Context.timeLimitLabel(timeLimit: TimeLimit): String =
+    getString(
+        R.string.floating_time_limit,
+        when (timeLimit) {
+            is TimeLimit.None -> getString(R.string.floating_time_limit_none)
+            is TimeLimit.Limited -> DurationFormatter.formatElapsed(timeLimit.duration)
+        },
     )
 
-/** 진행 중 펼침 메뉴 — 화면 캡처·음성 녹음은 세션이 겹쳐 시작할 수 없으므로 넣지 않는다. */
-private fun inSessionMenuItems(callbacks: BubbleActions) =
+/**
+ * 펼침 메뉴 항목 — 캡처 동작 3개, 시간 제한, 앱으로 이동 순이다 (DESIGN_GUIDE.md 4절).
+ *
+ * 시간 제한은 녹화를 시작하기 전에만 바꿀 수 있으므로 유휴 메뉴에만 둔다 (기능명세서 11.4절).
+ */
+private fun Context.idleMenuItems(
+    timeLimit: TimeLimit,
+    callbacks: BubbleActions,
+) = listOf(
+    BubbleMenuItem(
+        R.drawable.ic_bubble_record,
+        getString(R.string.floating_record),
+        accent = true,
+        onClick = callbacks::onStartRecording,
+    ),
+    BubbleMenuItem(
+        R.drawable.ic_bubble_screenshot,
+        getString(R.string.floating_screenshot),
+        onClick = callbacks::onCaptureScreenshot,
+    ),
+    BubbleMenuItem(
+        R.drawable.ic_bubble_mic,
+        getString(R.string.floating_voice),
+        onClick = callbacks::onStartVoiceRecording,
+    ),
+    BubbleMenuItem(
+        R.drawable.ic_bubble_time_limit,
+        timeLimitLabel(timeLimit),
+        onClick = callbacks::onEditTimeLimit,
+    ),
+    BubbleMenuItem(
+        R.drawable.ic_bubble_open_app,
+        getString(R.string.floating_open_app),
+        onClick = callbacks::onOpenApp,
+    ),
+)
+
+/**
+ * 진행 중 펼침 메뉴 — 화면 캡처·음성 녹음은 세션이 겹쳐 시작할 수 없으므로 넣지 않는다.
+ *
+ * 시간 제한도 뺀다: 녹화 중 해제·연장은 1차 범위 제외다 (기능명세서 11.4절).
+ */
+private fun Context.inSessionMenuItems(callbacks: BubbleActions) =
     listOf(
         BubbleMenuItem(
             R.drawable.ic_bubble_open_app,
-            R.string.floating_open_app,
+            getString(R.string.floating_open_app),
             onClick = callbacks::onOpenApp,
         ),
     )
