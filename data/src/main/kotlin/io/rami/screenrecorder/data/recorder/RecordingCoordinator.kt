@@ -113,7 +113,7 @@ class RecordingCoordinator(
         session.audioRecorder?.setSuspended(true)
         session.pauseOffset.onPause(clock.elapsedRealtimeMillis() * US_PER_MS)
         session.stopwatch.pause()
-        mutableState.value = RecordingState.Paused(session.stopwatch.elapsed())
+        mutableState.value = RecordingState.Paused(session.stopwatch.elapsed(), session.timeLimit)
         session.pauseTimeout = scope.launch { runPauseTimeout() }
     }
 
@@ -126,7 +126,7 @@ class RecordingCoordinator(
         session.encoder.setSuspended(false)
         session.audioRecorder?.setSuspended(false)
         session.encoder.requestKeyFrame()
-        mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
+        mutableState.value = RecordingState.Recording(session.stopwatch.elapsed(), session.timeLimit)
     }
 
     /** 일시정지 방치 시 예고 후 자동 안전 중지한다 (기능명세서 11.2절 [결정]: 30분, 5분 전 예고). */
@@ -171,6 +171,7 @@ class RecordingCoordinator(
                         tempFile = tempFile,
                         fileName = fileName,
                         stopwatch = PauseAwareStopwatch(clock),
+                        timeLimit = config.timeLimit,
                     )
                 startedProcessor = session.frameProcessor
                 session.startCapture(
@@ -194,8 +195,8 @@ class RecordingCoordinator(
         audioSetup?.microphoneFallback?.let {
             mutableEvents.emit(RecordingSessionEvent.MicrophoneFellBack(it))
         }
-        mutableState.value = RecordingState.Recording(session.stopwatch.elapsed())
-        session.ticker = scope.launch { tickElapsed(session, config.timeLimit) }
+        mutableState.value = RecordingState.Recording(session.stopwatch.elapsed(), session.timeLimit)
+        session.ticker = scope.launch { tickElapsed(session) }
         session.storageWatch = scope.launch { watchStorage() }
     }
 
@@ -208,16 +209,13 @@ class RecordingCoordinator(
         val regionMode: CaptureMode.Region?,
     )
 
-    private suspend fun tickElapsed(
-        session: ActiveSession,
-        timeLimit: TimeLimit,
-    ) {
-        val watcher = TimeLimitWatcher(timeLimit)
+    private suspend fun tickElapsed(session: ActiveSession) {
+        val watcher = TimeLimitWatcher(session.timeLimit)
         while (true) {
             delay(ELAPSED_TICK_MS)
             if (mutableState.value !is RecordingState.Recording) continue
             val elapsed = session.stopwatch.elapsed()
-            mutableState.value = RecordingState.Recording(elapsed)
+            mutableState.value = RecordingState.Recording(elapsed, session.timeLimit)
             when (val verdict = watcher.onTick(elapsed)) {
                 is TimeLimitWatcher.Verdict.Warn ->
                     mutableEvents.emit(RecordingSessionEvent.TimeLimitWarning(verdict.remaining))
@@ -305,6 +303,9 @@ class RecordingCoordinator(
         val tempFile: File,
         val fileName: String,
         val stopwatch: PauseAwareStopwatch,
+        // 세션을 멈출 시각은 시작할 때 정해진다. 설정이 그 뒤에 바뀌어도 이 값은 그대로다
+        // (기능명세서 11.4절: 녹화 중 해제·연장은 1차 범위 제외).
+        val timeLimit: TimeLimit,
     ) {
         val encoder = media.encoder
         val capture = media.capture

@@ -62,10 +62,9 @@ class BubbleStateMappingTest {
             )
 
         assertEquals(
-            "세션을 멈출 시각은 시작할 때 정해진다 — 설정을 따라가면 남은 시간을 잘못 알려 준다",
             BubbleState.ScreenRecording("01:00 / 10:00", isPaused = false),
             state,
-        )
+        ) { "세션을 멈출 시각은 시작할 때 정해진다 — 설정을 따라가면 남은 시간을 잘못 알려 준다" }
     }
 
     @Test

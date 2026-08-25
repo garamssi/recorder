@@ -15,7 +15,6 @@ import io.rami.screenrecorder.domain.model.CaptureRegion
 import io.rami.screenrecorder.domain.model.MicrophoneDevice
 import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
-import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.usecase.CaptureScreenshotUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
@@ -94,7 +93,6 @@ class RecordingForegroundService : Service() {
         )
     }
 
-    private var timeLimit: TimeLimit = TimeLimit.None
     private var stateObserverJob: kotlinx.coroutines.Job? = null
     private var eventObserverJob: kotlinx.coroutines.Job? = null
 
@@ -153,7 +151,6 @@ class RecordingForegroundService : Service() {
             // 세션 구성은 설정 저장소가 단일 진실 공급원이다 (기능명세서 2.1절: 마지막 선택 유지).
             val settings = observeSettings().first()
             val config = settings.recording.copy(captureMode = captureMode(settings, region))
-            timeLimit = config.timeLimit
             // 녹화 중 플로팅 컨트롤은 FloatingCaptureService의 버블이 상태를 구독해 직접 표시한다
             // (기능명세서 11.1절) — 여기서 별도 버블을 띄우면 두 개가 겹친다.
             startForeground(
@@ -196,12 +193,15 @@ class RecordingForegroundService : Service() {
 
                 is RecordingState.Recording -> {
                     countdownOverlay.dismiss()
-                    notifications.updateOngoing(elapsedText(timeLimit, state.elapsed), isPaused = false)
+                    notifications.updateOngoing(elapsedText(state.timeLimit, state.elapsed), isPaused = false)
                 }
 
                 is RecordingState.Paused ->
                     notifications.updateOngoing(
-                        getString(R.string.recording_notification_paused, elapsedText(timeLimit, state.elapsed)),
+                        getString(
+                            R.string.recording_notification_paused,
+                            elapsedText(state.timeLimit, state.elapsed),
+                        ),
                         isPaused = true,
                     )
 

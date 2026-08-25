@@ -106,7 +106,7 @@ class FloatingCaptureService : Service() {
             observeTimeLimit(),
         ) { screen, voice, timeLimit ->
             currentTimeLimit = timeLimit
-            bubbleStateFor(screen, voice, timeLimit)
+            bubbleStateFor(screen, voice, settingTimeLimit = timeLimit)
         }.collect(bubble::render)
     }
 
@@ -116,24 +116,6 @@ class FloatingCaptureService : Service() {
             serviceScope.launch { setTimeLimit(limit) }
         }
     }
-
-    private fun bubbleStateFor(
-        screen: RecordingState,
-        voice: VoiceRecordingState,
-        timeLimit: TimeLimit,
-    ): BubbleState =
-        when {
-            screen is RecordingState.Recording ->
-                BubbleState.ScreenRecording(DurationFormatter.formatElapsed(screen.elapsed), isPaused = false)
-
-            screen is RecordingState.Paused ->
-                BubbleState.ScreenRecording(DurationFormatter.formatElapsed(screen.elapsed), isPaused = true)
-
-            voice is VoiceRecordingState.Recording ->
-                BubbleState.VoiceRecording(DurationFormatter.formatElapsed(voice.elapsed))
-
-            else -> BubbleState.Idle(timeLimit)
-        }
 
     companion object {
         /** 플로팅 버블 알림 ID (녹화 알림과 분리). */
@@ -148,6 +130,53 @@ class FloatingCaptureService : Service() {
         fun hideIntent(context: Context): Intent =
             Intent(context, FloatingCaptureService::class.java).setAction(ACTION_HIDE)
     }
+}
+
+/**
+ * 캡처 상태를 버블이 그릴 모양으로 옮긴다 (기능명세서 11.1·11.4절).
+ *
+ * 진행 중인 세션의 시간 제한은 [screen]이 들고 있는 값을 쓴다. 설정([settingTimeLimit])은
+ * 녹화 중에도 바뀔 수 있지만 세션을 멈출 시각은 시작할 때 정해지므로, 설정을 따라가면
+ * 남은 시간을 잘못 알려 주게 된다.
+ *
+ * @param settingTimeLimit 유휴 상태의 펼침 메뉴가 보여 줄 현재 설정값.
+ */
+internal fun bubbleStateFor(
+    screen: RecordingState,
+    voice: VoiceRecordingState,
+    settingTimeLimit: TimeLimit,
+): BubbleState =
+    when {
+        screen is RecordingState.Recording ->
+            BubbleState.ScreenRecording(
+                elapsedWithLimit(screen.elapsed, screen.timeLimit),
+                isPaused = false,
+            )
+
+        screen is RecordingState.Paused ->
+            BubbleState.ScreenRecording(
+                elapsedWithLimit(screen.elapsed, screen.timeLimit),
+                isPaused = true,
+            )
+
+        voice is VoiceRecordingState.Recording ->
+            BubbleState.VoiceRecording(DurationFormatter.formatElapsed(voice.elapsed))
+
+        else -> BubbleState.Idle(settingTimeLimit)
+    }
+
+/**
+ * "경과" 또는 "경과 / 제한" (기능명세서 11.4절: 예 "03:24 / 10:00").
+ *
+ * 알림과 같은 표기를 쓴다. 구분 기호뿐이라 번역할 문구가 없어 문자열 리소스를 두지 않는다.
+ */
+private fun elapsedWithLimit(
+    elapsed: kotlin.time.Duration,
+    timeLimit: TimeLimit,
+): String {
+    val elapsedText = DurationFormatter.formatElapsed(elapsed)
+    if (timeLimit !is TimeLimit.Limited) return elapsedText
+    return "$elapsedText / ${DurationFormatter.formatElapsed(timeLimit.duration)}"
 }
 
 /**
