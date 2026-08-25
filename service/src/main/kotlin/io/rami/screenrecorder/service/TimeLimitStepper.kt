@@ -109,7 +109,11 @@ private fun Context.stepButton(
             LinearLayout
                 .LayoutParams(dpToPx(STEP_WIDTH_DP), dpToPx(STEP_HEIGHT_DP))
                 .apply {
-                    if (above) bottomMargin = dpToPx(STEP_GAP_DP) else topMargin = dpToPx(STEP_GAP_DP)
+                    if (above) {
+                        bottomMargin = dpToPx(SPACE_TIGHT_DP)
+                    } else {
+                        topMargin = dpToPx(SPACE_TIGHT_DP)
+                    }
                 }
     }
 
@@ -126,7 +130,6 @@ private const val STEP_DOWN_GLYPH = "▼"
 private const val REPEAT_INTERVAL_MS = 90L
 private const val STEP_WIDTH_DP = 64f
 private const val STEP_HEIGHT_DP = 40f
-private const val STEP_GAP_DP = 6f
 private const val STEP_CORNER_DP = 10f
 private const val STEP_TEXT_SP = 13f
 private const val STEP_BACKGROUND = 0xFF27272A.toInt()

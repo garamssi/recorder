@@ -68,8 +68,8 @@ fun CustomTimeLimitDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.options_time_limit_custom_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(SPACE_SECTION.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(SPACE_TIGHT.dp)) {
                     TimeLimitField.entries.forEach { field ->
                         TimeFieldColumn(field = field, fields = fields, onChange = onChange)
                     }
@@ -121,7 +121,7 @@ private fun TimeFieldColumn(
     val unit = stringResource(field.unitLabelRes())
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(SPACE_TIGHT.dp),
     ) {
         StepButton(
             icon = Icons.Filled.KeyboardArrowUp,
@@ -170,5 +170,11 @@ private fun TimeLimitField.unitLabelRes(): Int =
 
 /** 숫자만 남기고 최대 2자리로 제한한다 (시/분/초 각 최대 2자리면 12시간 표현 충분). */
 private fun String.filterDigits(): String = filter { it.isDigit() }.take(TimeLimitFields.MAX_DIGITS)
+
+/** 칸 안·칸 사이의 간격. 플로팅 버블의 입력 창과 같은 눈금을 쓴다. */
+private const val SPACE_TIGHT = 8
+
+/** 입력 묶음·안내 문구를 가르는 간격. */
+private const val SPACE_SECTION = 16
 
 private const val FIELD_WIDTH_DP = 84

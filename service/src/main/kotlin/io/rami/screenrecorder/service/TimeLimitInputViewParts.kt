@@ -74,7 +74,13 @@ internal fun Context.unitLabel(text: String): TextView =
         this.text = text
         setTextColor(BUBBLE_MUTED)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, HELPER_TEXT_SP)
-        setPadding(0, dpToPx(UNIT_PADDING_DP), 0, 0)
+        // 간격은 패딩이 아니라 마진으로 준다 — 칸 안의 다른 요소와 같은 규칙이어야 리듬이 맞는다.
+        layoutParams =
+            LinearLayout
+                .LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = dpToPx(SPACE_TIGHT_DP) }
     }
 
 /** 제목·입력 칸·사유·버튼을 담은 카드. */
@@ -110,7 +116,7 @@ private fun Context.fieldRow(columns: List<TimeLimitFieldViews>): LinearLayout =
                     .LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                    ).apply { marginStart = if (index > 0) dpToPx(COLUMN_GAP_DP) else 0 },
+                    ).apply { marginStart = if (index > 0) dpToPx(SPACE_TIGHT_DP) else 0 },
             )
         }
     }
@@ -126,7 +132,7 @@ private fun Context.buttonRow(buttons: TimeLimitInputButtons): LinearLayout =
                     .LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
-                    ).apply { marginStart = dpToPx(BUTTON_GAP_DP) },
+                    ).apply { marginStart = dpToPx(SPACE_TIGHT_DP) },
             )
         }
     }
@@ -136,7 +142,7 @@ private fun Context.verticalGap() =
         .LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dpToPx(CARD_GAP_DP) }
+        ).apply { topMargin = dpToPx(SPACE_SECTION_DP) }
 
 private fun Context.cardTitle(text: String): TextView =
     TextView(this).apply {
@@ -145,18 +151,20 @@ private fun Context.cardTitle(text: String): TextView =
         setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_TEXT_SP)
     }
 
+/** 칸 안·칸 사이·버튼 사이의 간격. 간격은 이 눈금과 [SPACE_SECTION_DP] 둘뿐이다. */
+internal const val SPACE_TIGHT_DP = 8f
+
+/** 제목·입력·안내·버튼을 가르는 간격. */
+internal const val SPACE_SECTION_DP = 16f
+
 private const val FIELD_WIDTH_DP = 64f
 private const val FIELD_PADDING_DP = 8f
 private const val FIELD_BACKGROUND = 0xFF27272A.toInt()
 private const val CARD_CORNER_DP = 12f
 private const val CARD_PADDING_DP = 20f
-private const val CARD_GAP_DP = 12f
-private const val COLUMN_GAP_DP = 12f
 private const val BUTTON_CORNER_DP = 10f
 private const val BUTTON_PADDING_H_DP = 16f
 private const val BUTTON_PADDING_V_DP = 10f
-private const val BUTTON_GAP_DP = 8f
-private const val UNIT_PADDING_DP = 4f
 private const val TITLE_TEXT_SP = 18f
 private const val FIELD_TEXT_SP = 20f
 private const val HELPER_TEXT_SP = 13f
