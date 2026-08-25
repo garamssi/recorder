@@ -40,4 +40,25 @@ class DurationFormatterTest {
             DurationFormatter.formatElapsed((-1).seconds)
         }
     }
+
+    @Test
+    fun `제한이 있으면 경과 시간과 제한을 병기한다`() {
+        val text = DurationFormatter.formatElapsedWithLimit(3.minutes + 24.seconds, 10.minutes)
+
+        assertEquals("03:24 / 10:00", text)
+    }
+
+    @Test
+    fun `제한이 없으면 경과 시간만 남긴다`() {
+        val text = DurationFormatter.formatElapsedWithLimit(3.minutes + 24.seconds, limit = null)
+
+        assertEquals("03:24", text)
+    }
+
+    @Test
+    fun `제한이 한 시간을 넘으면 양쪽 다 시간까지 표기한다`() {
+        val text = DurationFormatter.formatElapsedWithLimit(1.hours + 2.minutes, 2.hours)
+
+        assertEquals("01:02:00 / 02:00:00", text)
+    }
 }

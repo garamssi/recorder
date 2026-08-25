@@ -23,4 +23,21 @@ object DurationFormatter {
             }
         }
     }
+
+    /**
+     * 경과 시간에 제한을 병기한다 (기능명세서 11.4절: 예 "03:24 / 10:00").
+     *
+     * 알림과 플로팅 버블이 같은 표기를 쓰도록 구분 기호를 한곳에 둔다.
+     *
+     * @param limit 시간 제한. null이면 제한이 없어 경과 시간만 남긴다.
+     */
+    fun formatElapsedWithLimit(
+        elapsed: Duration,
+        limit: Duration?,
+    ): String {
+        val elapsedText = formatElapsed(elapsed)
+        return if (limit == null) elapsedText else "$elapsedText$SEPARATOR${formatElapsed(limit)}"
+    }
+
+    private const val SEPARATOR = " / "
 }
