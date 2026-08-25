@@ -34,6 +34,8 @@ android {
         unitTests.all { it.useJUnitPlatform() }
         // android.util.Log 등 프레임워크 스텁이 예외 대신 기본값을 반환하게 한다 (JVM 단위 테스트).
         unitTests.isReturnDefaultValues = true
+        // Compose UI 테스트가 Robolectric 으로 문자열·테마 리소스를 읽으려면 필요하다.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -61,4 +63,12 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.turbine)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Compose UI 테스트는 JUnit4 러너를 요구하므로 vintage 엔진으로 JUnit5 실행기 위에 얹는다.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit4)
+    testRuntimeOnly(libs.junit.vintage.engine)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
