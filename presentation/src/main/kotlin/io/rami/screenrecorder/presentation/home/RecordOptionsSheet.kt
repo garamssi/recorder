@@ -125,6 +125,7 @@ private fun TimeLimitRow(
 
     if (showCustomInput) {
         CustomTimeLimitDialog(
+            current = preset.timeLimit,
             onConfirm = { limit ->
                 onPresetChanged { it.copy(timeLimit = limit) }
                 showCustomInput = false
