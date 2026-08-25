@@ -67,6 +67,9 @@ sealed interface TimeLimit {
     }
 }
 
+/** 제한 시간. 제한이 없으면 null — 표시·계산에서 분기를 한 번만 하게 한다. */
+fun TimeLimit.durationOrNull(): Duration? = (this as? TimeLimit.Limited)?.duration
+
 /** 타이머 직접 입력 검증 결과 (기능명세서 11.4절). */
 sealed interface TimeLimitInput {
     /** 유효한 시간 제한. */

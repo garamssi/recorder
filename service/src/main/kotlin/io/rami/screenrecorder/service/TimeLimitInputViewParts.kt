@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import io.rami.screenrecorder.domain.model.TimeLimitFields
 
 // 시간 제한 입력 창을 이루는 뷰 조각들. 색·치수는 DESIGN_GUIDE.md 1절 Kinetic 토큰을 따른다.
 // 조립과 검증은 TimeLimitInputView.kt, 증감 버튼은 TimeLimitStepper.kt 참조.
@@ -20,7 +21,7 @@ internal fun Context.timeField(initial: Int): EditText =
     EditText(this).apply {
         setText(initial.toString())
         inputType = InputType.TYPE_CLASS_NUMBER
-        filters = arrayOf<InputFilter>(InputFilter.LengthFilter(MAX_FIELD_DIGITS))
+        filters = arrayOf<InputFilter>(InputFilter.LengthFilter(TimeLimitFields.MAX_DIGITS))
         gravity = Gravity.CENTER
         setTextColor(BUBBLE_FOREGROUND)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, FIELD_TEXT_SP)
@@ -144,7 +145,6 @@ private fun Context.cardTitle(text: String): TextView =
         setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_TEXT_SP)
     }
 
-private const val MAX_FIELD_DIGITS = 2
 private const val FIELD_WIDTH_DP = 64f
 private const val FIELD_PADDING_DP = 8f
 private const val FIELD_BACKGROUND = 0xFF27272A.toInt()

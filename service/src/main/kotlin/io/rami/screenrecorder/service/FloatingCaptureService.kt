@@ -13,6 +13,7 @@ import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.model.VoiceRecordingState
+import io.rami.screenrecorder.domain.model.durationOrNull
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveTimeLimitUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveVoiceRecordingStateUseCase
@@ -149,13 +150,13 @@ internal fun bubbleStateFor(
     when {
         screen is RecordingState.Recording ->
             BubbleState.ScreenRecording(
-                elapsedWithLimit(screen.elapsed, screen.timeLimit),
+                DurationFormatter.formatElapsedWithLimit(screen.elapsed, screen.timeLimit.durationOrNull()),
                 isPaused = false,
             )
 
         screen is RecordingState.Paused ->
             BubbleState.ScreenRecording(
-                elapsedWithLimit(screen.elapsed, screen.timeLimit),
+                DurationFormatter.formatElapsedWithLimit(screen.elapsed, screen.timeLimit.durationOrNull()),
                 isPaused = true,
             )
 
@@ -164,20 +165,6 @@ internal fun bubbleStateFor(
 
         else -> BubbleState.Idle(settingTimeLimit)
     }
-
-/**
- * "경과" 또는 "경과 / 제한" (기능명세서 11.4절: 예 "03:24 / 10:00").
- *
- * 알림과 같은 표기를 쓴다. 구분 기호뿐이라 번역할 문구가 없어 문자열 리소스를 두지 않는다.
- */
-private fun elapsedWithLimit(
-    elapsed: kotlin.time.Duration,
-    timeLimit: TimeLimit,
-): String {
-    val elapsedText = DurationFormatter.formatElapsed(elapsed)
-    if (timeLimit !is TimeLimit.Limited) return elapsedText
-    return "$elapsedText / ${DurationFormatter.formatElapsed(timeLimit.duration)}"
-}
 
 /**
  * 버블 탭을 실제 동작으로 옮긴다.

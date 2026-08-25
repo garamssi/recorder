@@ -4,7 +4,6 @@
     <string name="recording_notification_title">화면 녹화</string>
     <string name="recording_notification_preparing">준비 중…</string>
     <string name="recording_notification_elapsed">녹화 중 %1$s</string>
-    <string name="recording_notification_elapsed_with_limit">녹화 중 %1$s / %2$s</string>
     <string name="recording_notification_paused">일시정지됨 · %1$s</string>
     <string name="recording_notification_stop">중지</string>
     <string name="recording_notification_pause">일시정지</string>

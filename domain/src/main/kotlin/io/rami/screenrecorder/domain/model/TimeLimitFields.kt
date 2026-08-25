@@ -96,6 +96,9 @@ class TimeLimitFields(
         /** 초 칸의 상한. */
         const val MAX_SECONDS = 59
 
+        /** 한 칸에 받을 자릿수. 상한이 두 자리이므로 그 이상은 받지 않는다. */
+        const val MAX_DIGITS = 2
+
         private const val HASH_FACTOR = 31
     }
 }

@@ -99,9 +99,13 @@ private fun EditText.show(value: Int) {
 
 /** 세 칸의 현재 입력을 도메인 값으로 읽는다. */
 private fun List<TimeLimitFieldViews>.readFields(): TimeLimitFields =
-    fold(TimeLimitFields(0, 0, 0)) { fields, column ->
-        fields.withValue(column.field, column.input.digits())
-    }
+    TimeLimitFields(
+        hours = digitsOf(TimeLimitField.HOURS),
+        minutes = digitsOf(TimeLimitField.MINUTES),
+        seconds = digitsOf(TimeLimitField.SECONDS),
+    )
+
+private fun List<TimeLimitFieldViews>.digitsOf(field: TimeLimitField): Int = first { it.field == field }.input.digits()
 
 /** 검증 결과를 사유 문구와 저장 버튼 활성 상태로 옮긴다. */
 private fun Context.applyValidation(

@@ -169,7 +169,6 @@ private fun TimeLimitField.unitLabelRes(): Int =
     }
 
 /** 숫자만 남기고 최대 2자리로 제한한다 (시/분/초 각 최대 2자리면 12시간 표현 충분). */
-private fun String.filterDigits(): String = filter { it.isDigit() }.take(MAX_FIELD_DIGITS)
+private fun String.filterDigits(): String = filter { it.isDigit() }.take(TimeLimitFields.MAX_DIGITS)
 
 private const val FIELD_WIDTH_DP = 84
-private const val MAX_FIELD_DIGITS = 2

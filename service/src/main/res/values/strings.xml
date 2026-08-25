@@ -4,7 +4,6 @@
     <string name="recording_notification_title">Screen recording</string>
     <string name="recording_notification_preparing">Preparing…</string>
     <string name="recording_notification_elapsed">Recording %1$s</string>
-    <string name="recording_notification_elapsed_with_limit">Recording %1$s / %2$s</string>
     <string name="recording_notification_paused">Paused · %1$s</string>
     <string name="recording_notification_stop">Stop</string>
     <string name="recording_notification_pause">Pause</string>
