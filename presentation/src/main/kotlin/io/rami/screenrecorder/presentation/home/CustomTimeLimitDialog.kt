@@ -17,8 +17,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,7 +50,18 @@ fun CustomTimeLimitDialog(
     onConfirm: (TimeLimit.Limited) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var fields by remember(current) { mutableStateOf(TimeLimitFields.of(current)) }
+    // 회전으로 다시 그려져도 입력하던 값이 남아야 한다. 칸 세 개를 저장 가능한 정수로 들고
+    // 있다가 그릴 때만 도메인 값으로 묶는다 — TimeLimitFields 자체는 저장 대상이 아니다.
+    val initial = TimeLimitFields.of(current)
+    var hours by rememberSaveable(current) { mutableIntStateOf(initial.hours) }
+    var minutes by rememberSaveable(current) { mutableIntStateOf(initial.minutes) }
+    var seconds by rememberSaveable(current) { mutableIntStateOf(initial.seconds) }
+    val fields = TimeLimitFields(hours, minutes, seconds)
+    val onChange = { next: TimeLimitFields ->
+        hours = next.hours
+        minutes = next.minutes
+        seconds = next.seconds
+    }
     val validation = fields.validate()
 
     AlertDialog(
@@ -60,11 +71,7 @@ fun CustomTimeLimitDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TimeLimitField.entries.forEach { field ->
-                        TimeFieldColumn(
-                            field = field,
-                            fields = fields,
-                            onChange = { fields = it },
-                        )
+                        TimeFieldColumn(field = field, fields = fields, onChange = onChange)
                     }
                 }
                 ValidationMessage(validation)
