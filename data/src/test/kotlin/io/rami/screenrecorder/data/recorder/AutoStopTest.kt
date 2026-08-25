@@ -165,6 +165,54 @@ class AutoStopTest {
             assertEquals(RecordingState.Idle, coordinator.state.value)
         }
 
+    /**
+     * 알림과 플로팅 버블이 남은 시간을 병기하려면 세션이 시작할 때 정해진 제한을 알아야 한다
+     * (기능명세서 11.4절). 설정을 다시 읽으면 녹화 중 설정이 바뀌었을 때 잘못 알려 준다.
+     */
+    @Test
+    fun `녹화 상태는 세션이 시작한 시간 제한을 함께 알린다`() =
+        runTest {
+            val coordinator = coordinator()
+
+            coordinator.start(config(TimeLimit.Limited(10.minutes)))
+            runCurrent()
+
+            assertEquals(
+                TimeLimit.Limited(10.minutes),
+                (coordinator.state.value as RecordingState.Recording).timeLimit,
+            )
+        }
+
+    @Test
+    fun `일시정지 상태도 세션의 시간 제한을 이어서 알린다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(config(TimeLimit.Limited(10.minutes)))
+            runCurrent()
+
+            coordinator.pause()
+            runCurrent()
+
+            assertEquals(
+                TimeLimit.Limited(10.minutes),
+                (coordinator.state.value as RecordingState.Paused).timeLimit,
+            )
+        }
+
+    @Test
+    fun `제한 없이 시작한 세션은 제한 없음을 알린다`() =
+        runTest {
+            val coordinator = coordinator()
+
+            coordinator.start(config())
+            runCurrent()
+
+            assertEquals(
+                TimeLimit.None,
+                (coordinator.state.value as RecordingState.Recording).timeLimit,
+            )
+        }
+
     @Test
     fun `1분 이상 제한은 1분 전과 10초 전에 예고한다`() =
         runTest {
