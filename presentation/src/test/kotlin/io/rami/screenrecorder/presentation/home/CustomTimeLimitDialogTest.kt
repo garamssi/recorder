@@ -1,6 +1,7 @@
 package io.rami.screenrecorder.presentation.home
 
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -89,6 +90,23 @@ class CustomTimeLimitDialogTest {
 
         compose.onNodeWithText("확인").assertIsNotEnabled()
         compose.onNodeWithText("최대 12시간까지 설정할 수 있습니다").assertExists()
+    }
+
+    @Test
+    fun `회전해도 입력하던 값이 남는다`() {
+        val restorer = StateRestorationTester(compose)
+        restorer.setContent {
+            CustomTimeLimitDialog(
+                current = TimeLimit.None,
+                onConfirm = { confirmed = it },
+                onDismiss = {},
+            )
+        }
+        typeInto("분", "10")
+
+        restorer.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithText("10").assertExists()
     }
 
     @Test
