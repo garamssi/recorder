@@ -51,7 +51,8 @@ class CustomTimeLimitDialogTest {
      */
     @Test
     fun `제목과 안내 문구가 버블 입력 창과 같다`() {
-        showDialog()
+        // 안내 자리는 범위를 벗어나면 사유로 바뀐다 — 유효한 값에서 견준다.
+        showDialog(TimeLimit.Limited(10.minutes))
 
         compose.onNodeWithText("녹화 시간 제한").assertExists()
         compose.onNodeWithText("10초 ~ 12시간").assertExists()

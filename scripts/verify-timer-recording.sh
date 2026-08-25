@@ -169,12 +169,14 @@ tap_text "변경"
 # 항상 "제한 없음"으로 되돌려 라벨을 예측 가능하게 만든 뒤 입력한다.
 tap_text "제한 없음"
 tap_text "직접 입력"
-wait_text "시간 제한 직접 입력" 10 || fail "시간 제한 입력 다이얼로그가 열리지 않았다"
+# 제목("녹화 시간 제한")은 옵션 시트의 항목 라벨과 같아 창이 열리기 전에도 잡힌다.
+# 입력 창에만 있는 "저장" 버튼으로 기다린다.
+wait_text "저장" 10 || fail "시간 제한 입력 창이 열리지 않았다"
 set_number_field 0 "$((SECONDS_WANTED / 3600))"
 set_number_field 1 "$((SECONDS_WANTED % 3600 / 60))"
 set_number_field 2 "$((SECONDS_WANTED % 60))"
 hide_keyboard
-tap_text "확인"          # 시간 제한 다이얼로그 확정
+tap_text "저장"          # 시간 제한 입력 창 확정
 hide_keyboard
 tap_text "확인"          # 녹화 옵션 시트 닫기
 
