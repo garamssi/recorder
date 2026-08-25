@@ -124,8 +124,26 @@ class TimeLimitInputSpacingTest {
             val unit = (column.root as LinearLayout).getChildAt(UNIT_LABEL_INDEX)
             val drift = abs(column.input.centerXOnScreen() - unit.centerXOnScreen())
             // 뷰 폭이 홀수면 가운데 정렬이 1px 어긋난다. 눈에 보이는 어긋남만 잡는다.
-            assertTrue("단위 라벨이 입력 칸 가운데에서 ${'$'}drift px 벗어났다", drift <= 1)
+            assertTrue("단위 라벨이 입력 칸 가운데에서 $drift px 벗어났다", drift <= 1)
         }
+    }
+
+    @Test
+    fun `카드 안의 모든 줄이 같은 세로축에 놓인다`() {
+        laidOut()
+
+        val centers = (0 until card.childCount).map { card.getChildAt(it).centerXOnScreen() }
+
+        // 줄마다 폭이 다른데 정렬 축까지 다르면 카드 안이 기울어 보인다.
+        assertTrue("줄들의 중심이 $centers 로 흩어졌다", centers.max() - centers.min() <= 1)
+    }
+
+    @Test
+    fun `카드의 모든 줄이 제 폭만 차지한다`() {
+        val widths = (0 until card.childCount).map { card.getChildAt(it).params().width }
+
+        // 폭을 꽉 채운 줄은 카드의 가운데 정렬을 무시해 저 혼자 왼쪽에 붙는다.
+        assertEquals(listOf(LinearLayout.LayoutParams.WRAP_CONTENT), widths.distinct())
     }
 
     @Test

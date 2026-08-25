@@ -91,6 +91,8 @@ internal fun Context.inputCard(
 ): View =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
+        // 줄마다 폭이 다르다(제목·입력 3칸·안내·버튼 3개). 한 축에 모아야 카드 안이 기울지 않는다.
+        gravity = Gravity.CENTER_HORIZONTAL
         val padding = dpToPx(CARD_PADDING_DP)
         setPadding(padding, padding, padding, padding)
         background =
@@ -98,7 +100,8 @@ internal fun Context.inputCard(
                 setColor(BUBBLE_SURFACE)
                 cornerRadius = dpToPx(CARD_CORNER_DP).toFloat()
             }
-        addView(cardTitle(getString(R.string.floating_time_limit_title)))
+        // 파라미터 없이 넣으면 세로 LinearLayout 이 MATCH_PARENT 를 줘 제목만 왼쪽에 붙는다.
+        addView(cardTitle(getString(R.string.floating_time_limit_title)), wrapWidth())
         addView(fieldRow(columns), verticalGap())
         addView(error, verticalGap())
         addView(buttonRow(buttons), verticalGap())
@@ -124,7 +127,7 @@ private fun Context.fieldRow(columns: List<TimeLimitFieldViews>): LinearLayout =
 private fun Context.buttonRow(buttons: TimeLimitInputButtons): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.END
+        gravity = Gravity.CENTER_VERTICAL
         buttons.asList().forEach { button ->
             addView(
                 button,
@@ -136,6 +139,13 @@ private fun Context.buttonRow(buttons: TimeLimitInputButtons): LinearLayout =
             )
         }
     }
+
+/** 제 폭만 차지하는 줄의 자리 — 간격 없이 카드의 가운데 정렬만 따른다. */
+private fun wrapWidth() =
+    LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT,
+    )
 
 private fun Context.verticalGap() =
     LinearLayout
