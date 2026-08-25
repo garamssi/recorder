@@ -46,6 +46,8 @@
     <string name="floating_time_unit_hours">h</string>
     <string name="floating_time_unit_minutes">m</string>
     <string name="floating_time_unit_seconds">s</string>
+    <string name="floating_time_step_up">Increase %1$s</string>
+    <string name="floating_time_step_down">Decrease %1$s</string>
     <string name="floating_time_limit_clear">No limit</string>
     <string name="floating_time_limit_confirm">Save</string>
     <string name="floating_time_limit_cancel">Cancel</string>

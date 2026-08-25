@@ -46,6 +46,8 @@
     <string name="floating_time_unit_hours">시</string>
     <string name="floating_time_unit_minutes">분</string>
     <string name="floating_time_unit_seconds">초</string>
+    <string name="floating_time_step_up">%1$s 늘리기</string>
+    <string name="floating_time_step_down">%1$s 줄이기</string>
     <string name="floating_time_limit_clear">제한 없음</string>
     <string name="floating_time_limit_confirm">저장</string>
     <string name="floating_time_limit_cancel">취소</string>

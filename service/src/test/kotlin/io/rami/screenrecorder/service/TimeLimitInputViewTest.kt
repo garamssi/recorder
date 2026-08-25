@@ -88,10 +88,30 @@ class TimeLimitInputViewTest {
     fun `최대값보다 길면 확인을 막고 사유를 보여준다`() {
         val views = build(TimeLimit.None)
 
-        views.type("13", "0", "0")
+        // 시 칸은 12에서 막히므로, 총합으로 12시간을 넘기려면 분을 더해야 한다.
+        views.type("12", "30", "0")
 
         assertFalse("12시간 초과는 저장할 수 없다", views.confirm.isEnabled)
         assertEquals("최대 12시간까지 설정할 수 있습니다", views.error.text.toString())
+    }
+
+    @Test
+    fun `칸 상한을 넘는 값을 쳐 넣으면 상한으로 맞춘다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("13", "70", "0")
+
+        assertEquals("12", views.hours.text.toString())
+        assertEquals("59", views.minutes.text.toString())
+    }
+
+    @Test
+    fun `범위 안의 값은 앞자리 0을 붙여 쳐도 건드리지 않는다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("0", "05", "0")
+
+        assertEquals("05", views.minutes.text.toString())
     }
 
     @Test

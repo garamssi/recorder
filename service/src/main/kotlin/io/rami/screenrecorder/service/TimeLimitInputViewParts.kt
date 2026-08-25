@@ -13,7 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 // 시간 제한 입력 창을 이루는 뷰 조각들. 색·치수는 DESIGN_GUIDE.md 1절 Kinetic 토큰을 따른다.
-// 조립과 검증은 TimeLimitInputView.kt 참조.
+// 조립과 검증은 TimeLimitInputView.kt, 증감 버튼은 TimeLimitStepper.kt 참조.
 
 /** 숫자 두 자리 입력 칸. 시/분/초 각 두 자리면 12시간을 표현하기에 넉넉하다. */
 internal fun Context.timeField(initial: Int): EditText =
@@ -67,9 +67,18 @@ internal fun Context.dialogButton(
             }
     }
 
+/** 칸에 붙는 단위 문구 ("시", "분", "초"). */
+internal fun Context.unitLabel(text: String): TextView =
+    TextView(this).apply {
+        this.text = text
+        setTextColor(BUBBLE_MUTED)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, HELPER_TEXT_SP)
+        setPadding(0, dpToPx(UNIT_PADDING_DP), 0, 0)
+    }
+
 /** 제목·입력 칸·사유·버튼을 담은 카드. */
 internal fun Context.inputCard(
-    fields: List<EditText>,
+    columns: List<TimeLimitFieldViews>,
     error: TextView,
     buttons: TimeLimitInputButtons,
 ): View =
@@ -83,19 +92,25 @@ internal fun Context.inputCard(
                 cornerRadius = dpToPx(CARD_CORNER_DP).toFloat()
             }
         addView(cardTitle(getString(R.string.floating_time_limit_title)))
-        addView(fieldRow(fields), verticalGap())
+        addView(fieldRow(columns), verticalGap())
         addView(error, verticalGap())
         addView(buttonRow(buttons), verticalGap())
     }
 
-/** "[00] 시 [10] 분 [00] 초" 한 줄. */
-private fun Context.fieldRow(fields: List<EditText>): LinearLayout =
+/** 시·분·초 칸을 가로로 나란히 둔 줄. */
+private fun Context.fieldRow(columns: List<TimeLimitFieldViews>): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        fields.forEachIndexed { index, field ->
-            addView(field)
-            addView(unitLabel(getString(UNIT_LABEL_RES[index])))
+        columns.forEachIndexed { index, column ->
+            addView(
+                column.root,
+                LinearLayout
+                    .LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginStart = if (index > 0) dpToPx(COLUMN_GAP_DP) else 0 },
+            )
         }
     }
 
@@ -129,22 +144,6 @@ private fun Context.cardTitle(text: String): TextView =
         setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_TEXT_SP)
     }
 
-private fun Context.unitLabel(text: String): TextView =
-    TextView(this).apply {
-        this.text = text
-        setTextColor(BUBBLE_MUTED)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, HELPER_TEXT_SP)
-        setPadding(dpToPx(UNIT_PADDING_DP), 0, dpToPx(UNIT_GAP_DP), 0)
-    }
-
-/** 입력 칸과 같은 순서 — 시, 분, 초. */
-private val UNIT_LABEL_RES =
-    listOf(
-        R.string.floating_time_unit_hours,
-        R.string.floating_time_unit_minutes,
-        R.string.floating_time_unit_seconds,
-    )
-
 private const val MAX_FIELD_DIGITS = 2
 private const val FIELD_WIDTH_DP = 64f
 private const val FIELD_PADDING_DP = 8f
@@ -152,12 +151,12 @@ private const val FIELD_BACKGROUND = 0xFF27272A.toInt()
 private const val CARD_CORNER_DP = 12f
 private const val CARD_PADDING_DP = 20f
 private const val CARD_GAP_DP = 12f
+private const val COLUMN_GAP_DP = 12f
 private const val BUTTON_CORNER_DP = 10f
 private const val BUTTON_PADDING_H_DP = 16f
 private const val BUTTON_PADDING_V_DP = 10f
 private const val BUTTON_GAP_DP = 8f
 private const val UNIT_PADDING_DP = 4f
-private const val UNIT_GAP_DP = 12f
 private const val TITLE_TEXT_SP = 18f
 private const val FIELD_TEXT_SP = 20f
 private const val HELPER_TEXT_SP = 13f
