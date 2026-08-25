@@ -57,6 +57,30 @@ class TimeLimitUseCaseTest {
             assertEquals(TimeLimit.None, repository.settingsState.value.recording.timeLimit)
         }
 
+    /**
+     * 홈 옵션 시트는 [UpdateSettingsUseCase]로, 플로팅 버블은 [SetTimeLimitUseCase]로 쓴다.
+     * 두 경로가 같은 필드를 가리키지 않으면 한쪽에서 바꾼 값이 다른 쪽에 보이지 않는다.
+     */
+    @Test
+    fun `홈 옵션 시트가 바꾼 값을 버블이 그대로 읽는다`() =
+        runTest {
+            UpdateSettingsUseCase(repository).invoke { settings ->
+                settings.copy(recording = settings.recording.copy(timeLimit = TimeLimit.Limited(10.minutes)))
+            }
+
+            assertEquals(TimeLimit.Limited(10.minutes), ObserveTimeLimitUseCase(repository)().first())
+        }
+
+    @Test
+    fun `버블이 바꾼 값을 홈 설정 스트림이 그대로 읽는다`() =
+        runTest {
+            SetTimeLimitUseCase(repository)(TimeLimit.Limited(10.minutes))
+
+            val settings = ObserveSettingsUseCase(repository)().first()
+
+            assertEquals(TimeLimit.Limited(10.minutes), settings.recording.timeLimit)
+        }
+
     @Test
     fun `한쪽에서 바꾼 값이 관찰 스트림에 그대로 이어진다`() =
         runTest {
