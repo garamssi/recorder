@@ -149,6 +149,7 @@
     <string name="recovery_restore">Restore</string>
     <string name="recovery_delete">Delete</string>
     <string name="recovery_failed">Recovery failed. Please try again later.</string>
+    <string name="recovery_in_progress">Recovering…</string>
     <string name="options_time_limit_custom">Custom</string>
     <string name="options_time_limit_custom_title">Recording time limit</string>
     <string name="options_time_limit_too_short">Must be at least 10 seconds</string>

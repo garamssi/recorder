@@ -20,6 +20,7 @@ import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -109,10 +110,19 @@ class HomeViewModelTest {
             /** true면 복구가 MediaStore 실패를 흉내내 예외를 던진다. */
             var recoverThrows = false
 
+            /**
+             * 설정하면 복구가 여기서 멈춰 선다.
+             *
+             * 실제 복구는 1시간짜리 파일을 remux 하느라 수 초가 걸린다. 그 사이 사용자가
+             * 버튼을 다시 누르는 상황을 재현하려면 "아직 안 끝난 복구"가 있어야 한다.
+             */
+            var recoverGate: CompletableDeferred<Unit>? = null
+
             override suspend fun pendingRecoveries() = pending
 
             override suspend fun recover(id: String): Recording? {
                 check(!recoverThrows) { "MediaStore insert 실패" }
+                recoverGate?.await()
                 recovered += id
                 return null
             }
@@ -302,4 +312,79 @@ class HomeViewModelTest {
             createdAtEpochMillis = id,
             bitrateBps = null,
         )
+
+    /**
+     * 같은 임시 파일을 두 번 발행하면 MediaStore 에 똑같은 녹화본이 두 개 쌓인다
+     * (기능명세서 6.1절 [결정]). 실제로 433MB 사본 10개가 만들어진 적이 있다.
+     */
+    @Test
+    fun `복구가 진행 중이면 다시 눌러도 한 번만 실행한다`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            recoveryRepository.recoverGate = gate
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            repeat(TAP_BURST) { viewModel.onRecoverConfirmed("t.mp4") }
+            advanceUntilIdle()
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(listOf("t.mp4"), recoveryRepository.recovered)
+        }
+
+    @Test
+    fun `복구가 진행 중이면 삭제도 실행되지 않는다`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            recoveryRepository.recoverGate = gate
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onRecoverConfirmed("t.mp4")
+            advanceUntilIdle()
+            viewModel.onDiscardRecovery("t.mp4")
+            advanceUntilIdle()
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(emptyList<String>(), recoveryRepository.discarded)
+        }
+
+    @Test
+    fun `복구하는 동안 진행 중임을 알리고 끝나면 내린다`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            recoveryRepository.recoverGate = gate
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            assertEquals(null, viewModel.recoveringId.value)
+
+            viewModel.onRecoverConfirmed("t.mp4")
+            advanceUntilIdle()
+            assertEquals("t.mp4", viewModel.recoveringId.value)
+
+            gate.complete(Unit)
+            advanceUntilIdle()
+            assertEquals(null, viewModel.recoveringId.value)
+        }
+
+    @Test
+    fun `복구가 실패해도 진행 표시를 내려 다시 시도할 수 있게 한다`() =
+        runTest {
+            recoveryRepository.recoverThrows = true
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onRecoverConfirmed("t.mp4")
+            advanceUntilIdle()
+
+            assertEquals(null, viewModel.recoveringId.value)
+        }
+
+    private companion object {
+        /** 응답이 없다고 느낀 사용자가 연타하는 횟수. */
+        const val TAP_BURST = 5
+    }
 }

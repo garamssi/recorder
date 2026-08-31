@@ -93,6 +93,11 @@ class HomeViewModel
         /** 크래시로 발행되지 못한 임시 녹화 목록 (기능명세서 6.1절: 복구/삭제 제안). */
         val pendingRecoveries: StateFlow<List<PendingRecovery>> = mutablePendingRecoveries.asStateFlow()
 
+        private val mutableRecoveringId = MutableStateFlow<String?>(null)
+
+        /** 지금 복구/삭제 중인 임시 파일 id. 없으면 null (기능명세서 6.1절 [결정]). */
+        val recoveringId: StateFlow<String?> = mutableRecoveringId.asStateFlow()
+
         private val mutableRecoveryFailed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
         /** 복구/삭제가 실패했을 때 한 번 발생하는 이벤트 (스낵바 안내용). */

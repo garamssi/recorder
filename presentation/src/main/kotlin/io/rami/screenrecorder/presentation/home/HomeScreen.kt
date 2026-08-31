@@ -87,9 +87,11 @@ fun HomeScreen(
 
     // 크래시로 발행되지 못한 임시 파일을 한 건씩 복구/삭제 제안한다 (기능명세서 6.1절).
     val pendingRecoveries by viewModel.pendingRecoveries.collectAsState()
+    val recoveringId by viewModel.recoveringId.collectAsState()
     pendingRecoveries.firstOrNull()?.let { recovery ->
         RecoveryDialog(
             recovery = recovery,
+            isRecovering = recoveringId == recovery.id,
             onRecover = { viewModel.onRecoverConfirmed(recovery.id) },
             onDiscard = { viewModel.onDiscardRecovery(recovery.id) },
         )
@@ -185,41 +187,3 @@ private fun HomeOverlays(
         )
     }
 }
-
-/** 크래시 복구 다이얼로그 (기능명세서 6.1절: 복구/삭제 제안). */
-@Composable
-private fun RecoveryDialog(
-    recovery: PendingRecovery,
-    onRecover: () -> Unit,
-    onDiscard: () -> Unit,
-) {
-    androidx.compose.material3.AlertDialog(
-        // 명시적 선택을 강제한다 — 임의 dismiss로 임시 파일이 방치되지 않게.
-        onDismissRequest = {},
-        title = { Text(stringResource(R.string.recovery_title)) },
-        text = {
-            Text(stringResource(R.string.recovery_message, formatRecoverySize(recovery.sizeBytes)))
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = onRecover) {
-                Text(stringResource(R.string.recovery_restore))
-            }
-        },
-        dismissButton = {
-            androidx.compose.material3.TextButton(onClick = onDiscard) {
-                Text(stringResource(R.string.recovery_delete))
-            }
-        },
-    )
-}
-
-/** 1MB 미만은 KB로 표시해 작은 잔여 파일도 크기를 알아볼 수 있게 한다. */
-private fun formatRecoverySize(bytes: Long): String =
-    if (bytes < BYTES_PER_MB) {
-        "%.0fKB".format(bytes / BYTES_PER_KB)
-    } else {
-        "%.1fMB".format(bytes / BYTES_PER_MB)
-    }
-
-private const val BYTES_PER_KB = 1_000f
-private const val BYTES_PER_MB = 1_000_000f
