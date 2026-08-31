@@ -155,11 +155,13 @@ scripts/device.sh install             # 빌드 후 재설치
 scripts/device.sh help                # 기기 제어 명령 전체
 
 ./gradlew ktlintCheck detekt          # 정적 분석
+./gradlew :domain:koverVerify         # domain 커버리지 90% 게이트
 ./gradlew test                        # JVM 단위 테스트
 ./gradlew connectedAndroidTest        # 실기기 계측 테스트
 ```
 
-- 모든 커밋 전에 `ktlintCheck`, `detekt`, `test`가 통과해야 한다.
+- 모든 커밋 전에 `ktlintCheck`, `detekt`, `test`, `:domain:koverVerify`가 통과해야 한다.
+  `koverVerify`를 빠뜨려 커버리지 게이트가 깨진 채로 커밋된 적이 있다 — 목록에서 빼지 마라.
 - CI가 구성되면 위 세 가지를 PR 게이트로 강제한다.
 - `scripts/device.sh`는 JDK와 Android SDK 경로를 스스로 찾아 Gradle에 넘기므로
   `JAVA_HOME`이나 `local.properties`를 미리 맞출 필요가 없다. `./gradlew`를 직접
