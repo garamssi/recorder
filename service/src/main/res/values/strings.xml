@@ -21,6 +21,7 @@
     <string name="floating_resume">Resume</string>
     <string name="floating_stop">Stop</string>
     <string name="floating_saving">Saving…</string>
+    <string name="floating_preparing">Preparing…</string>
     <string name="capture_busy_recording">Another capture is already running.</string>
     <string name="screenshot_notification_capturing">Capturing screen…</string>
     <string name="screenshot_notification_saved">Screenshot saved to Pictures/ScreenRecorder</string>

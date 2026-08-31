@@ -11,6 +11,15 @@ import android.widget.TextView
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.TimeLimit
 
+/** 조작할 것이 없는 이유. 버블에 띄울 문구가 갈린다. */
+internal enum class BubbleBusyReason {
+    /** 카운트다운 중. */
+    PREPARING,
+
+    /** 발행 중. */
+    SAVING,
+}
+
 /** 버블이 그려야 할 상태 (기능명세서 11.1절). */
 internal sealed interface BubbleState {
     /**
@@ -29,12 +38,14 @@ internal sealed interface BubbleState {
     ) : BubbleState
 
     /**
-     * 발행 중 — 조작 없이 "저장 중"만 (기능명세서 6.1절 [결정]).
+     * 세션이 잡혀 있지만 조작할 것이 없는 구간 (기능명세서 6.1절 [결정]).
      *
-     * 이 구간에 유휴 메뉴를 띄우면 "녹화 시작"이 노출되는데, 누르면 MediaProjection 동의만
-     * 소비하고 서비스가 진행 중인 세션 때문에 START 를 조용히 무시한다.
+     * 여기에 유휴 메뉴를 띄우면 "녹화 시작"이 노출되는데, 누르면 MediaProjection 동의만
+     * 소비하고 서비스가 진행 중인 세션 때문에 START 를 버린다.
      */
-    data object Saving : BubbleState
+    data class Busy(
+        val reason: BubbleBusyReason,
+    ) : BubbleState
 
     /** 음성 전용 녹음 중 — 경과 시간과 중지. */
     data class VoiceRecording(
@@ -179,7 +190,7 @@ internal class FloatingCaptureBubble(
             is BubbleState.Idle -> context.bubbleToggle(expanded, ::toggleExpanded).also { dragHandle = it }
             is BubbleState.ScreenRecording -> context.buildScreenRecordingPill(current, actions)?.let(::adopt)
             is BubbleState.VoiceRecording -> context.buildVoiceRecordingPill(current, actions)?.let(::adopt)
-            is BubbleState.Saving -> context.buildSavingPill()?.let(::adopt)
+            is BubbleState.Busy -> adopt(context.buildBusyPill(current.reason))
         }
 
     private fun adopt(pill: PillViews): View {
@@ -327,7 +338,7 @@ private fun BubbleState.elapsedText(): String =
         is BubbleState.ScreenRecording -> elapsed
         is BubbleState.VoiceRecording -> elapsed
         is BubbleState.Idle -> ""
-        is BubbleState.Saving -> ""
+        is BubbleState.Busy -> ""
     }
 
 /** 시간 제한 줄에 붙는 현재 값 — 없으면 "제한 없음". */

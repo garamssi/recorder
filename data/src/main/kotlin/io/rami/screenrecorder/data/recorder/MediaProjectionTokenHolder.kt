@@ -24,6 +24,16 @@ class MediaProjectionTokenHolder
             token = resultCode to data
         }
 
+        /**
+         * 쓰지 않기로 한 토큰을 버린다.
+         *
+         * 요청이 거절되면 동의만 소비되고 토큰이 남는다. 7절이 "메모리에서만 유지하고 세션마다
+         * 새로 받는다" 고 했으므로 쓰이지 않은 것도 들고 있지 않는다.
+         */
+        fun clear() {
+            token = null
+        }
+
         /** 토큰을 꺼내고 비운다. 없으면 [IllegalStateException]. */
         fun consume(): Pair<Int, Intent> {
             val current = checkNotNull(token) { "MediaProjection 동의 토큰이 없다" }

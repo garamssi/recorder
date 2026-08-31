@@ -12,6 +12,7 @@ import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.model.CaptureRegion
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.usecase.CaptureScreenshotUseCase
+import io.rami.screenrecorder.domain.usecase.DiscardPendingConsentUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveVoiceMicrophoneFallbackUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveVoiceRecordingStateUseCase
@@ -64,6 +65,8 @@ class RecordingForegroundService : Service() {
     @Inject lateinit var observeSettings: io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 
     @Inject lateinit var sessionRepository: RecordingSessionRepository
+
+    @Inject lateinit var discardPendingConsent: DiscardPendingConsentUseCase
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -152,7 +155,13 @@ class RecordingForegroundService : Service() {
 
     private fun handleStart(region: CaptureRegion?) {
         // 세션 진행 중 중복 START는 무시한다 — 진행 중 녹화를 stopSelf로 죽이는 사고 방지.
-        if (stateObserverJob?.isActive == true) return
+        // 조용히 버리면 사용자는 MediaProjection 동의까지 하고 아무 일도 안 일어나는 것을 본다.
+        // 쓰이지 않은 동의 토큰도 남으므로 함께 비운다 (기능명세서 6.1절 [결정], CLAUDE.md 7절).
+        if (stateObserverJob?.isActive == true) {
+            discardPendingConsent()
+            quickCapture.notifyBusy()
+            return
+        }
         serviceScope.launch {
             // 세션 구성은 설정 저장소가 단일 진실 공급원이다 (기능명세서 2.1절: 마지막 선택 유지).
             val settings = observeSettings().first()

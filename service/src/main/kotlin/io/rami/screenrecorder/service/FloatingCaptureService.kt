@@ -160,7 +160,9 @@ internal fun bubbleStateFor(
                 isPaused = true,
             )
 
-        screen is RecordingState.Stopping -> BubbleState.Saving
+        screen is RecordingState.Stopping -> BubbleState.Busy(BubbleBusyReason.SAVING)
+
+        screen is RecordingState.CountingDown -> BubbleState.Busy(BubbleBusyReason.PREPARING)
 
         voice is VoiceRecordingState.Recording ->
             BubbleState.VoiceRecording(DurationFormatter.formatElapsed(voice.elapsed))

@@ -47,8 +47,11 @@ internal class RecordingSessionPresenter(
         // 세션 시작 전의 초기 Idle은 종료 신호가 아니다 (병렬 구독 레이스 방지).
         states.dropWhile { it is RecordingState.Idle }.collectLatest { state ->
             when (state) {
-                is RecordingState.CountingDown ->
+                is RecordingState.CountingDown -> {
                     countdownOverlay.show(state.remainingSeconds, onSkip = onSkipCountdown)
+                    // 이 구간의 일시정지는 아무 일도 하지 않는다 (명세 6.1절 [결정]).
+                    context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = true) }
+                }
 
                 is RecordingState.Recording, is RecordingState.Paused -> {
                     countdownOverlay.dismiss()
@@ -60,7 +63,7 @@ internal class RecordingSessionPresenter(
                 // 발행은 취소할 수 없으므로 중지·일시정지 버튼을 주지 않는다 (명세 6.1절 [결정]).
                 is RecordingState.Stopping -> {
                     countdownOverlay.dismiss()
-                    context.ongoingNotificationText(state)?.let(notifications::showSaving)
+                    context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = false) }
                 }
 
                 is RecordingState.Idle -> {

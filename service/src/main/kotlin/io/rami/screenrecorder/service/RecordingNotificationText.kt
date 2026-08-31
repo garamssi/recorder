@@ -22,7 +22,9 @@ internal fun Context.ongoingNotificationText(state: RecordingState): String? =
         is RecordingState.Paused ->
             getString(R.string.recording_notification_paused, elapsedText(state.timeLimit, state.elapsed))
         RecordingState.Stopping -> getString(R.string.recording_notification_saving)
-        else -> null
+        is RecordingState.CountingDown -> getString(R.string.recording_notification_preparing)
+        // 유휴는 알림을 갱신할 상태가 아니다. else 를 두지 않아야 상태가 늘 때 컴파일러가 잡는다.
+        RecordingState.Idle -> null
     }
 
 /** 경과 시간 표시. 시간 제한이 있으면 "경과 / 제한"으로 병기한다 (기능명세서 11.4절). */

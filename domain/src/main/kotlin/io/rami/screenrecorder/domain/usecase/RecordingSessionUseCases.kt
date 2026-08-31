@@ -3,6 +3,7 @@ package io.rami.screenrecorder.domain.usecase
 import io.rami.screenrecorder.domain.model.RecordableTimeEstimator
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingState
+import io.rami.screenrecorder.domain.repository.CaptureConsentRepository
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
 import kotlinx.coroutines.flow.first
@@ -83,4 +84,18 @@ class ResumeRecordingUseCase
             }
             return runCatching { sessionRepository.resume() }
         }
+    }
+
+/**
+ * 쓰지 않기로 한 캡처 동의를 버린다 (CLAUDE.md 7절).
+ *
+ * 이미 진행 중인 세션 때문에 새 요청을 거절할 때 쓴다. 소비된 동의가 메모리에 남으면
+ * "세션마다 새로 받는다" 는 규칙이 무너진다.
+ */
+class DiscardPendingConsentUseCase
+    @Inject
+    constructor(
+        private val consentRepository: CaptureConsentRepository,
+    ) {
+        operator fun invoke() = consentRepository.discardPending()
     }

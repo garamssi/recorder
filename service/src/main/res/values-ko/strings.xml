@@ -21,6 +21,7 @@
     <string name="floating_resume">재개</string>
     <string name="floating_stop">중지</string>
     <string name="floating_saving">저장 중…</string>
+    <string name="floating_preparing">준비 중…</string>
     <string name="capture_busy_recording">다른 캡처가 이미 진행 중입니다.</string>
     <string name="screenshot_notification_capturing">화면을 캡처하는 중…</string>
     <string name="screenshot_notification_saved">Pictures/ScreenRecorder에 저장했습니다</string>
