@@ -77,9 +77,28 @@ FGS 를 재봤을 때 `curProcState=4`(FOREGROUND_SERVICE), `oom cur=200` 이었
 media processing 이다. 필요한 권한(`FOREGROUND_SERVICE_MEDIA_PROCESSING`)은 이미
 `data/src/main/AndroidManifest.xml:4` 에 있다.
 
-**실기기 검증 항목** — Stopping 진입 후 `dumpsys activity processes` 의 oom_adj/procstate 가
-실제로 떨어지는지, logcat 에 서비스 강등 로그가 남는지, 그리고 이 기기의 adj 50 이 정말
-AOSP 상수와 같은 뜻인지.
+### 실기기 검증 결과 (2026-08-31, Lenovo TB710FU / Android 16) — **가설 기각**
+
+사고와 같은 조건(앱 백그라운드, `types=0x00000020` MEDIA_PROJECTION 단독)에서 4분 녹화를
+중지하고 발행 구간을 2초 간격으로 관측했다.
+
+```
+17:13:12  fgs=2  curProcState=4  oom cur=200   ← 발행 시작 (readMetadata)
+17:13:14  fgs=2  curProcState=4  oom cur=200
+17:13:17  fgs=2  curProcState=4  oom cur=200
+17:13:19  fgs=1  curProcState=4  oom cur=200   ← 발행 완료, 녹화 FGS 정상 종료
+```
+
+**발행 내내 procState 4 / adj 200 이 유지됐다. 강등이 없다.** logcat 에 FGS 관련 시스템
+경고도 0건이고, `destroyService` 는 발행이 끝난 뒤에 나온다. 즉 "프로젝션이 끝나면 시스템이
+mediaProjection 타입 FGS 를 강등한다"는 가설은 **사실이 아니다.**
+
+덤으로 `adj=50` 의 정체도 확인됐다. 백그라운드 녹화를 막 시작한 직후에는 50(최근 포그라운드
+보너스)이고, 약 2분 뒤 **200 으로 안착**한다. 사고 당시 50 이었던 것은 직전 14:58:08~23 에
+사용자가 앱을 열었기 때문이다.
+
+**따라서 FGS 타입 재선언은 사고 대책이 아니다.** 프로젝션이 끝났는데 그 타입을 유지하는
+것이 규약상 옳지 않다는 이유만 남는다. 우선순위는 낮다.
 
 ### 배제한 원인 (모두 실측으로 기각)
 
@@ -170,17 +189,34 @@ IS_PENDING 레코드를 만들고, WorkManager 잡이라 `RecordingState` 와 �
 
 ### 3. publish() 가 파일을 두 번 훑고, 그 결과가 틀렸다
 
-`readMetadata()` 의 `MediaMetadataRetriever` 는 fMP4 에 `mvhd` duration 이 없어
-재생 시간을 알아내려면 모든 `moof` 를 훑을 것으로 보인다 — **다만 MMR 내부 동작을 확인하지
-않았고 두 패스의 소요 시간을 분리 측정하지도 않았다. 착수 전에 계측이 필요하다.**
-어느 쪽이든 그렇게 얻은 값 중:
+**실측 결과 이 항목의 성능 근거는 기각됐다.** 발행 단계를 갈라 재 보니:
+
+| 녹화 | readMetadata | write(remux) |
+|---|---|---|
+| 4분 (22.3MB) | **5 ms** | 5,930 ms |
+| 8분 (64.7MB) | **5 ms** | 26,298 ms |
+
+`MediaMetadataRetriever` 는 전체를 훑지 않는다 — 파일 크기와 무관하게 5ms 다. "발행이 파일을
+두 번 훑는다"는 서술은 틀렸고, `readMetadata` 를 없애도 무방비 구간은 0.02% 줄어들 뿐이다.
+
+남는 것은 **정확성 문제뿐**이다. 그렇게 얻은 값 중:
 
 - `codec = VideoCodec.H264` — 하드코딩. HEVC 로 녹화해도 H264 로 기록된다
 - `frameRate = METADATA_KEY_CAPTURE_FRAMERATE` — 카메라 전용 키. 사실상 0
 - `sizeBytes = file.length()` — remux 전 임시 파일 크기
 
 `Mp4Remuxer.remux()` 가 이미 `RemuxResult.durationUs` 를 반환하는데 아무도 쓰지 않는다.
-이 첫 번째 패스를 없애면 무방비 구간이 줄고 위 세 필드도 정확해진다.
+이 첫 번째 패스를 없애면 위 세 필드가 정확해진다(무방비 구간 단축 효과는 없다).
+
+### 3-1. 진짜 병목은 remux 이고, 비용이 초선형으로 보인다
+
+| 녹화 | 크기 | remux |
+|---|---|---|
+| 4분 | 22.3MB | 5.9초 |
+| 8분 | 64.7MB | 26.3초 |
+
+크기 2.9배에 시간 4.5배다. 데이터 2점이라 단정할 수 없지만, 무방비 구간을 실제로 줄이려면
+`readMetadata` 가 아니라 여기를 봐야 한다. ADR-0001 개정 안건으로 분리한다.
 
 ### 4. 발행 중 상태가 어디에도 표시되지 않는다
 

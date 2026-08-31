@@ -1,5 +1,6 @@
 package io.rami.screenrecorder.data.di
 
+import android.util.Log
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -43,5 +44,14 @@ internal object StorageProvidesModule {
     fun provideRecordingPublisher(
         target: PublishTarget,
         metadataReader: RecordingMetadataReader,
-    ): RecordingPublisher = RecordingPublisher(target, metadataReader)
+    ): RecordingPublisher =
+        RecordingPublisher(
+            target = target,
+            metadataReader = metadataReader,
+            // 발행이 왜 2~4분씩 걸리는지는 단계를 갈라 재야 안다 (CLAUDE.md 8절).
+            // release 빌드에서는 R8 규칙이 Log.i 를 걷어낸다.
+            onPhaseMeasured = { phase, millis -> Log.i(PUBLISH_LOG_TAG, "발행 단계 $phase: ${millis}ms") },
+        )
+
+    private const val PUBLISH_LOG_TAG = "RecordingPublish"
 }

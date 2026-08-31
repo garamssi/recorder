@@ -66,6 +66,7 @@ internal class RecordingPublisher(
     private val target: PublishTarget,
     private val metadataReader: RecordingMetadataReader,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+    private val onPhaseMeasured: (phase: String, millis: Long) -> Unit = { _, _ -> },
 ) {
     /**
      * [tempFile] 을 [fileName] 으로 발행한다.
@@ -79,13 +80,13 @@ internal class RecordingPublisher(
         // 프레임이 인코딩되기 전에 중지되면 빈/재생 불가 파일이 남는다.
         // 저장할 내용이 없으므로 임시 파일만 정리하고 null 을 반환한다 (오류 아님).
         val metadata =
-            metadataReader.read(tempFile) ?: run {
+            measure(PHASE_READ_METADATA) { metadataReader.read(tempFile) } ?: run {
                 tempFile.delete()
                 return null
             }
         val slot = target.create(fileName)
         try {
-            target.write(slot, tempFile)
+            measure(PHASE_WRITE) { target.write(slot, tempFile) }
             target.finish(slot)
         } catch (
             // 복사 실패 시 IS_PENDING 고아 레코드가 남지 않도록 정리 후 원인을 그대로 전파한다.
@@ -97,6 +98,24 @@ internal class RecordingPublisher(
             tempFile.delete()
         }
         return metadata.toRecording(slot, fileName)
+    }
+
+    /**
+     * [block] 을 재고 결과를 그대로 돌려준다.
+     *
+     * 발행이 왜 2~4분씩 걸리는지는 단계를 갈라 재야 알 수 있다 (CLAUDE.md 8절: 실기기 측정).
+     * 실패해도 잰 값을 흘려보낸다 — 실패까지 걸린 시간도 노출 구간이다.
+     */
+    private inline fun <T> measure(
+        phase: String,
+        block: () -> T,
+    ): T {
+        val startedAt = System.nanoTime()
+        try {
+            return block()
+        } finally {
+            onPhaseMeasured(phase, (System.nanoTime() - startedAt) / NANOS_PER_MILLI)
+        }
     }
 
     private fun RecordingMetadata.toRecording(
@@ -115,4 +134,14 @@ internal class RecordingPublisher(
             createdAtEpochMillis = nowEpochMillis(),
             bitrateBps = bitrateBps,
         )
+
+    companion object {
+        /** 임시 파일 전체 스캔으로 의심되는 첫 패스. */
+        const val PHASE_READ_METADATA = "readMetadata"
+
+        /** remux(+실패 시 원본 전량 복사) 두 번째 패스. */
+        const val PHASE_WRITE = "write"
+
+        private const val NANOS_PER_MILLI = 1_000_000L
+    }
 }
