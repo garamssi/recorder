@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,7 +28,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.rami.screenrecorder.core.designsystem.component.KineticSnackbarHost
-import io.rami.screenrecorder.domain.model.PendingRecovery
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.presentation.R

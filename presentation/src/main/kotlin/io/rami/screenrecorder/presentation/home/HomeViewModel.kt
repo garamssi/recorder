@@ -181,6 +181,10 @@ class HomeViewModel
         /**
          * 복구/삭제를 실행하고 목록에서 제거한다.
          *
+         * 이미 진행 중이면 아무것도 하지 않는다 (기능명세서 6.1절 [결정]). 1시간짜리 녹화는
+         * remux + 발행에 수 초가 걸리는데, 그 사이 버튼을 다시 누르면 같은 임시 파일이
+         * 동시에 여러 번 발행돼 똑같은 녹화본이 누른 횟수만큼 쌓인다.
+         *
          * MediaStore 실패 등 앱이 해결할 수 없는 외부 오류는 크래시 대신 안내한다.
          * 임시 파일은 남겨 두어 다음 실행에서 다시 시도할 수 있게 한다(증상 은폐가 아니라 외부 오류 처리).
          */
@@ -188,6 +192,8 @@ class HomeViewModel
             id: String,
             action: suspend () -> Unit,
         ) {
+            if (mutableRecoveringId.value != null) return
+            mutableRecoveringId.value = id
             viewModelScope.launch {
                 val succeeded =
                     try {
@@ -198,6 +204,9 @@ class HomeViewModel
                     ) {
                         android.util.Log.w(LOG_TAG, "임시 파일 복구/삭제 실패: $id", failure)
                         false
+                    } finally {
+                        // 실패했더라도 내려야 사용자가 다시 시도할 수 있다.
+                        mutableRecoveringId.value = null
                     }
                 if (succeeded) {
                     removePending(id)
