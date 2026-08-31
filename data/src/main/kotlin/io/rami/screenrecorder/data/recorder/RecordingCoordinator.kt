@@ -100,6 +100,13 @@ class RecordingCoordinator(
         countdown.skip()
     }
 
+    /**
+     * 중지한다.
+     *
+     * 카운트다운 중이면 [finalizeSession] 은 아무 일도 하지 않는다 — 아직 세션이 없다. 대신
+     * [countdown] 중단이 [start] 코루틴을 깨워 그쪽이 상태를 Idle 로 되돌린다. 이 원격 결합이
+     * 없으면 카운트다운 중 중지가 상태를 CountingDown 에 고착시킨다.
+     */
     override suspend fun stop() {
         countdown.abort()
         finalizeSession()
