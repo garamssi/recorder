@@ -246,6 +246,10 @@ JAVA_CANDIDATE_PATTERNS=(
     "/c/Program Files/Microsoft/jdk-*/bin/java.exe"
     "/c/Program Files/Android/Android Studio/jbr/bin/java.exe"
     "/Library/Java/JavaVirtualMachines/*/Contents/Home/bin/java"
+    # IntelliJ/Android Studio 가 내려받은 JDK 가 여기 쌓인다. Gradle 툴체인 탐지는
+    # 이 경로를 스스로 보지만 이 스크립트는 보지 않아, 설치해 둔 JDK 를 못 찾고 있었다.
+    "$HOME/.jdks/*/bin/java.exe"
+    "$HOME/.jdks/*/bin/java"
     "$HOME/.sdkman/candidates/java/*/bin/java"
     "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java"
     "${JAVA_HOME:-/nonexistent}/bin/java.exe"
