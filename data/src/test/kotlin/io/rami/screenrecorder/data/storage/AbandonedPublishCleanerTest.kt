@@ -17,7 +17,14 @@ class AbandonedPublishCleanerTest {
 
     private val target =
         object : PublishTarget {
-            override fun create(fileName: String) = error("쓰지 않는다")
+            val created = mutableListOf<Long>()
+            var discardFailsFor: String? = null
+
+            override fun create(fileName: String): PublishSlot {
+                val slot = PublishSlot(id = created.size + 100L, uri = "새자리${created.size}")
+                created += slot.id
+                return slot
+            }
 
             override fun write(
                 slot: PublishSlot,
@@ -27,6 +34,7 @@ class AbandonedPublishCleanerTest {
             override fun finish(slot: PublishSlot) = error("쓰지 않는다")
 
             override fun discard(slot: PublishSlot) {
+                if (slot.uri == discardFailsFor) error("삭제 실패: ${slot.uri}")
                 discarded += slot.uri
             }
 
@@ -87,6 +95,46 @@ class AbandonedPublishCleanerTest {
     fun `지울 것이 없으면 아무것도 하지 않는다`() {
         assertEquals(0, cleaner().discardAbandoned())
         assertEquals(emptyList<String>(), discarded)
+    }
+
+    /**
+     * 이 프로세스가 만든 자리는 시각과 무관하게 지키다 (기능명세서 6.1절 [결정]).
+     *
+     * 시각 비교만으로는 부족하다 — 시계가 앞으로 보정되면 기준선이 밀려 방금 만든 자리도
+     * "프로세스보다 먼저"로 보인다. 그러면 진행 중인 발행을 지운다.
+     */
+    @Test
+    fun `이 프로세스가 만든 자리는 시각이 어긋나도 지키지 않는다는 판정에서 제외한다`() {
+        val slot = target.create("진행중.mp4")
+        // 시계가 앞으로 밀려 방금 만든 자리가 "프로세스보다 먼저" 로 보이는 상황.
+        pending += PendingPublish(slot, createdAtEpochSeconds = PROCESS_STARTED_AT - 100)
+
+        val count = cleaner().discardAbandoned()
+
+        assertEquals(emptyList<String>(), discarded)
+        assertEquals(0, count)
+    }
+
+    /** 조기 회수일 뿐이라 한 건 때문에 나머지를 포기할 이유가 없다. */
+    @Test
+    fun `한 건을 못 지워도 나머지는 계속 지운다`() {
+        pending += pendingEntry("첫번째", PROCESS_STARTED_AT - 10)
+        pending += pendingEntry("실패하는것", PROCESS_STARTED_AT - 9)
+        pending += pendingEntry("세번째", PROCESS_STARTED_AT - 8)
+        target.discardFailsFor = "실패하는것"
+
+        val count = cleaner().discardAbandoned()
+
+        assertEquals(listOf("첫번째", "세번째"), discarded)
+        assertEquals(2, count)
+    }
+
+    @Test
+    fun `회수 건수는 실패한 것을 빼고 센다`() {
+        pending += pendingEntry("실패하는것", PROCESS_STARTED_AT - 10)
+        target.discardFailsFor = "실패하는것"
+
+        assertEquals(0, cleaner().discardAbandoned())
     }
 
     private companion object {
