@@ -1,9 +1,9 @@
 package io.rami.screenrecorder.data.transcode
 
 import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.provider.MediaStore
+import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.effect.Presentation
@@ -16,7 +16,12 @@ import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import io.rami.screenrecorder.data.storage.RECORDINGS_RELATIVE_PATH
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import io.rami.screenrecorder.data.storage.PublishTarget
+import io.rami.screenrecorder.data.storage.publishing
 import io.rami.screenrecorder.domain.model.CompressionPlan
 import io.rami.screenrecorder.domain.model.CompressionPreset
 import io.rami.screenrecorder.domain.model.CompressionSource
@@ -163,32 +168,44 @@ class TranscodeWorker(
         return builder.build()
     }
 
-    /** 압축 결과를 원본과 같은 컬렉션(Movies/ScreenRecorder)에 등록한다 (명세 8절: 원본 보존). */
+    /**
+     * 압축 결과를 녹화본과 같은 발행 경로로 등록한다 (명세 8절: 원본 보존, 6.1절 [결정]).
+     *
+     * 자기 발행 코드를 갖고 있던 동안 두 결함이 있었다 — 스트림을 열지 못하면 복사를 건너뛰고도
+     * IS_PENDING 을 해제해 0바이트 파일을 성공으로 발행했고, 복사가 실패하면 미완성 레코드를
+     * 정리하지 않았다. 같은 경로를 쓰면 둘 다 구조적으로 사라지고, 이 결과도 "이 프로세스가
+     * 만든 자리" 로 기억돼 고아 정리가 시각 폴백에 기대지 않는다.
+     */
     private fun publish(
         tempFile: File,
         displayName: String,
     ) {
-        val resolver = applicationContext.contentResolver
-        val values =
-            ContentValues().apply {
-                put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
-                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.RELATIVE_PATH, RECORDINGS_RELATIVE_PATH)
-                put(MediaStore.Video.Media.IS_PENDING, 1)
-            }
-        val uri =
-            checkNotNull(resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)) {
-                "MediaStore insert 실패"
-            }
-        resolver.openOutputStream(uri)?.use { output ->
-            tempFile.inputStream().use { input -> input.copyTo(output) }
+        val target = publishTarget()
+        target.publishing(displayName) { slot ->
+            val output =
+                checkNotNull(applicationContext.contentResolver.openOutputStream(slot.uri.toUri())) {
+                    "MediaStore 쓰기 스트림 열기 실패: $displayName"
+                }
+            output.use { tempFile.inputStream().use { input -> input.copyTo(it) } }
         }
-        resolver.update(
-            uri,
-            ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
-            null,
-            null,
-        )
+    }
+
+    /**
+     * 발행 경계를 얻는다.
+     *
+     * 이 워커는 기본 WorkerFactory 가 만들어 생성자 주입을 받지 못한다. 자기 인스턴스를 새로
+     * 만들면 "이 프로세스가 만든 자리" 기억이 갈라지므로 싱글턴을 그대로 꺼내 쓴다.
+     */
+    private fun publishTarget(): PublishTarget =
+        EntryPointAccessors
+            .fromApplication(applicationContext, TranscodePublishEntryPoint::class.java)
+            .publishTarget()
+
+    /** 기본 WorkerFactory 로 만들어지는 워커가 발행 경계에 닿기 위한 통로. */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    internal interface TranscodePublishEntryPoint {
+        fun publishTarget(): PublishTarget
     }
 
     private class VideoMetadata(

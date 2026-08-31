@@ -52,6 +52,32 @@ internal interface PublishTarget {
     fun wasCreatedByThisProcess(slot: PublishSlot): Boolean
 }
 
+/**
+ * 자리를 만들고 [write] 로 채운 뒤 확정한다. 실패하면 미완성 자리를 지우고 원인을 전파한다.
+ *
+ * 녹화본과 압축 결과가 같은 규율을 쓰게 하는 지점이다 (기능명세서 6.1절 [결정]). 각자 발행
+ * 코드를 갖고 있으면 한쪽만 고쳐진다 — 실제로 압축 워커는 스트림을 열지 못해도 확정해 버려
+ * 0바이트 파일을 성공으로 발행하고 있었다.
+ *
+ * @return 확정된 자리.
+ */
+internal fun PublishTarget.publishing(
+    fileName: String,
+    write: (PublishSlot) -> Unit,
+): PublishSlot {
+    val slot = create(fileName)
+    try {
+        write(slot)
+        finish(slot)
+    } catch (
+        @Suppress("TooGenericExceptionCaught") failure: Exception,
+    ) {
+        discard(slot)
+        throw failure
+    }
+    return slot
+}
+
 /** 아직 확정되지 않은 발행 자리. 정리 대상 판정에 만들어진 시각이 필요하다. */
 internal data class PendingPublish(
     val slot: PublishSlot,
@@ -127,18 +153,9 @@ internal class RecordingPublisher(
                 // 판독 실패는 발행 실패다 — 지우지 않는다 (기능명세서 6.1절 [결정]).
                 is RecordingMetadataResult.Unreadable -> throw read.cause
             }
-        val slot = target.create(fileName)
-        try {
-            measure(PHASE_WRITE) { target.write(slot, tempFile) }
-            target.finish(slot)
-        } catch (
-            // 복사 실패 시 IS_PENDING 고아 레코드가 남지 않도록 정리 후 원인을 그대로 전파한다.
-            // 임시 파일은 남긴다 — 저장 공간 부족이면 원본도 사본도 없어진다 (명세 6.1절 [결정]).
-            @Suppress("TooGenericExceptionCaught") publishFailure: Exception,
-        ) {
-            target.discard(slot)
-            throw publishFailure
-        }
+        // 실패하면 미완성 자리는 정리되고 원인이 올라온다. 임시 파일은 남는다 —
+        // 저장 공간 부족이면 원본도 사본도 없어진다 (기능명세서 6.1절 [결정]).
+        val slot = target.publishing(fileName) { measure(PHASE_WRITE) { target.write(it, tempFile) } }
         tempFile.delete()
         return metadata.toRecording(slot, fileName)
     }
