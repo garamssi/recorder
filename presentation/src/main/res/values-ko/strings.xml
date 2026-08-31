@@ -184,6 +184,10 @@
     <string name="home_ready_subtitle">캡처 모드를 고르고 녹화를 시작하세요.</string>
     <string name="home_in_session_title">녹화 진행 중</string>
     <string name="home_in_session_subtitle">다른 앱을 써도 녹화는 계속됩니다.</string>
+    <string name="home_saving_title">녹화를 저장하고 있습니다</string>
+    <string name="home_saving_subtitle">파일을 마무리하는 중입니다. 긴 녹화는 몇 분 걸릴 수 있습니다.</string>
+    <string name="home_saving_percent">%1$d%%</string>
+    <string name="home_saved">저장했습니다</string>
     <string name="home_mode_full_screen_desc">화면 전체를 담습니다. 튜토리얼·게임플레이에 적합합니다.</string>
     <string name="home_mode_single_app_desc">앱 하나만 녹화해 알림이 화면에 남지 않게 합니다.</string>
     <string name="home_mode_region_desc">영역을 지정해 그 부분만 녹화합니다.</string>

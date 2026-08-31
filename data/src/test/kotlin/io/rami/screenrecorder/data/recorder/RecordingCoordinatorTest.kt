@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.ByteBuffer
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RecordingCoordinatorTest {
@@ -146,6 +148,12 @@ class RecordingCoordinatorTest {
         /** true면 빈 녹화(저장할 내용 없음)를 흉내내 null을 반환한다. */
         var publishReturnsEmpty = false
 
+        /** 발행 중에 흘려보낼 진행률. 저장 중 상태에 실려 오는지 검증한다. */
+        var publishProgress: List<Float> = emptyList()
+
+        /** 설정하면 발행이 이 예외로 실패한다 (저장 공간 부족 등). */
+        var publishFailure: Exception? = null
+
         override fun createTempFile(fileName: String): File = File("build/tmp/fake/$fileName")
 
         override fun listTempFiles(): List<File> = emptyList()
@@ -157,7 +165,10 @@ class RecordingCoordinatorTest {
         override suspend fun publish(
             tempFile: File,
             fileName: String,
+            onProgress: (Float) -> Unit,
         ): io.rami.screenrecorder.domain.model.Recording? {
+            publishProgress.forEach(onProgress)
+            publishFailure?.let { throw it }
             if (publishReturnsEmpty) return null
             publishedFileName = fileName
             return io.rami.screenrecorder.domain.model
@@ -195,6 +206,9 @@ class RecordingCoordinatorTest {
                 )
             }
         }
+
+    /** 저장 중 상태에 실려야 하는 녹화 길이. 기본값 0 과 구분되도록 0 이 아닌 값을 쓴다. */
+    private val recordedMillis = 90_000L
 
     // --- 테스트 픽스처 ---
 
@@ -253,6 +267,103 @@ class RecordingCoordinatorTest {
         )
 
     // --- 시작 ---
+
+    /**
+     * 저장 중 상태에 실리는 값 (기능명세서 2.1절 [결정]).
+     *
+     * 화면이 저장 진척을 보여 주려면 이 배선이 진실을 실어 보내야 한다. 이 경로에는
+     * 오랫동안 테스트가 없어 Stopping 이 알림과 버블에서 새는 회귀가 살아남았다.
+     */
+    @Test
+    fun `중지하면 저장 중 상태에 녹화 길이와 파일명을 실어 보낸다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+            // 시간을 감지 않으면 길이가 0 이라, 기본값과 구분되지 않는 공허한 단정이 된다.
+            advanceTimeBy(recordedMillis)
+
+            val seen = mutableListOf<RecordingState.Stopping>()
+            val watcher =
+                backgroundScope.launch {
+                    coordinator.state.collect { if (it is RecordingState.Stopping) seen += it }
+                }
+            fileStore.publishProgress = listOf(0.25f, 0.75f)
+            coordinator.stop()
+            advanceUntilIdle()
+            watcher.cancel()
+
+            // 상태는 합류(conflating)하는 StateFlow 라 중간 표본은 건너뛸 수 있다. 진행률은
+            // 스트림이 아니라 표본이므로, 실려 오는 값과 단조성만 계약이다.
+            assertEquals("Rec_test.mp4", seen.first().fileName)
+            assertEquals(recordedMillis.milliseconds, seen.first().elapsed)
+            assertNull(seen.first().progress)
+            // 단조성은 여기서 단정하지 않는다 — 합류 때문에 관측 표본이 하나뿐이라
+            // 어떤 변경으로도 실패할 수 없다. 그 계약은 RecordingPublisher 쪽에 있다.
+            assertEquals(0.75f, seen.last().progress)
+        }
+
+    /**
+     * 저장 실패를 알린다 (기능명세서 2.1절 [결정]).
+     *
+     * 중지 처리는 성공·실패·빈 세션 모두 같은 방식으로 끝나므로 상태만으로는 구분되지 않는다.
+     * 실패를 삼키면 진행 게이지가 도중에 사라지고 사용자는 저장된 줄 안다.
+     */
+    @Test
+    fun `발행이 실패하면 저장 실패를 알린다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+            fileStore.publishFailure = java.io.IOException("저장 공간이 부족하다")
+
+            coordinator.sessionEvents.test {
+                coordinator.stop()
+                advanceUntilIdle()
+
+                assertEquals(RecordingSessionEvent.SaveFailed, awaitItem())
+            }
+        }
+
+    @Test
+    fun `발행이 실패해도 유휴로 돌아간다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+            fileStore.publishFailure = java.io.IOException("저장 공간이 부족하다")
+
+            coordinator.stop()
+            advanceUntilIdle()
+
+            assertTrue(coordinator.state.value is RecordingState.Idle)
+        }
+
+    /** 정상 발행에서는 실패를 알리지 않는다 — 알림이 늘 뜨면 의미가 없다. */
+    @Test
+    fun `발행이 성공하면 저장 실패를 알리지 않는다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+
+            val seen = mutableListOf<RecordingSessionEvent>()
+            val watcher = backgroundScope.launch { coordinator.sessionEvents.collect { seen += it } }
+            coordinator.stop()
+            advanceUntilIdle()
+            watcher.cancel()
+
+            assertTrue(seen.none { it is RecordingSessionEvent.SaveFailed })
+        }
+
+    /** 발행이 끝나면 유휴로 돌아간다 — 저장 중이 남아 있으면 다음 녹화가 막힌다. */
+    @Test
+    fun `발행이 끝나면 유휴로 돌아간다`() =
+        runTest {
+            val coordinator = coordinator()
+            coordinator.start(noCountdownConfig)
+
+            coordinator.stop()
+            advanceUntilIdle()
+
+            assertTrue(coordinator.state.value is RecordingState.Idle)
+        }
 
     @Test
     fun `시작하면 인코더 서피스로 캡처를 시작하고 먹서를 연다`() =

@@ -14,6 +14,9 @@ import kotlin.time.Duration.Companion.seconds
  * 시간 제한이 걸린 세션은 남은 시간을 가늠할 수 있어야 하므로 경과 시간과 제한을 병기한다.
  */
 class BubbleStateMappingTest {
+    /** 저장 중 국면. 버블 매핑은 길이·파일명·진행률을 쓰지 않으므로 값은 고정한다. */
+    private fun stopping() = RecordingState.Stopping(elapsed = 1.minutes, fileName = "Rec.mp4")
+
     private val noVoice = VoiceRecordingState.Idle
 
     @Test
@@ -101,7 +104,7 @@ class BubbleStateMappingTest {
     fun `발행 중에는 유휴 메뉴 대신 저장 중을 보여 준다`() {
         val state =
             bubbleStateFor(
-                screen = RecordingState.Stopping,
+                screen = stopping(),
                 voice = noVoice,
                 settingTimeLimit = TimeLimit.None,
             )
@@ -142,7 +145,7 @@ class BubbleStateMappingTest {
                 RecordingState.CountingDown(remainingSeconds = 3),
                 RecordingState.Recording(1.minutes),
                 RecordingState.Paused(1.minutes),
-                RecordingState.Stopping,
+                stopping(),
             ).associateWith { bubbleStateFor(it, noVoice, TimeLimit.None) is BubbleState.Idle }
 
         assertEquals(
@@ -151,7 +154,7 @@ class BubbleStateMappingTest {
                 RecordingState.CountingDown(remainingSeconds = 3) to false,
                 RecordingState.Recording(1.minutes) to false,
                 RecordingState.Paused(1.minutes) to false,
-                RecordingState.Stopping to false,
+                stopping() to false,
             ),
             idleOnly,
         )

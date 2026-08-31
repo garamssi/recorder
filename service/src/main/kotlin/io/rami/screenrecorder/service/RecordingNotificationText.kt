@@ -21,7 +21,14 @@ internal fun Context.ongoingNotificationText(state: RecordingState): String? =
         is RecordingState.Recording -> elapsedText(state.timeLimit, state.elapsed)
         is RecordingState.Paused ->
             getString(R.string.recording_notification_paused, elapsedText(state.timeLimit, state.elapsed))
-        RecordingState.Stopping -> getString(R.string.recording_notification_saving)
+        // 발행은 분 단위로 걸린다. 진행률을 알게 되면 알림에도 실어 보낸다 —
+        // 같은 문구를 반복해 갱신하면 사용자에게도 시스템에도 낭비다.
+        is RecordingState.Stopping ->
+            // 타입이 Float? 라 0f..1f 를 강제하지 못한다. 여기서도 잘라야 "190%" 가 안 뜬다.
+            state.progress
+                ?.let { (it.coerceIn(0f, 1f) * PERCENT).toInt() }
+                ?.let { getString(R.string.recording_notification_saving_progress, it) }
+                ?: getString(R.string.recording_notification_saving)
         is RecordingState.CountingDown -> getString(R.string.recording_notification_preparing)
         // 유휴는 알림을 갱신할 상태가 아니다. else 를 두지 않아야 상태가 늘 때 컴파일러가 잡는다.
         RecordingState.Idle -> null
@@ -58,3 +65,6 @@ internal fun Context.autoStopText(reason: AutoStopReason): String =
         AutoStopReason.PAUSE_TIMEOUT ->
             getString(R.string.recording_notification_completed_pause_timeout)
     }
+
+/** 0f..1f 진행률을 퍼센트로 옮기는 배수. */
+private const val PERCENT = 100

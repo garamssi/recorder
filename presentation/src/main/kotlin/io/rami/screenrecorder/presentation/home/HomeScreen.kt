@@ -47,6 +47,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val justSaved by viewModel.justSaved.collectAsState()
     var showOptionsSheet by rememberSaveable { mutableStateOf(false) }
     val snackbarHost = remember { SnackbarHostState() }
     var renameTarget by remember { mutableStateOf<Recording?>(null) }
@@ -58,6 +59,7 @@ fun HomeScreen(
         HomeContent(
             uiState = uiState,
             actions = actions,
+            justSaved = justSaved,
             onModeSelected = viewModel::onModeSelected,
             onOpenOptions = { showOptionsSheet = true },
             onPlay = onPlay,
@@ -100,6 +102,7 @@ fun HomeScreen(
 private fun HomeContent(
     uiState: HomeUiState,
     actions: HomeActions,
+    justSaved: Recording?,
     onModeSelected: (io.rami.screenrecorder.domain.model.CaptureModeKind) -> Unit,
     onOpenOptions: () -> Unit,
     onPlay: (Recording) -> Unit,
@@ -118,7 +121,7 @@ private fun HomeContent(
         ) {
             HomeHeader(recordingState = uiState.recordingState)
             CaptureModeCards(selected = uiState.selectedMode, onSelected = onModeSelected)
-            RecordControlCard(uiState = uiState, actions = actions)
+            RecordControlCard(uiState = uiState, actions = actions, justSaved = justSaved)
             ActiveConfigurationCard(uiState = uiState, onOpenOptions = onOpenOptions)
             HomeFooterRow(uiState = uiState, actions = actions, onPlay = onPlay)
         }

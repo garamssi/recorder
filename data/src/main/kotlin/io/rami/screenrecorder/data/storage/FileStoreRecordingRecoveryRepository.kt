@@ -38,6 +38,8 @@ class FileStoreRecordingRecoveryRepository(
     override suspend fun recover(id: String): Recording? =
         withContext(blockingDispatcher + NonCancellable) {
             val tempFile = fileStore.listTempFiles().firstOrNull { it.name == id } ?: return@withContext null
+            // 복구 다이얼로그는 아직 진행률을 그리지 않으므로 onProgress 를 넘기지 않는다.
+            // 이 화면도 분 단위로 걸린다 (docs/postmortem/2026-08-31-publish-sigkill.md 근본 원인 2).
             fileStore.publish(tempFile, id)
         }
 

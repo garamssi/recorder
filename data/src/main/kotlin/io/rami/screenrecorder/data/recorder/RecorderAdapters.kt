@@ -204,10 +204,15 @@ interface RecordingFileStore {
      *
      * 녹화된 내용이 없는 빈/손상 파일이면 임시 파일을 정리하고 null을 반환한다
      * (프레임이 인코딩되기 전에 중지된 경우 — 오류가 아니라 저장할 내용이 없는 정상 경로).
+     *
+     * @param onProgress 0f..1f 저장 진행률 (기능명세서 2.1절 [결정]). 되돌아가지 않고, 발행이
+     *   확정되면 1f 로 닫힌다. 발행 스레드에서 동기로 불리므로 빠르고 예외 없이 끝나야 한다.
+     *   복구 경로처럼 보여 줄 화면이 없으면 넘기지 않아도 된다.
      */
     suspend fun publish(
         tempFile: File,
         fileName: String,
+        onProgress: (Float) -> Unit = {},
     ): io.rami.screenrecorder.domain.model.Recording?
 
     /**

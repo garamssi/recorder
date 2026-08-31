@@ -1,6 +1,7 @@
 package io.rami.screenrecorder.data.recorder
 
 import android.media.MediaFormat
+import android.util.Log
 import io.rami.screenrecorder.domain.model.AutoBitratePolicy
 import io.rami.screenrecorder.domain.model.AutoStopReason
 import io.rami.screenrecorder.domain.model.BitrateOption
@@ -258,7 +259,10 @@ class RecordingCoordinator(
     private suspend fun finalizeSession() {
         val session = activeSession ?: return
         if (!session.finalizing.compareAndSet(false, true)) return
-        mutableState.value = RecordingState.Stopping
+        // 녹화가 끝난 시점의 길이를 붙들어 둔다. 저장 화면이 결과물의 길이를 보여 주고,
+        // 진행률이 갱신될 때마다 같은 값을 다시 실어 보내야 한다 (기능명세서 2.1절 [결정]).
+        val recordedLength = session.stopwatch.elapsed()
+        mutableState.value = RecordingState.Stopping(recordedLength, session.fileName)
         session.ticker?.cancel()
         session.storageWatch?.cancel()
         session.pauseTimeout?.cancel()
@@ -285,10 +289,21 @@ class RecordingCoordinator(
                                 }
                             }
                         }
-                        fileStore.publish(session.tempFile, session.fileName)
+                        fileStore.publish(session.tempFile, session.fileName) { progress ->
+                            mutableState.value =
+                                RecordingState.Stopping(recordedLength, session.fileName, progress)
+                        }
                     }
                 // 프레임이 하나도 인코딩되지 않은 빈 세션은 저장할 내용이 없으므로 완료를 알리지 않는다.
                 recording?.let { mutableCompleted.emit(it) }
+                // 어떤 실패든 사용자에게는 알려야 하므로 넓게 받는다.
+            } catch (
+                @Suppress("TooGenericExceptionCaught") failure: Exception,
+            ) {
+                // 실패를 삼키면 게이지가 도중에 사라지고 사용자는 저장된 줄 안다
+                // (기능명세서 2.1절 [결정]). 임시 파일은 남아 다음 실행에서 복구를 제안한다.
+                Log.w(LOG_TAG, "녹화본 발행 실패 — 임시 파일을 남긴다", failure)
+                mutableEvents.emit(RecordingSessionEvent.SaveFailed)
             } finally {
                 activeSession = null
                 mutableState.value = RecordingState.Idle
@@ -421,6 +436,8 @@ class RecordingCoordinator(
     }
 
     private companion object {
+        private const val LOG_TAG = "RecordingCoordinator"
+
         const val ELAPSED_TICK_MS = 1_000L
         const val US_PER_MS = 1_000L
         const val EVENT_BUFFER = 16

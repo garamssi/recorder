@@ -57,7 +57,8 @@ internal class MediaStoreRecordingFileStore
         override suspend fun publish(
             tempFile: File,
             fileName: String,
-        ): Recording? = withContext(Dispatchers.IO) { publisher.publish(tempFile, fileName) }
+            onProgress: (Float) -> Unit,
+        ): Recording? = withContext(Dispatchers.IO) { publisher.publish(tempFile, fileName, onProgress) }
 
         override suspend fun discardAbandonedPublishes(): Int =
             withContext(Dispatchers.IO) { cleaner.discardAbandoned() }

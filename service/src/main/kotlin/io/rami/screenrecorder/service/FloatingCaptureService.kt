@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -108,7 +109,10 @@ class FloatingCaptureService : Service() {
         ) { screen, voice, timeLimit ->
             currentTimeLimit = timeLimit
             bubbleStateFor(screen, voice, settingTimeLimit = timeLimit)
-        }.collect(bubble::render)
+            // 버블은 저장 진행률을 쓰지 않으므로 Stopping 이 갱신될 때마다 같은 값이 온다.
+            // render 도 같은 값을 버리지만, 그쪽 조기 반환은 창이 붙기 전(root == null)에는
+            // 내부 상태를 갱신하지 않아 흐름 수준에서 한 번 더 걸러 두는 편이 안전하다.
+        }.distinctUntilChanged().collect(bubble::render)
     }
 
     /** 시간 제한 직접 입력 창을 띄우고, 확정된 값을 설정에 저장한다. */
@@ -162,7 +166,7 @@ internal fun bubbleStateFor(
                 isPaused = true,
             )
 
-        RecordingState.Stopping -> BubbleState.Busy(BubbleBusyReason.SAVING)
+        is RecordingState.Stopping -> BubbleState.Busy(BubbleBusyReason.SAVING)
 
         is RecordingState.CountingDown -> BubbleState.Busy(BubbleBusyReason.PREPARING)
 

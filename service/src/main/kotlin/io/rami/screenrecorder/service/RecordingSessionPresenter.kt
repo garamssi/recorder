@@ -43,6 +43,9 @@ internal class RecordingSessionPresenter(
         }
     }
 
+    /** 마지막으로 띄운 저장 중 문구. 같은 문구를 다시 알리지 않으려고 기억한다. */
+    private var lastSavingText: String? = null
+
     suspend fun observeState(states: Flow<RecordingState>) {
         // 세션 시작 전의 초기 Idle은 종료 신호가 아니다 (병렬 구독 레이스 방지).
         states.dropWhile { it is RecordingState.Idle }.collectLatest { state ->
@@ -63,11 +66,19 @@ internal class RecordingSessionPresenter(
                 // 발행은 취소할 수 없으므로 중지·일시정지 버튼을 주지 않는다 (명세 6.1절 [결정]).
                 is RecordingState.Stopping -> {
                     countdownOverlay.dismiss()
-                    context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = false) }
+                    // 진행률은 0.5% 단위로 올라오지만 문구는 1% 단위다. 걸러 내지 않으면
+                    // 발행 2~4분 동안 같은 문자열로 수백 번 알림을 다시 만든다.
+                    context.ongoingNotificationText(state)?.let { text ->
+                        if (text != lastSavingText) {
+                            lastSavingText = text
+                            notifications.showLimited(text, stoppable = false)
+                        }
+                    }
                 }
 
                 is RecordingState.Idle -> {
                     countdownOverlay.dismiss()
+                    lastSavingText = null
                     onIdle()
                 }
             }
@@ -101,6 +112,10 @@ internal class RecordingSessionPresenter(
                 is RecordingSessionEvent.AutoStopped -> autoStopReason = event.reason
 
                 is RecordingSessionEvent.MicrophoneFellBack -> context.showMicrophoneFallback(event.requested)
+
+                // 완료 알림과 같은 자리에 띄운다 — 사용자는 대개 다른 앱을 쓰는 중이다.
+                is RecordingSessionEvent.SaveFailed ->
+                    context.showCompletedNotification(context.getString(R.string.recording_notification_save_failed))
 
                 is RecordingSessionEvent.RegionInvalidatedByRotation ->
                     // 명세 5절 [결정]: "영역을 다시 지정하거나 중지하세요"

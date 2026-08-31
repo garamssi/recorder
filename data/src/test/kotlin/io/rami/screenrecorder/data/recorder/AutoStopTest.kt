@@ -88,6 +88,7 @@ class AutoStopTest {
         override suspend fun publish(
             tempFile: File,
             fileName: String,
+            onProgress: (Float) -> Unit,
         ) = io.rami.screenrecorder.domain.model
             .Recording(
                 id =

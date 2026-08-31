@@ -24,16 +24,19 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -60,8 +63,11 @@ class HomeViewModelTest {
     ) : RecordingSessionRepository {
         var skipCount = 0
 
+        /** 발행이 확정된 녹화본만 흐르는 이벤트. 저장 완료 표시가 이 축으로만 켜져야 한다. */
+        val completed = MutableSharedFlow<Recording>(extraBufferCapacity = 1)
+
         override val state: Flow<RecordingState> = stateFlow
-        override val completedRecordings: Flow<Recording> = emptyFlow()
+        override val completedRecordings: Flow<Recording> = completed
         override val sessionEvents: Flow<RecordingSessionEvent> = emptyFlow()
 
         override suspend fun start(config: RecordingConfig) = Unit
@@ -468,8 +474,73 @@ class HomeViewModelTest {
             assertEquals(listOf("t.mp4"), viewModel.pendingRecoveries.value.map { it.id })
         }
 
+    /**
+     * 저장 완료 표시 (기능명세서 2.1절 [결정]).
+     *
+     * 발행이 확정될 때만 켜지고, 사용자가 누를 것 없이 스스로 꺼진다. 확인 버튼을 두면
+     * 저장할 때마다 손이 한 번 더 가고, 누르지 않으면 다음 녹화가 막힌다.
+     */
+    @Test
+    fun `발행이 확정되면 저장 완료 표시를 켠다`() =
+        runTest {
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            sessionRepository.completed.emit(SAVED)
+            runCurrent()
+
+            assertEquals(SAVED, viewModel.justSaved.value)
+        }
+
+    @Test
+    fun `저장 완료 표시는 누르지 않아도 스스로 꺼진다`() =
+        runTest {
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            sessionRepository.completed.emit(SAVED)
+            runCurrent()
+            // 켜진 것을 먼저 확인해야 "꺼졌다"와 "애초에 켜지지 않았다"가 구분된다.
+            assertEquals(SAVED, viewModel.justSaved.value)
+
+            advanceUntilIdle()
+
+            assertNull(viewModel.justSaved.value)
+        }
+
+    /**
+     * 중지 처리는 발행 실패와 빈 세션(프레임 0개)에서도 똑같이 끝난다. 상태 전이로 판정하면
+     * 저장되지 않은 녹화를 "저장했습니다" 로 알린다.
+     */
+    @Test
+    fun `저장되지 않고 중지만 끝나면 완료 표시를 켜지 않는다`() =
+        runTest {
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            stateFlow.value = RecordingState.Stopping(1.minutes, "Rec.mp4", progress = 0.4f)
+            runCurrent()
+            stateFlow.value = RecordingState.Idle
+            advanceUntilIdle()
+
+            assertNull(viewModel.justSaved.value)
+        }
+
     private companion object {
         /** 응답이 없다고 느낀 사용자가 연타하는 횟수. */
         const val TAP_BURST = 5
+
+        val SAVED =
+            Recording(
+                id = RecordingId(7L),
+                displayName = "ScreenRecorder_20260831_143020.mp4",
+                contentUri = "content://media/external/video/media/7",
+                sizeBytes = 12_345L,
+                duration = 3.minutes,
+                resolution = Resolution.FHD,
+                frameRate = 60,
+                codec = VideoCodec.H264,
+                createdAtEpochMillis = 1_788_155_923_000L,
+                bitrateBps = 12_000_000,
+            )
     }
 }

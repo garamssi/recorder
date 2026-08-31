@@ -29,9 +29,20 @@ internal interface PublishTarget {
     /** [fileName] 자리를 IS_PENDING 으로 만든다. */
     fun create(fileName: String): PublishSlot
 
+    /**
+     * [tempFile] 의 내용을 [slot] 에 쓴다.
+     *
+     * @param onProgress 0f..1f 진행률. 발행 구간이 분 단위로 걸려 화면이 진척을 보여야 한다
+     *   (기능명세서 2.1절 [결정]). 되돌아가는 값을 보내도 [RecordingPublisher] 가 걸러 낸다.
+     *
+     *   구현은 이 콜백을 **쓰기와 같은 스레드에서 동기로** 부른다. 그러므로 콜백은 (1) 빨라야
+     *   하고 — 느리면 발행 자체가 느려진다 — (2) **예외를 던져서는 안 된다.** 던지면 쓰기
+     *   실패와 구분되지 않아 remux 실패로 오분류되고 원본 전량 복사로 조용히 넘어간다.
+     */
     fun write(
         slot: PublishSlot,
         tempFile: File,
+        onProgress: (Float) -> Unit,
     )
 
     /** IS_PENDING 을 해제해 사용자에게 보이게 한다. */
@@ -144,12 +155,17 @@ internal class RecordingPublisher(
     /**
      * [tempFile] 을 [fileName] 으로 발행한다.
      *
+     * @param onProgress 0f..1f 저장 진행률. 메타데이터 판독 구간에는 신호가 없으므로 아무것도
+     *   흘리지 않다가, 쓰기가 시작되면 올라가고 발행이 확정되면 1f 로 닫힌다. 발행이 실패하면
+     *   1f 를 보내지 않는다. 호출 스레드에서 동기로 불리므로 빠르고 예외 없이 끝나야 한다.
      * @return 저장된 녹화본. 저장할 내용이 없으면 null (오류가 아니다).
      */
     fun publish(
         tempFile: File,
         fileName: String,
+        onProgress: (Float) -> Unit = {},
     ): Recording? {
+        val report = monotonic(onProgress)
         val metadata =
             when (val read = measure(PHASE_READ_METADATA) { metadataReader.read(tempFile) }) {
                 is RecordingMetadataResult.Readable -> read.metadata
@@ -163,10 +179,30 @@ internal class RecordingPublisher(
             }
         // 실패하면 미완성 자리는 정리되고 원인이 올라온다. 임시 파일은 남는다 —
         // 저장 공간 부족이면 원본도 사본도 없어진다 (기능명세서 6.1절 [결정]).
-        val slot = target.publishing(fileName) { measure(PHASE_WRITE) { target.write(it, tempFile) } }
+        val slot = target.publishing(fileName) { measure(PHASE_WRITE) { target.write(it, tempFile, report) } }
         val publishedSize = target.sizeOf(slot)
         tempFile.delete()
+        // remux 는 컨테이너 부담만큼 1f 에 못 미친 채 끝나고, 원본 복사로 되돌아간 경우에는
+        // 진행률이 중간에서 다시 시작한다. 발행이 확정된 지금이 100% 를 말할 수 있는 유일한 시점이다.
+        report(1f)
         return metadata.toRecording(slot, fileName, publishedSize)
+    }
+
+    /**
+     * 뒤로 가는 진행률을 걸러 낸다.
+     *
+     * remux 가 중간에 실패하면 원본 전량 복사로 되돌아가는데, 그 복사는 0 바이트부터 다시 센다
+     * (기능명세서 6.1절). 걸러 내지 않으면 게이지가 60% 에서 0% 로 떨어져 저장이 되감기는 것처럼 보인다.
+     */
+    private fun monotonic(onProgress: (Float) -> Unit): (Float) -> Unit {
+        var highWaterMark = 0f
+        return { fraction ->
+            val clamped = fraction.coerceIn(0f, 1f)
+            if (clamped > highWaterMark) {
+                highWaterMark = clamped
+                onProgress(clamped)
+            }
+        }
     }
 
     /**

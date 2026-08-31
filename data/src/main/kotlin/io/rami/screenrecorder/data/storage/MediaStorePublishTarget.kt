@@ -51,6 +51,7 @@ internal class MediaStorePublishTarget
         override fun write(
             slot: PublishSlot,
             tempFile: File,
+            onProgress: (Float) -> Unit,
         ) {
             val uri = slot.toUri()
             val resolver = context.contentResolver
@@ -58,11 +59,15 @@ internal class MediaStorePublishTarget
                 checkNotNull(resolver.openFileDescriptor(uri, FILE_MODE_READ_WRITE)) {
                     "MediaStore 파일 디스크립터 열기 실패: $uri"
                 }
+            var remuxProgress = 0f
             val remuxed =
                 descriptor.use {
                     @Suppress("TooGenericExceptionCaught") // 어떤 실패든 원본 복사로 되돌린다.
                     try {
-                        Mp4Remuxer.remux(tempFile, it.fileDescriptor)
+                        Mp4Remuxer.remux(tempFile, it.fileDescriptor) { progress ->
+                            remuxProgress = progress
+                            onProgress(progress)
+                        }
                         true
                     } catch (remuxFailure: Exception) {
                         Log.w(LOG_TAG, "remux 실패 — 원본 fMP4로 저장한다: ${tempFile.name}", remuxFailure)
@@ -74,7 +79,48 @@ internal class MediaStorePublishTarget
                 checkNotNull(resolver.openOutputStream(uri, FILE_MODE_TRUNCATE)) {
                     "MediaStore 쓰기 스트림 열기 실패: $uri"
                 }
-            output.use { tempFile.inputStream().use { input -> input.copyTo(it) } }
+            output.use { stream ->
+                tempFile.inputStream().use { input ->
+                    input.copyReporting(stream, tempFile.length(), remuxProgress, onProgress)
+                }
+            }
+        }
+
+        /**
+         * [this] 를 [output] 으로 옮기며 진행률을 알린다.
+         *
+         * `copyTo` 로는 도중 상태를 알 수 없다. 이 경로는 remux 가 실패했을 때만 쓰이지만
+         * 원본 전량 복사라 오히려 더 오래 걸리므로, 여기서도 화면이 멈춰 보이면 안 된다.
+         *
+         * @param alreadyDone remux 가 실패 전까지 올려 둔 진행률. 복사는 0 바이트부터 다시
+         *   세므로 남은 구간으로 접어 넣는다. 스로틀은 접어 넣은 뒤 값에 걸어야 한다 —
+         *   복사 비율에 걸면 남은 구간이 좁을 때 화면에 보이지 않는 갱신만 수백 번 나간다.
+         */
+        private fun java.io.InputStream.copyReporting(
+            output: java.io.OutputStream,
+            totalBytes: Long,
+            alreadyDone: Float,
+            onProgress: (Float) -> Unit,
+        ) {
+            val buffer = ByteArray(COPY_BUFFER_BYTES)
+            var copiedBytes = 0L
+            var reported = alreadyDone
+            var read = read(buffer)
+            while (read >= 0) {
+                output.write(buffer, 0, read)
+                copiedBytes += read
+                if (totalBytes > 0L) {
+                    val mapped = remainingBandProgress(alreadyDone, copiedBytes.toFloat() / totalBytes)
+                    // remux 와 같은 임계를 쓴다 — 갈라지면 두 경로의 갱신 빈도가 어긋난다.
+                    if (mapped - reported >= BYTE_PROGRESS_STEP) {
+                        reported = mapped
+                        onProgress(mapped)
+                    }
+                }
+                read = read(buffer)
+            }
+            // 남은 구간이 좁아 임계에 한 번도 닿지 못했더라도 복사는 끝났다.
+            onProgress(remainingBandProgress(alreadyDone, 1f))
         }
 
         override fun finish(slot: PublishSlot) {
@@ -241,3 +287,6 @@ private const val FILE_MODE_READ_WRITE = "rw"
 
 /** remux 실패 후 재작성할 때 이전 내용을 남기지 않는다. */
 private const val FILE_MODE_TRUNCATE = "wt"
+
+/** 원본 복사 버퍼. 1080p60 비트레이트에서 한 번에 담기 좋은 크기다. */
+private const val COPY_BUFFER_BYTES = 256 * 1024

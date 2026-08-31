@@ -23,25 +23,44 @@ import io.rami.screenrecorder.presentation.R
 /** 화면 제목 — 녹화 중에는 문구가 상태를 반영한다. */
 @Composable
 internal fun HomeHeader(recordingState: RecordingState) {
-    val isIdle = recordingState is RecordingState.Idle
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text =
-                stringResource(
-                    if (isIdle) R.string.home_ready_title else R.string.home_in_session_title,
-                ),
+            text = stringResource(headerTitleRes(recordingState)),
             style = MaterialTheme.typography.headlineLarge,
         )
         Text(
-            text =
-                stringResource(
-                    if (isIdle) R.string.home_ready_subtitle else R.string.home_in_session_subtitle,
-                ),
+            text = stringResource(headerSubtitleRes(recordingState)),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
+
+/**
+ * 상태별 헤더 제목 (기능명세서 2.1절).
+ *
+ * 저장 중을 따로 두는 이유: 그 구간은 녹화가 이미 끝났는데도 "녹화 진행 중"이 분 단위로
+ * 남아 있었다. else 를 두지 않아 상태가 늘면 컴파일러가 잡는다.
+ */
+private fun headerTitleRes(state: RecordingState): Int =
+    when (state) {
+        is RecordingState.Idle -> R.string.home_ready_title
+        is RecordingState.Stopping -> R.string.home_saving_title
+        is RecordingState.CountingDown,
+        is RecordingState.Recording,
+        is RecordingState.Paused,
+        -> R.string.home_in_session_title
+    }
+
+private fun headerSubtitleRes(state: RecordingState): Int =
+    when (state) {
+        is RecordingState.Idle -> R.string.home_ready_subtitle
+        is RecordingState.Stopping -> R.string.home_saving_subtitle
+        is RecordingState.CountingDown,
+        is RecordingState.Recording,
+        is RecordingState.Paused,
+        -> R.string.home_in_session_subtitle
+    }
 
 /** 캡처 모드 선택 카드 3종 (기능명세서 2.1절: 마지막 선택 유지). */
 @Composable

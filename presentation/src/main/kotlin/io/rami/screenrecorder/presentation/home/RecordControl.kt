@@ -11,7 +11,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -43,6 +45,7 @@ import io.rami.screenrecorder.core.designsystem.component.PrimaryActionButton
 import io.rami.screenrecorder.core.designsystem.component.SecondaryActionButton
 import io.rami.screenrecorder.core.designsystem.component.rememberPressScale
 import io.rami.screenrecorder.core.designsystem.theme.tabularNumbers
+import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.presentation.R
 
@@ -51,43 +54,66 @@ import io.rami.screenrecorder.presentation.R
 internal fun RecordControlCard(
     uiState: HomeUiState,
     actions: HomeActions,
+    justSaved: Recording?,
 ) {
     KineticCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    // 상태마다 내용물 높이가 달라 중지 직후 카드가 접혔다가 다시 튀어 올랐고,
+                    // 아래 카드들이 통째로 출렁였다 (DESIGN_GUIDE.md 4절 "제어 카드 높이").
+                    .defaultMinSize(minHeight = CONTROL_MIN_HEIGHT),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterVertically),
         ) {
-            when (val state = uiState.recordingState) {
-                is RecordingState.Recording ->
-                    RecordingStatus(
-                        statusRes = R.string.home_recording_in_progress,
-                        elapsed = state.elapsed,
-                        isPaused = false,
-                        actions = actions,
-                    )
-
-                is RecordingState.Paused ->
-                    RecordingStatus(
-                        statusRes = R.string.home_paused,
-                        elapsed = state.elapsed,
-                        isPaused = true,
-                        actions = actions,
-                    )
-
-                is RecordingState.Stopping ->
-                    Text(
-                        text = stringResource(R.string.home_saving),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-
-                else ->
-                    IdleRecordButton(
-                        enabled = uiState.canStartRecording,
-                        onClick = actions.control.onStart,
-                    )
-            }
+            RecordControlContent(uiState, actions, justSaved)
         }
+    }
+}
+
+/**
+ * 카드 안에 그릴 국면을 고른다.
+ *
+ * 저장 완료는 세션 상태가 아니라 화면만의 국면이므로 [RecordingState] 분기보다 앞에 온다
+ * (DESIGN_GUIDE.md 4절 "저장 완료").
+ */
+@Composable
+private fun ColumnScope.RecordControlContent(
+    uiState: HomeUiState,
+    actions: HomeActions,
+    justSaved: Recording?,
+) {
+    // 새 세션이 시작됐으면 완료 표시를 붙들지 않는다 — 다음 녹화를 막으면 안 된다.
+    if (justSaved != null && uiState.recordingState is RecordingState.Idle) {
+        SavedStatus(justSaved)
+        return
+    }
+    when (val state = uiState.recordingState) {
+        is RecordingState.Recording ->
+            RecordingStatus(
+                statusRes = R.string.home_recording_in_progress,
+                elapsed = state.elapsed,
+                isPaused = false,
+                actions = actions,
+            )
+
+        is RecordingState.Paused ->
+            RecordingStatus(
+                statusRes = R.string.home_paused,
+                elapsed = state.elapsed,
+                isPaused = true,
+                actions = actions,
+            )
+
+        is RecordingState.Stopping -> SavingStatus(state)
+
+        else ->
+            IdleRecordButton(
+                enabled = uiState.canStartRecording,
+                onClick = actions.control.onStart,
+            )
     }
 }
 
@@ -175,9 +201,28 @@ private fun RecordingStatus(
     }
 }
 
-/** 녹화 중임을 알리는 맥동하는 REC 점. 일시정지 중에는 정지한다. */
+/**
+ * 녹화 중임을 알리는 맥동하는 REC 점. 일시정지·저장 중에는 정지한다.
+ *
+ * 정지 상태에서는 무한 트랜지션을 등록하지 않는다. 등록해 두면 값을 쓰지 않아도 프레임
+ * 클록을 계속 깨워, 30분 일시정지 방치 같은 상황에서 아무 변화 없이 vsync 를 붙든다.
+ */
 @Composable
-private fun RecordingPulseDot(animated: Boolean) {
+internal fun RecordingPulseDot(animated: Boolean) {
+    val dotAlpha = if (animated) pulsingAlpha() else DISABLED_ALPHA
+    Box(
+        modifier =
+            Modifier
+                .size(PULSE_DOT)
+                .alpha(dotAlpha)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+    )
+}
+
+/** 맥동하는 불투명도. */
+@Composable
+private fun pulsingAlpha(): Float {
     val transition = rememberInfiniteTransition(label = "recPulse")
     val pulse by transition.animateFloat(
         initialValue = 1f,
@@ -186,14 +231,7 @@ private fun RecordingPulseDot(animated: Boolean) {
             infiniteRepeatable(tween(PULSE_MILLIS), repeatMode = RepeatMode.Reverse),
         label = "recPulseAlpha",
     )
-    Box(
-        modifier =
-            Modifier
-                .size(PULSE_DOT)
-                .alpha(if (animated) pulse else DISABLED_ALPHA)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-    )
+    return pulse
 }
 
 /** 카운트다운 오버레이 (기능명세서 3절: 탭 = 즉시 시작). */
@@ -230,14 +268,23 @@ internal fun CountdownOverlay(
     }
 }
 
-private val RECORD_RING = 160.dp
+/**
+ * 상태가 바뀌어도 카드가 접히거나 늘어나지 않게 하는 최소 높이 (DESIGN_GUIDE.md 4절).
+ *
+ * 가장 높은 국면(저장 중·저장 완료: 링 + 상태 줄 + 파일명)이 256dp 남짓이므로 글꼴 배율
+ * 여유까지 두고 그 위로 잡는다.
+ * 이 값을 넘는 국면이 생기면 카드가 튀고 `RecordControlSavingTest` 의 높이 고정이 깨진다.
+ */
+private val CONTROL_MIN_HEIGHT = 288.dp
+
+internal val RECORD_RING = 160.dp
 private val RECORD_BUTTON = 112.dp
-private val RING_WIDTH = 2.dp
+internal val RING_WIDTH = 2.dp
 private val PULSE_DOT = 10.dp
 private val ELAPSED_SIZE = 56.sp
 private val COUNTDOWN_SIZE = 120.sp
-private const val RING_ALPHA = 0.3f
+internal const val RING_ALPHA = 0.3f
 private const val DISABLED_ALPHA = 0.5f
 private const val PULSE_MIN_ALPHA = 0.25f
-private const val PULSE_MILLIS = 900
+internal const val PULSE_MILLIS = 900
 private const val COUNTDOWN_DIM_ALPHA = 0.72f

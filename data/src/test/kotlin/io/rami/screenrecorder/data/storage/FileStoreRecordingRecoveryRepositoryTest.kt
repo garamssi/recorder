@@ -48,6 +48,7 @@ class FileStoreRecordingRecoveryRepositoryTest {
         override suspend fun publish(
             tempFile: File,
             fileName: String,
+            onProgress: (Float) -> Unit,
         ): Recording? {
             publishGate?.await()
             if (publishReturnsNull) return null

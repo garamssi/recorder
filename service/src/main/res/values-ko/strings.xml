@@ -4,6 +4,8 @@
     <string name="recording_notification_title">화면 녹화</string>
     <string name="recording_notification_preparing">준비 중…</string>
     <string name="recording_notification_saving">녹화를 저장하는 중…</string>
+    <string name="recording_notification_saving_progress">녹화를 저장하는 중… %1$d%%</string>
+    <string name="recording_notification_save_failed">저장하지 못했습니다. 녹화 파일은 남아 있으니 앱을 열어 복구하세요</string>
     <string name="recording_notification_elapsed">녹화 중 %1$s</string>
     <string name="recording_notification_paused">일시정지됨 · %1$s</string>
     <string name="recording_notification_stop">중지</string>

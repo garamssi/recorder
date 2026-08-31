@@ -53,11 +53,16 @@ class RecordingPublisherTest {
             return PublishSlot(id = SLOT_ID, uri = SLOT_URI)
         }
 
+        /** write 단계에서 흘려보낼 진행률. 되돌아가는 값을 넣어 걸러지는지도 본다. */
+        var writeProgress: List<Float> = emptyList()
+
         override fun write(
             slot: PublishSlot,
             tempFile: File,
+            onProgress: (Float) -> Unit,
         ) {
             calls += "write"
+            writeProgress.forEach(onProgress)
             writeFailure?.let { throw it }
         }
 
@@ -265,6 +270,64 @@ class RecordingPublisherTest {
         val recording = requireNotNull(publisher().publish(tempFile(), FILE_NAME))
 
         assertEquals(999L, recording.sizeBytes)
+    }
+
+    /**
+     * 저장 진행률 (기능명세서 2.1절 [결정]).
+     *
+     * 발행은 분 단위로 걸린다. 화면이 진척을 보여 주려면 이 경로가 진행률을 흘려보내야 하고,
+     * 되돌아가거나 100% 에 못 미친 채 끝나서는 안 된다.
+     */
+    @Test
+    fun `쓰기 진행률을 흘려보내고 발행이 끝나면 1f 로 닫는다`() {
+        target.writeProgress = listOf(0.2f, 0.8f)
+        val reported = mutableListOf<Float>()
+
+        publisher().publish(tempFile(), FILE_NAME) { reported += it }
+
+        assertEquals(listOf(0.2f, 0.8f, 1f), reported)
+    }
+
+    @Test
+    fun `뒤로 가는 진행률은 걸러 낸다`() {
+        // remux 가 중간에 실패하면 원본 전량 복사로 되돌아가 0 바이트부터 다시 센다.
+        target.writeProgress = listOf(0.6f, 0.1f, 0.3f, 0.7f)
+        val reported = mutableListOf<Float>()
+
+        publisher().publish(tempFile(), FILE_NAME) { reported += it }
+
+        assertEquals(listOf(0.6f, 0.7f, 1f), reported)
+    }
+
+    @Test
+    fun `범위를 벗어난 진행률은 0f_1f 로 자른다`() {
+        target.writeProgress = listOf(-0.5f, 1.9f)
+        val reported = mutableListOf<Float>()
+
+        publisher().publish(tempFile(), FILE_NAME) { reported += it }
+
+        assertEquals(listOf(1f), reported)
+    }
+
+    @Test
+    fun `저장할 내용이 없으면 진행률을 보고하지 않는다`() {
+        readResult = RecordingMetadataResult.Empty
+        val reported = mutableListOf<Float>()
+
+        assertNull(publisher().publish(tempFile(), FILE_NAME) { reported += it })
+
+        assertTrue(reported.isEmpty())
+    }
+
+    @Test
+    fun `발행이 실패하면 1f 를 보고하지 않는다`() {
+        target.writeProgress = listOf(0.4f)
+        target.writeFailure = IOException("스트림을 열지 못했다")
+        val reported = mutableListOf<Float>()
+
+        assertThrows<IOException> { publisher().publish(tempFile(), FILE_NAME) { reported += it } }
+
+        assertEquals(listOf(0.4f), reported)
     }
 
     private companion object {

@@ -4,6 +4,8 @@
     <string name="recording_notification_title">Screen recording</string>
     <string name="recording_notification_preparing">Preparing…</string>
     <string name="recording_notification_saving">Saving recording…</string>
+    <string name="recording_notification_saving_progress">Saving recording… %1$d%%</string>
+    <string name="recording_notification_save_failed">Could not save. The recording is still there. Open the app to recover it.</string>
     <string name="recording_notification_elapsed">Recording %1$s</string>
     <string name="recording_notification_paused">Paused · %1$s</string>
     <string name="recording_notification_stop">Stop</string>

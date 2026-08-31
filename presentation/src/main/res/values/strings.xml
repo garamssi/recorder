@@ -184,6 +184,10 @@
     <string name="home_ready_subtitle">Pick a capture mode, then start recording.</string>
     <string name="home_in_session_title">Session in progress</string>
     <string name="home_in_session_subtitle">Recording continues while you use other apps.</string>
+    <string name="home_saving_title">Saving your recording</string>
+    <string name="home_saving_subtitle">Finishing the file. Long recordings can take a few minutes.</string>
+    <string name="home_saving_percent">%1$d%%</string>
+    <string name="home_saved">Saved</string>
     <string name="home_mode_full_screen_desc">Capture the entire display. Best for tutorials and gameplay.</string>
     <string name="home_mode_single_app_desc">Record one app window and keep notifications out of frame.</string>
     <string name="home_mode_region_desc">Draw a region and record only that area.</string>

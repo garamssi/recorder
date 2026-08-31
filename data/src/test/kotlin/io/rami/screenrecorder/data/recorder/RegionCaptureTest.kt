@@ -267,6 +267,7 @@ internal class CoordinatorHarness {
         override suspend fun publish(
             tempFile: java.io.File,
             fileName: String,
+            onProgress: (Float) -> Unit,
         ) = io.rami.screenrecorder.domain.model.Recording(
             id =
                 io.rami.screenrecorder.domain.model

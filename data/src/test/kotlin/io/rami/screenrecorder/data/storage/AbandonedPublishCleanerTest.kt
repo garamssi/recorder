@@ -29,6 +29,7 @@ class AbandonedPublishCleanerTest {
             override fun write(
                 slot: PublishSlot,
                 tempFile: File,
+                onProgress: (Float) -> Unit,
             ) = error("쓰지 않는다")
 
             override fun finish(slot: PublishSlot) = error("쓰지 않는다")

@@ -22,9 +22,22 @@ class RecordingNotificationTextTest {
 
     @Test
     fun `발행 중에는 저장 중을 보여 준다`() {
-        val text = context.ongoingNotificationText(RecordingState.Stopping)
+        val text = context.ongoingNotificationText(RecordingState.Stopping(elapsed = 3.minutes, fileName = "Rec.mp4"))
 
         assertEquals(context.getString(R.string.recording_notification_saving), text)
+    }
+
+    /**
+     * 발행은 분 단위로 걸린다. 진행률을 알게 되면 알림도 같이 움직여야 한다
+     * (기능명세서 2.1절 [결정]).
+     */
+    @Test
+    fun `저장 진행률을 알면 알림에 퍼센트를 함께 보여 준다`() {
+        val saving = RecordingState.Stopping(elapsed = 3.minutes, fileName = "Rec.mp4", progress = 0.62f)
+
+        val text = context.ongoingNotificationText(saving)
+
+        assertEquals(context.getString(R.string.recording_notification_saving_progress, 62), text)
     }
 
     @Test

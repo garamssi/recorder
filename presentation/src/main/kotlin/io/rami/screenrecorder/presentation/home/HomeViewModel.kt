@@ -27,12 +27,14 @@ import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -107,7 +109,31 @@ class HomeViewModel
         /** 복구/삭제가 실패했을 때 한 번 발생하는 이벤트 (스낵바 안내용). */
         val recoveryFailed: Flow<RecoveryFailure> = mutableRecoveryFailed
 
+        private val mutableJustSaved = MutableStateFlow<Recording?>(null)
+
+        /**
+         * 방금 저장된 녹화본. 없으면 null (기능명세서 2.1절 [결정]).
+         *
+         * 발행이 확정될 때만 흐르는 [completedRecordings] 를 쓴다. 세션 상태의
+         * `Stopping -> Idle` 전이로 판정하면 발행 실패와 빈 세션도 같은 전이를 만들어
+         * 저장되지 않은 녹화를 "저장했습니다" 로 알린다.
+         *
+         * 표시는 [SAVED_DISPLAY_MILLIS] 뒤 스스로 사라진다 — 사용자가 누를 것을 두면
+         * 저장할 때마다 손이 한 번 더 가고, 누르지 않으면 다음 녹화가 막힌다.
+         */
+        val justSaved: StateFlow<Recording?> = mutableJustSaved.asStateFlow()
+
         init {
+            viewModelScope.launch {
+                // collectLatest 로 둔다 — collect 면 delay 동안 수집기가 스트림을 붙들어
+                // 연달아 저장할 때 두 번째 완료 표시가 밀린다. 새 완료가 오면 이전 표시를
+                // 즉시 대체하는 것이 맞는 동작이기도 하다.
+                completedRecordings.collectLatest { recording ->
+                    mutableJustSaved.value = recording
+                    delay(SAVED_DISPLAY_MILLIS)
+                    mutableJustSaved.value = null
+                }
+            }
             viewModelScope.launch {
                 // 녹화가 진행 중이 아닐 때만 고아 임시 파일을 조회한다.
                 // 서비스가 녹화 중인 채로 Activity가 재생성되면 활성 temp 파일을 고아로 오인하기 때문이다.
@@ -263,6 +289,14 @@ class HomeViewModel
             }
 
         private companion object {
+            /**
+             * 저장 완료 표시를 붙드는 시간.
+             *
+             * 눈에 남을 만큼 길고, 다음 녹화를 막지 않을 만큼 짧다. 완료 안내 자체는
+             * 스낵바가 이어받는다 (기능명세서 6.2절).
+             */
+            const val SAVED_DISPLAY_MILLIS = 900L
+
             const val RECENT_RECORDING_COUNT = 3
             const val STOP_SHARING_TIMEOUT_MS = 5_000L
             const val BPS_PER_MBPS = 1_000_000

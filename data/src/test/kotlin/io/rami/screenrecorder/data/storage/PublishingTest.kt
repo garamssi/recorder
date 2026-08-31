@@ -25,6 +25,7 @@ class PublishingTest {
             override fun write(
                 slot: PublishSlot,
                 tempFile: File,
+                onProgress: (Float) -> Unit,
             ) = error("이 테스트는 쓰기 전략을 직접 넘긴다")
 
             override fun finish(slot: PublishSlot) {
