@@ -5,6 +5,8 @@ import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -28,6 +30,9 @@ class FileStoreRecordingRecoveryRepositoryTest {
         var publishReturnsNull = false
         val published = mutableListOf<String>()
 
+        /** 설정하면 발행이 여기서 멈춘다 — 그 사이 호출자를 취소해 볼 수 있다. */
+        var publishGate: CompletableDeferred<Unit>? = null
+
         override fun createTempFile(fileName: String): File = File(tempDir, fileName)
 
         override fun listTempFiles(): List<File> =
@@ -41,6 +46,7 @@ class FileStoreRecordingRecoveryRepositoryTest {
             tempFile: File,
             fileName: String,
         ): Recording? {
+            publishGate?.await()
             if (publishReturnsNull) return null
             published += fileName
             return Recording(
@@ -125,5 +131,43 @@ class FileStoreRecordingRecoveryRepositoryTest {
     fun `이미 없는 id 삭제는 아무 일도 하지 않는다`() =
         runTest {
             repository.discard("missing.mp4") // 예외 없이 no-op
+        }
+
+    /**
+     * 복구 발행은 화면을 벗어나도 끝까지 간다 (기능명세서 6.1절 [결정]).
+     *
+     * 발행은 2~4분 걸린다. 화면의 viewModelScope 에서 돌면 사용자가 홈을 벗어나는 순간
+     * remux 도중에 취소되고, 아무 안내 없이 실패한다.
+     */
+    @Test
+    fun `호출자가 취소돼도 복구 발행은 끝난다`() =
+        runTest {
+            val fileStore = FakeFileStore()
+            File(tempDir, "t.mp4").writeText("녹화")
+            val gate = CompletableDeferred<Unit>()
+            fileStore.publishGate = gate
+            val repository = FileStoreRecordingRecoveryRepository(fileStore)
+
+            val caller = async { repository.recover("t.mp4") }
+            testScheduler.advanceUntilIdle()
+            caller.cancel()
+            gate.complete(Unit)
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(listOf("t.mp4"), fileStore.published)
+        }
+
+    @Test
+    fun `호출자가 취소돼도 삭제는 끝난다`() =
+        runTest {
+            val fileStore = FakeFileStore()
+            val file = File(tempDir, "t.mp4").apply { writeText("녹화") }
+            val repository = FileStoreRecordingRecoveryRepository(fileStore)
+
+            val caller = async { repository.discard("t.mp4") }
+            caller.cancel()
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(file.exists())
         }
 }
