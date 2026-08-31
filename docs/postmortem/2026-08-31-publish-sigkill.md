@@ -34,6 +34,9 @@ fragment 까지 썼고, 그 다음 `publish()` 안에서 죽었다.
 - 비디오 패킷 104,285개, **PTS 최대 갭 0.100초** (= `KEY_REPEAT_PREVIOUS_FRAME_AFTER` 값)
 - 57분 내내 **30.3 fps 일정** (5분 구간별 편차 ±0.5fps)
 - 키프레임 1,739개, 평균 간격 1.97초, 최대 2.67초
+  (설정 `I_FRAME_INTERVAL_SECONDS = 1` 의 약 2배다. 인코더가 요청 간격을 정확히 지키지 않는 것은
+  흔하지만, 이 어긋남 자체는 따로 확인하지 않았다. 유실 판정에는 영향이 없다 — 끊김 없이 이어졌다는
+  사실만 쓰기 때문이다.)
 - 오디오 160,623 프레임 = 3426.6초, 비디오 3428.1초 (1.5초 차)
 
 즉 "107초가 유실됐다"는 최초 판단은 **틀렸다.** 그 107초는 remux 소요 시간이었다.
@@ -43,15 +46,40 @@ fragment 까지 썼고, 그 다음 `publish()` 안에서 죽었다.
 
 ### 왜 하필 발행 중에 죽었나 (가설, 미검증)
 
-`RecordingCoordinator.kt` 의 `finalizeSession()` 은 발행 **전에** `capture.stop()` 으로
-MediaProjection 을 해제한다. 그런데 `RecordingForegroundService` 는
-`foregroundServiceType="mediaProjection|microphone"` 으로 startForeground 한 상태 그대로
-2~4분을 더 산다. Android 14+ 는 프로젝션이 끝난 mediaProjection 타입 FGS 를 유효하지
-않은 것으로 보므로, 시스템이 서비스를 강등하면 프로세스가 foreground importance 를 잃고
-OEM 메모리 클리너의 표적이 된다. 109초째 SIGKILL 이 이 그림에 맞는다.
+`RecordingCoordinator.kt:265` 의 `finalizeSession()` 은 발행 **전에** `capture.stop()` 으로
+MediaProjection 을 해제한다. 그런데 `RecordingForegroundService` 는 발행이 끝날 때까지
+2~4분을 더 산다(`:287` 에서 Idle 이 되어야 `stopSelf`). 그 사이 서비스가 선언한 FGS 타입은
+`foregroundServiceTypes(config.audioSource)`(`RecordingForegroundService.kt:175-185`)가 정한 값
+그대로다 — **마이크를 쓰지 않는 세션이면 `MEDIA_PROJECTION` 단독**이므로, 프로젝션이 끝난
+시점에 유효한 타입이 하나도 안 남는다.
 
-**실기기 검증이 선행되어야 확정할 수 있다** — Stopping 진입 후 `dumpsys activity processes`
-의 oom_adj/procstate 확인, logcat 의 서비스 강등 로그 확인.
+여기서 "그래서 시스템이 서비스를 강등했고 프로세스가 표적이 됐다"고 잇고 싶어지지만,
+**그 연결은 근거가 없다.** 확인된 Android 14+ 요건은 "`getMediaProjection` 전에 mediaProjection
+타입으로 `startForeground` 해야 한다"는 **시작 시점** 제약이고, 프로젝션 종료 시 이미 떠 있는
+FGS 를 시스템이 강등한다는 동작은 확인하지 못했다.
+
+오히려 kill 로그가 이 가설과 어긋난다:
+
+```
+am_kill: [0, 2367, io.rami.screenrecorder, 50, ZuiMemoryCleaner_Recents, 310424]
+                                           └─ oom_adj
+```
+
+AOSP 상수 기준 50은 `PERCEPTIBLE_RECENT_FOREGROUND_APP_ADJ` 로, 평범한 백그라운드
+FGS(`PERCEPTIBLE_APP_ADJ` = 200)보다 **더 보호받는** 값이다. 실제로 사고 이후 같은 앱의
+FGS 를 재봤을 때 `curProcState=4`(FOREGROUND_SERVICE), `oom cur=200` 이었다. 즉 죽는 순간
+프로세스는 강등되기는커녕 평상시보다 중요도가 높았다. kill 사유의 `_Recents` 가 시사하듯
+**ZUI 클리너가 oom_adj 를 보지 않고 최근 작업 목록 기준으로 죽였다**는 쪽이 데이터에 맞는다.
+(ZUI 가 상수를 바꿨을 가능성은 배제하지 못한다.)
+
+따라서 **FGS 타입 재선언은 "사고 재발 방지"가 아니라 "Android 14+ 규약 준수"로 다룬다.**
+프로젝션이 끝났는데 그 타입을 유지하는 것은 그 자체로 옳지 않고, remux 는 말 그대로
+media processing 이다. 필요한 권한(`FOREGROUND_SERVICE_MEDIA_PROCESSING`)은 이미
+`data/src/main/AndroidManifest.xml:4` 에 있다.
+
+**실기기 검증 항목** — Stopping 진입 후 `dumpsys activity processes` 의 oom_adj/procstate 가
+실제로 떨어지는지, logcat 에 서비스 강등 로그가 남는지, 그리고 이 기기의 adj 50 이 정말
+AOSP 상수와 같은 뜻인지.
 
 ### 배제한 원인 (모두 실측으로 기각)
 
@@ -61,8 +89,12 @@ OEM 메모리 클리너의 표적이 된다. 109초째 SIGKILL 이 이 그림에
 | PresentationTimeCorrector 의 단조 가드가 샘플을 버림 | PTS 최대 갭 0.100초, 드롭 흔적 없음 |
 | 딥슬립으로 CLOCK_MONOTONIC 정지 | 13:59~14:59 `-screen`/`+running`/`device_idle` 이벤트 0건 |
 | 일시정지 | 강제 키프레임·화면 내용 점프 없음 |
-| 자동 중지(시간 제한/저장 공간) | 셋 다 finalizeSession 을 거치고 임시 파일을 지운다. 임시 파일이 남은 것 자체가 반증 |
+| 자동 중지(시간 제한/저장 공간/일시정지 방치) | 셋 다 `AutoStopped` 이벤트로 완료 알림을 띄우는데(`RecordingForegroundService.kt:240`) 그 알림이 없었다. 시간 제한 설정도 없었다 |
 | Mp4Remuxer 의 조기 종료 | 손상된 마지막 fragment 를 만나도 유실 상한이 fragment 1개(약 2초) |
+
+처음에는 자동 중지를 "임시 파일이 남은 것 자체가 반증"이라고 기각했는데, 이는 무효한 논거였다.
+임시 파일을 지우는 것은 `publish()` 의 `finally` 이고 SIGKILL 에서는 그것이 돌지 않는다. 자동
+중지였더라도 같은 지점에서 죽으면 임시 파일은 똑같이 남는다.
 
 커널 페이지 캐시는 SIGKILL 로 사라지지 않는다(`FileChannel.write` 완료 시점에 커널 소유).
 따라서 유실이 있었다면 반드시 앱 프로세스 메모리 안이어야 하는데, 위 실측이 그것도 기각한다.
@@ -73,11 +105,33 @@ OEM 메모리 클리너의 표적이 된다. 109초째 SIGKILL 이 이 그림에
 중복 실행 가드도 없었다. 433MB 를 remux 하는 2분 동안 화면이 그대로여서 사용자가
 연타했고, 누른 횟수만큼 `publish()` 가 동시에 돌아 사본 10개가 만들어졌다.
 
-**수정 완료** (커밋 `ddbf0f4` RED / `88ac354` GREEN):
+**수정 완료** (`ddbf0f4` RED — 다이얼로그 분리와 `isRecovering` 파라미터 포함 / `88ac354` GREEN — 중복 실행 가드):
 - `HomeViewModel.recoveringId: StateFlow<String?>` — 진행 중이면 다른 요청을 무시
 - `RecoveryDialog` 를 별도 파일로 분리하고 `isRecovering` 파라미터 추가 — 회전 표시와
   "복구하는 중…" 을 띄우고 두 버튼을 모두 잠근다
 - 기능명세서 6.1절에 [결정]으로 명시
+
+## 근본 원인 3 — 복구 발행에는 포그라운드 서비스가 아예 없다
+
+정상 발행은 그나마 보호받는다. `RecordingCoordinator` 는 `@Singleton` 에 자체
+`CoroutineScope(SupervisorJob() + Dispatchers.Default)` 를 갖고(`DataModule.kt:118-122`),
+`finalizeSession` 이 `withContext(NonCancellable)`(`RecordingCoordinator.kt:259`)로 감싸므로
+서비스가 파괴돼도 발행은 이어진다. 게다가 서비스가 발행 끝까지 포그라운드로 살아 있다.
+
+복구 발행은 다르다:
+
+```
+HomeViewModel.runRecoveryAction → viewModelScope.launch
+  → RecoverRecordingUseCase → FileStoreRecordingRecoveryRepository.recover
+    → fileStore.publish()
+```
+
+**서비스도, FGS 도, NonCancellable 도 없다.** 사용자가 화면을 벗어나면 그대로 취소되고,
+같은 클리너가 죽이면 임시 파일은 남되 고아 IS_PENDING 레코드만 하나 더 늘어난다.
+이번 사고에서 121초 걸린 그 복구 발행이 바로 이 상태로 돌았다.
+
+즉 **근본 원인 1의 대책을 정상 발행에만 적용하면 더 취약한 쪽에 구멍이 그대로 남는다.**
+발행은 어느 경로로 들어오든 같은 보호를 받아야 한다.
 
 ## 부수 발견 (미수정, 후속 과제)
 
@@ -100,6 +154,13 @@ IS_PENDING 레코드를 만들고, WorkManager 잡이라 `RecordingState` 와 �
 "우리 폴더의 pending 을 지운다"는 단순한 정리는 **진행 중인 압축 결과를 지운다.**
 정리는 반드시 "이 프로세스가 지금 쓰고 있지 않은 것"만 대상으로 해야 한다.
 
+그리고 `TranscodeWorker` 쪽이 고아를 더 잘 만든다. `TranscodeWorker.kt:166-191` 에는
+`MediaStoreRecordingFileStore` 가 가진 `catch { resolver.delete(uri) }` 에 해당하는 정리가
+**아예 없어서**, 복사 도중 실패하면 pending 레코드가 그냥 남는다. 덤으로 `:182` 의
+`resolver.openOutputStream(uri)?.use { ... }` 는 null 이면 복사를 조용히 건너뛰고 `:185` 가
+`IS_PENDING=0` 을 걸어 **0바이트 파일을 성공으로 발행**한다. CLAUDE.md 6절이 금지하는
+증상 은폐다.
+
 ### 2. publish() 가 실패하면 임시 파일까지 지운다
 
 `MediaStoreRecordingFileStore.publish()` 의 `finally { tempFile.delete() }` 는 발행이
@@ -110,7 +171,9 @@ IS_PENDING 레코드를 만들고, WorkManager 잡이라 `RecordingState` 와 �
 ### 3. publish() 가 파일을 두 번 훑고, 그 결과가 틀렸다
 
 `readMetadata()` 의 `MediaMetadataRetriever` 는 fMP4 에 `mvhd` duration 이 없어
-재생 시간을 알아내려면 모든 `moof` 를 훑는다. 그렇게 얻은 값 중:
+재생 시간을 알아내려면 모든 `moof` 를 훑을 것으로 보인다 — **다만 MMR 내부 동작을 확인하지
+않았고 두 패스의 소요 시간을 분리 측정하지도 않았다. 착수 전에 계측이 필요하다.**
+어느 쪽이든 그렇게 얻은 값 중:
 
 - `codec = VideoCodec.H264` — 하드코딩. HEVC 로 녹화해도 H264 로 기록된다
 - `frameRate = METADATA_KEY_CAPTURE_FRAMERATE` — 카메라 전용 키. 사실상 0
@@ -127,14 +190,28 @@ IS_PENDING 레코드를 만들고, WorkManager 잡이라 `RecordingState` 와 �
 **"녹화 시작" 버튼을 보여준다** — 누르면 MediaProjection 동의만 소비하고 조용히 무시된다.
 
 또 자동 중지 시 "녹화 완료" 알림이 `AutoStopped` 이벤트 시점에 뜨는데, 이는 발행이
-시작도 되기 전이다.
+시작도 되기 전이다. 반대로 **수동 중지에는 완료 알림이 아예 없다** — `showCompleted` 호출부는
+`AutoStopped` 와 `QuickCaptureRunner` 뿐이고, `completedRecordings` 를 구독하는 곳은
+`HomeScreen.kt:138` 하나다. 다른 앱을 쓰다가 중지한 사용자에게는 발행이 끝났다는 신호가
+어디에도 없다.
 
-### 5. publish() 에 테스트가 하나도 없다
+### 5. remux 폴백은 무방비 구간을 두 배로 늘린다
+
+`MediaStorePublishTarget.write()` 는 remux 가 실패하면 원본 fMP4 를 처음부터 전량 복사한다.
+즉 최악의 경우 "remux 전량 시도 + 전량 복사" 로 노출 시간이 두 배 가까이 된다. 그리고
+`Mp4Remuxer.kt` 의 `SAMPLE_BUFFER_BYTES = 4MB` 를 넘는 샘플이 하나라도 있으면
+`readSampleData` 가 던져 곧장 이 폴백으로 빠진다.
+
+### 6. publish() 에 테스트가 하나도 없다
 
 `data` 모듈에 Robolectric 이 없고 `MediaMetadataRetriever`/`MediaMuxer` 는 섀도잉되지
 않는다. CLAUDE.md 3절이 요구하는 "플랫폼 API 는 얇은 어댑터 뒤로" 가 이 경로에는
 적용되지 않았고, 그래서 위 2·3번 버그가 살아남았다. 발행 정책(성공 시에만 삭제 등)을
 순수 오케스트레이션으로 분리해야 TDD 가 가능해진다.
+
+**대응 완료** (`0c7661e`): 발행 정책을 순수 JVM `RecordingPublisher` 로, 플랫폼 호출을
+`PublishTarget`/`RecordingMetadataReader` 뒤로 분리하고 현재 정책을 고정하는 테스트 7개를
+넣었다. 위 2·3번 버그는 아직 그대로이며, 이 seam 위에서 TDD 로 고친다.
 
 ## 사용자 환경 조치 (2026-08-31 적용)
 
