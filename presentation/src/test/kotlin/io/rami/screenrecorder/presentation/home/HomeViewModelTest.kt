@@ -141,8 +141,12 @@ class HomeViewModelTest {
             /** 정리와 조회의 순서를 검증할 수 있도록 호출 순서를 남긴다. */
             val calls = mutableListOf<String>()
 
+            /** true면 정리가 MediaStore 실패를 흉내내 예외를 던진다. */
+            var cleanUpThrows = false
+
             override suspend fun cleanUpAbandonedPublishes() {
                 calls += "cleanUp"
+                check(!cleanUpThrows) { "MediaStore 조회 실패" }
             }
         }
 
@@ -447,6 +451,21 @@ class HomeViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf("cleanUp", "list"), recoveryRepository.calls)
+        }
+
+    /**
+     * 정리는 조기 회수일 뿐이므로 실패해도 앱 동작을 막지 않는다 (기능명세서 6.1절 [결정]).
+     *
+     * 감싸지 않으면 복구 목록 조회를 건너뛰는 데 그치지 않고 viewModelScope 가 크래시한다.
+     */
+    @Test
+    fun `정리가 실패해도 복구 목록은 띄운다`() =
+        runTest {
+            recoveryRepository.cleanUpThrows = true
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            assertEquals(listOf("t.mp4"), viewModel.pendingRecoveries.value.map { it.id })
         }
 
     private companion object {

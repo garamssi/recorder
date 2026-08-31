@@ -90,4 +90,12 @@ class RecoveryUseCasesTest {
                 bitrateBps = null,
             )
     }
+
+    @Test
+    fun `버려진 발행 정리를 저장소에 위임한다`() =
+        runTest {
+            CleanUpAbandonedPublishesUseCase(repository)()
+
+            assertEquals(1, repository.cleanUpCount)
+        }
 }

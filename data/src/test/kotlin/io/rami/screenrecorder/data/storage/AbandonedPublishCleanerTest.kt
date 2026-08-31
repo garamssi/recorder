@@ -33,7 +33,7 @@ class AbandonedPublishCleanerTest {
             override fun listPending(): List<PendingPublish> = pending
         }
 
-    private fun cleaner() = AbandonedPublishCleaner(target) { PROCESS_STARTED_AT }
+    private fun cleaner() = AbandonedPublishCleaner(target, PROCESS_STARTED_AT)
 
     private fun pendingEntry(
         uri: String,

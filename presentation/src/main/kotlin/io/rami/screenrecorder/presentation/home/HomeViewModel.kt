@@ -86,6 +86,7 @@ class HomeViewModel
         private val getRecordings = useCases.getRecordings
         private val recoverRecording = useCases.recoverRecording
         private val discardRecovery = useCases.discardRecovery
+        private val cleanUpAbandonedPublishes = useCases.cleanUpAbandonedPublishes
 
         /** 저장 완료 이벤트 (기능명세서 6.2절: 저장 직후 스낵바에서 이름 변경). */
         val completedRecordings: Flow<Recording> = useCases.observeCompletedRecording()
@@ -113,7 +114,7 @@ class HomeViewModel
                 observeRecordingState().first { it is RecordingState.Idle }
                 // 정리가 먼저다 — 순서가 반대면 복구 재발행이 고아 레코드와 파일명이 충돌해
                 // "(1)" 접미어가 붙는다 (기능명세서 6.1절 [결정]).
-                useCases.cleanUpAbandonedPublishes()
+                cleanUpAbandonedPublishesQuietly()
                 mutablePendingRecoveries.value = useCases.getPendingRecoveries()
             }
         }
@@ -227,6 +228,20 @@ class HomeViewModel
         class RecoveryFailure(
             val wasDiscard: Boolean,
         )
+
+        /**
+         * 정리는 조기 회수일 뿐이라 실패해도 앱 동작을 막지 않는다 (기능명세서 6.1절 [결정]).
+         *
+         * 감싸지 않으면 복구 목록 조회를 건너뛰는 데 그치지 않고 viewModelScope 가 크래시한다.
+         */
+        @Suppress("TooGenericExceptionCaught") // ContentResolver 는 실패를 여러 타입으로 던진다.
+        private suspend fun cleanUpAbandonedPublishesQuietly() {
+            try {
+                cleanUpAbandonedPublishes()
+            } catch (failure: Exception) {
+                android.util.Log.w(LOG_TAG, "버려진 발행 정리 실패", failure)
+            }
+        }
 
         private fun removePending(id: String) {
             mutablePendingRecoveries.update { list -> list.filterNot { it.id == id } }

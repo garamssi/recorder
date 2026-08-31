@@ -16,6 +16,7 @@ import io.rami.screenrecorder.data.storage.MediaStoreRecordingFileStore
 import io.rami.screenrecorder.data.storage.PublishTarget
 import io.rami.screenrecorder.data.storage.RecordingMetadataReader
 import io.rami.screenrecorder.data.storage.RecordingPublisher
+import io.rami.screenrecorder.data.storage.processStartEpochSeconds
 import javax.inject.Singleton
 
 /**
@@ -57,21 +58,24 @@ internal object StorageProvidesModule {
         )
 
     /**
-     * 이 프로세스가 시작된 벽시계 시각(초).
+     * 정리기는 프로세스 시작 시각을 **한 번만** 재어 들고 있다.
      *
-     * MediaStore 의 `DATE_ADDED` 가 벽시계 초 단위라 같은 축으로 환산해야 견줄 수 있다.
-     * 싱글턴 생성 시각을 쓰면 안 된다 — 압축 워커가 이 싱글턴보다 먼저 레코드를 만들 수 있고,
-     * 그러면 진행 중인 압축을 버려진 것으로 오판한다.
+     * 정리할 때마다 다시 재면, 부팅 뒤 NTP 보정으로 벽시계가 앞으로 점프했을 때 기준선이 같이
+     * 밀려 진행 중인 발행·압축을 지운다 (기능명세서 6.1절 [결정]). 싱글턴 생성 시점이 프로세스
+     * 시작보다 늦더라도 환산은 Process.getStartElapsedRealtime() 기준이라 값이 흔들리지 않는다.
      */
     @Provides
     @Singleton
     fun provideAbandonedPublishCleaner(target: PublishTarget): AbandonedPublishCleaner =
-        AbandonedPublishCleaner(target) {
-            val uptimeMillis = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
-            (System.currentTimeMillis() - uptimeMillis) / MILLIS_PER_SECOND
-        }
-
-    private const val MILLIS_PER_SECOND = 1_000L
+        AbandonedPublishCleaner(
+            target = target,
+            processStartedAtEpochSeconds =
+                processStartEpochSeconds(
+                    nowEpochMillis = System.currentTimeMillis(),
+                    elapsedRealtimeMillis = SystemClock.elapsedRealtime(),
+                    processStartElapsedRealtimeMillis = Process.getStartElapsedRealtime(),
+                ),
+        )
 
     private const val PUBLISH_LOG_TAG = "RecordingPublish"
 }

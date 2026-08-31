@@ -50,29 +50,6 @@ internal data class PendingPublish(
     val createdAtEpochSeconds: Long,
 )
 
-/**
- * 버려진 미완성 레코드를 회수한다 (기능명세서 6.1절 [결정]).
- *
- * 판정 기준은 "이 프로세스가 시작되기 전에 만들어졌는가" 하나다. 이 프로세스가 만든 레코드는
- * 발행 중이거나 이미 끝난 것이고, 그보다 앞선 미완성 레코드는 그것을 만든 프로세스가 이미 없다.
- *
- * 폴더와 `is_pending` 값만으로 판정하면 **진행 중인 압축 결과를 지운다** — 압축(명세 8절)은
- * 녹화본과 같은 폴더에 같은 방식으로 발행하고 WorkManager 잡이라 녹화 상태와 무관하게 돈다.
- * 프로세스 시작 시각 기준은 압축도 같은 규칙으로 덮으므로 별도 예외가 필요 없다.
- */
-internal class AbandonedPublishCleaner(
-    private val target: PublishTarget,
-    private val processStartedAtEpochSeconds: () -> Long,
-) {
-    /** @return 회수한 레코드 수. */
-    fun discardAbandoned(): Int {
-        val startedAt = processStartedAtEpochSeconds()
-        val abandoned = target.listPending().filter { it.createdAtEpochSeconds < startedAt }
-        abandoned.forEach { target.discard(it.slot) }
-        return abandoned.size
-    }
-}
-
 /** 임시 파일에서 읽어 낸 녹화본 정보. 재생 가능한 트랙이 없으면 null 로 표현한다. */
 internal data class RecordingMetadata(
     val sizeBytes: Long,
