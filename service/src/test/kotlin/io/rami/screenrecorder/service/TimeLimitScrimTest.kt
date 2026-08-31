@@ -15,11 +15,11 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
- * 시간 제한 입력 창이 언제 닫히는지 (기능명세서 11.4절).
+ * 시간 제한 입력 창은 버튼으로만 닫힌다 (기능명세서 11.4절 [결정]).
  *
- * 카드 위에는 아무 뷰도 터치를 받지 않는 빈 자리가 넓다 — 제목, 안내 문구, 단위 라벨,
- * 카드 여백, 증감 버튼과 입력 칸 사이 틈. 그 빈 자리를 바깥 탭으로 세면 값을 고치던
- * 중에 창이 사라져 설정 자체가 되지 않는다. 좌표로 판정하는지를 여기서 고정한다.
+ * 증감 버튼은 작고 위아래로 틈이 있어 빠르게 누르다 보면 손끝이 카드 위 빈 자리로
+ * 벗어난다. 키보드가 올라오면 카드가 위로 밀려 방금 누른 자리가 카드 바깥이 되기도 한다.
+ * 바깥 탭을 닫기로 쓰는 한 값을 고치던 중에 창이 사라지므로, 딤은 터치를 삼키기만 한다.
  *
  * 딤을 실제 창에 붙여야 한다 — 붙지 않은 뷰는 탭을 자기 대기열에 쌓아 두기만 해서
  * 어떤 탭도 도달하지 않고, 무엇을 해도 통과하는 테스트가 된다.
@@ -70,6 +70,20 @@ class TimeLimitScrimTest {
     }
 
     @Test
+    fun `카드 바깥을 눌러도 닫히지 않는다`() {
+        tap(outside)
+
+        assertFalse(cancelled)
+    }
+
+    @Test
+    fun `카드 바깥을 빠르게 여러 번 눌러도 닫히지 않는다`() {
+        repeat(TAP_BURST) { tap(outside) }
+
+        assertFalse(cancelled)
+    }
+
+    @Test
     fun `카드 위 빈 자리를 눌러도 닫히지 않는다`() {
         tap(cardCorner)
 
@@ -77,15 +91,14 @@ class TimeLimitScrimTest {
     }
 
     @Test
-    fun `카드 위를 빠르게 두 번 눌러도 닫히지 않는다`() {
-        tap(cardCorner)
-        tap(cardCorner)
+    fun `카드 위를 빠르게 여러 번 눌러도 닫히지 않는다`() {
+        repeat(TAP_BURST) { tap(cardCorner) }
 
         assertFalse(cancelled)
     }
 
     @Test
-    fun `카드 안에서 눌러 바깥에서 떼면 닫히지 않는다`() {
+    fun `카드 안에서 눌러 바깥에서 떼도 닫히지 않는다`() {
         touch(MotionEvent.ACTION_DOWN, cardCorner)
         touch(MotionEvent.ACTION_UP, outside)
 
@@ -93,22 +106,13 @@ class TimeLimitScrimTest {
     }
 
     @Test
-    fun `카드 바깥에서 눌러 카드 위에서 떼면 닫히지 않는다`() {
-        touch(MotionEvent.ACTION_DOWN, outside)
-        touch(MotionEvent.ACTION_UP, cardCorner)
-
-        assertFalse(cancelled)
-    }
-
-    @Test
-    fun `카드 바깥을 누르면 닫힌다`() {
-        tap(outside)
-
-        assertTrue(cancelled)
-    }
-
-    @Test
-    fun `카드 위 빈 자리를 눌러도 아래 창으로 흘려보내지 않는다`() {
+    fun `딤은 터치를 아래 창으로 흘려보내지 않는다`() {
+        assertTrue(touch(MotionEvent.ACTION_DOWN, outside))
         assertTrue(touch(MotionEvent.ACTION_DOWN, cardCorner))
+    }
+
+    private companion object {
+        /** 연타로 봐줄 만한 횟수. 한 번으로 안 닫히는데 여러 번으로 닫히면 그것도 오조작이다. */
+        const val TAP_BURST = 5
     }
 }
