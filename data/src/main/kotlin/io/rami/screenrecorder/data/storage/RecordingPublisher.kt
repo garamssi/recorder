@@ -1,0 +1,116 @@
+package io.rami.screenrecorder.data.storage
+
+import io.rami.screenrecorder.domain.model.Recording
+import io.rami.screenrecorder.domain.model.RecordingId
+import io.rami.screenrecorder.domain.model.Resolution
+import io.rami.screenrecorder.domain.model.VideoCodec
+import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
+
+/**
+ * 발행 자리 하나 — MediaStore 가 내준 미완성(IS_PENDING) 레코드.
+ *
+ * 플랫폼 타입(`android.net.Uri`)을 담지 않아 [RecordingPublisher] 가 순수 JVM 으로 남는다.
+ */
+internal class PublishSlot(
+    val id: Long,
+    val uri: String,
+)
+
+/**
+ * 녹화본을 최종 위치로 옮기는 플랫폼 경계 (기능명세서 6.1절).
+ *
+ * MediaStore·MediaMuxer·MediaExtractor 호출을 전부 이 뒤로 격리한다 (CLAUDE.md 3절).
+ */
+internal interface PublishTarget {
+    /** [fileName] 자리를 IS_PENDING 으로 만든다. */
+    fun create(fileName: String): PublishSlot
+
+    /** [tempFile] 내용을 [slot] 에 쓴다. */
+    fun write(
+        slot: PublishSlot,
+        tempFile: File,
+    )
+
+    /** IS_PENDING 을 해제해 사용자에게 보이게 한다. */
+    fun finish(slot: PublishSlot)
+
+    /** 미완성 자리를 지운다. */
+    fun discard(slot: PublishSlot)
+}
+
+/** 임시 파일에서 읽어 낸 녹화본 정보. 재생 가능한 트랙이 없으면 null 로 표현한다. */
+internal class RecordingMetadata(
+    val sizeBytes: Long,
+    val durationMs: Long,
+    val resolution: Resolution,
+    val frameRate: Int,
+    val codec: VideoCodec,
+    val bitrateBps: Int?,
+)
+
+/** 임시 파일의 메타데이터를 읽는 경계. 읽을 수 없거나 비디오 트랙이 없으면 null. */
+internal fun interface RecordingMetadataReader {
+    fun read(file: File): RecordingMetadata?
+}
+
+/**
+ * 발행 순서와 실패 처리 정책 (기능명세서 6.1절).
+ *
+ * "무엇을 어떤 순서로 하고, 실패하면 무엇을 남기고 무엇을 지우는가"만 담는다. 플랫폼 호출은
+ * [PublishTarget]·[RecordingMetadataReader] 뒤에 있으므로 이 클래스는 순수 JVM 테스트 대상이다.
+ */
+internal class RecordingPublisher(
+    private val target: PublishTarget,
+    private val readMetadata: RecordingMetadataReader,
+    private val nowEpochMillis: () -> Long = System::currentTimeMillis,
+) {
+    /**
+     * [tempFile] 을 [fileName] 으로 발행한다.
+     *
+     * @return 저장된 녹화본. 저장할 내용이 없으면 null (오류가 아니다).
+     */
+    fun publish(
+        tempFile: File,
+        fileName: String,
+    ): Recording? {
+        // 프레임이 인코딩되기 전에 중지되면 빈/재생 불가 파일이 남는다.
+        // 저장할 내용이 없으므로 임시 파일만 정리하고 null 을 반환한다 (오류 아님).
+        val metadata =
+            readMetadata.read(tempFile) ?: run {
+                tempFile.delete()
+                return null
+            }
+        val slot = target.create(fileName)
+        try {
+            target.write(slot, tempFile)
+            target.finish(slot)
+        } catch (
+            // 복사 실패 시 IS_PENDING 고아 레코드가 남지 않도록 정리 후 원인을 그대로 전파한다.
+            @Suppress("TooGenericExceptionCaught") publishFailure: Exception,
+        ) {
+            target.discard(slot)
+            throw publishFailure
+        } finally {
+            tempFile.delete()
+        }
+        return metadata.toRecording(slot, fileName)
+    }
+
+    private fun RecordingMetadata.toRecording(
+        slot: PublishSlot,
+        fileName: String,
+    ): Recording =
+        Recording(
+            id = RecordingId(slot.id),
+            displayName = fileName,
+            contentUri = slot.uri,
+            sizeBytes = sizeBytes,
+            duration = durationMs.milliseconds,
+            resolution = resolution,
+            frameRate = frameRate,
+            codec = codec,
+            createdAtEpochMillis = nowEpochMillis(),
+            bitrateBps = bitrateBps,
+        )
+}
