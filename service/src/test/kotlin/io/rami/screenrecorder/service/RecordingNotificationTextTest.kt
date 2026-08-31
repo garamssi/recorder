@@ -1,5 +1,6 @@
 package io.rami.screenrecorder.service
 
+import io.rami.screenrecorder.domain.model.AutoStopReason
 import io.rami.screenrecorder.domain.model.RecordingState
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -31,5 +32,23 @@ class RecordingNotificationTextTest {
         val text = context.ongoingNotificationText(RecordingState.Recording(elapsed = 3.minutes))
 
         assertEquals(context.getString(R.string.recording_notification_elapsed, "03:00"), text)
+    }
+
+    /**
+     * 완료 문구는 자동 중지 사유가 있으면 그것을, 없으면 수동 중지용 문구를 쓴다
+     * (기능명세서 6.1절 [결정]).
+     */
+    @Test
+    fun `자동 중지 사유가 있으면 그 사유를 완료 문구로 쓴다`() {
+        val text = context.completedText(AutoStopReason.TIME_LIMIT_REACHED)
+
+        assertEquals(context.getString(R.string.recording_notification_completed_time_limit), text)
+    }
+
+    @Test
+    fun `수동 중지는 사유 없이 저장 완료만 알린다`() {
+        val text = context.completedText(reason = null)
+
+        assertEquals(context.getString(R.string.recording_notification_completed_saved), text)
     }
 }
