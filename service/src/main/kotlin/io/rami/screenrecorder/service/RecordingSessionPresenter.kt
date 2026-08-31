@@ -38,7 +38,7 @@ internal class RecordingSessionPresenter(
      */
     suspend fun observeCompletion(completed: Flow<Recording>) {
         completed.collectLatest {
-            notifications.showCompleted(context.completedText(autoStopReason))
+            context.showCompletedNotification(context.completedText(autoStopReason))
             autoStopReason = null
         }
     }

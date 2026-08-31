@@ -70,6 +70,14 @@ internal class RecordingNotifications(
     }
 
     /**
+     * 세션이 잡히기 전 알림 — 조작 없이 (기능명세서 6.1절 [결정]).
+     *
+     * 이 구간에는 세션이 없어 중지도 일시정지도 아무 일을 하지 않는다. startForeground 에
+     * 넘길 알림이므로 Notification 을 돌려준다.
+     */
+    fun buildPreparing(contentText: String): Notification = build(contentText)
+
+    /**
      * 조작을 제한한 진행 알림 (기능명세서 6.1절 [결정]).
      *
      * 실제로 동작하는 것만 남긴다. 카운트다운 중의 일시정지는 세션이 아직 없어 아무 일도 하지
@@ -114,54 +122,6 @@ internal class RecordingNotifications(
         notificationManager.notify(NOTIFICATION_ID, buildQuickCapture(contentText, stoppable = true))
     }
 
-    /**
-     * 플로팅 캡처 버블을 유지하는 상시 알림 (기능명세서 11.1절).
-     *
-     * 버블이 다른 앱 위에 떠 있으려면 포그라운드 서비스가 필요하고, 그 대가로 알림이 남는다.
-     * 사용자가 알림에서 바로 버블을 내릴 수 있도록 "숨기기" 액션을 둔다.
-     */
-    fun buildFloatingBubble(): Notification =
-        Notification
-            .Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.presence_video_online)
-            .setContentTitle(context.getString(R.string.floating_notification_title))
-            .setContentText(context.getString(R.string.floating_notification_text))
-            .setOngoing(true)
-            .addAction(
-                Notification.Action
-                    .Builder(
-                        null,
-                        context.getString(R.string.floating_notification_hide),
-                        PendingIntent.getService(
-                            context,
-                            FloatingCaptureService.ACTION_HIDE.hashCode(),
-                            FloatingCaptureService.hideIntent(context),
-                            PendingIntent.FLAG_IMMUTABLE,
-                        ),
-                    ).build(),
-            ).build()
-
-    /** 완료/자동 중지 알림을 별도로 게시한다 (기능명세서 11.4절: 탭 시 앱 열기). */
-    fun showCompleted(contentText: String) {
-        val openApp =
-            PendingIntent.getActivity(
-                context,
-                OPEN_APP_REQUEST_CODE,
-                checkNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName)),
-                PendingIntent.FLAG_IMMUTABLE,
-            )
-        val notification =
-            Notification
-                .Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.presence_video_online)
-                .setContentTitle(context.getString(R.string.recording_notification_completed_title))
-                .setContentText(contentText)
-                .setContentIntent(openApp)
-                .setAutoCancel(true)
-                .build()
-        notificationManager.notify(COMPLETED_NOTIFICATION_ID, notification)
-    }
-
     private fun action(
         labelRes: Int,
         serviceAction: String,
@@ -179,8 +139,8 @@ internal class RecordingNotifications(
     }
 
     companion object {
-        private const val CHANNEL_ID = "recording"
-        private const val OPEN_APP_REQUEST_CODE = 100
+        /** 플로팅 버블 알림도 같은 채널을 쓴다. */
+        internal const val CHANNEL_ID = "recording"
 
         /** Foreground Service 진행 알림 ID. */
         const val NOTIFICATION_ID = 1

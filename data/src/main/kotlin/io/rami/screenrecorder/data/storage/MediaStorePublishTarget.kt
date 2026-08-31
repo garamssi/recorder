@@ -4,6 +4,8 @@ import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
@@ -11,7 +13,6 @@ import android.provider.MediaStore
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.rami.screenrecorder.domain.model.Resolution
-import io.rami.screenrecorder.domain.model.VideoCodec
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -190,13 +191,42 @@ internal class MediaMetadataRecordingReader
                                 .coerceAtLeast(1),
                     ),
                 frameRate =
-                    longMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE).toInt(),
-                codec = VideoCodec.H264,
+                    frameRateOf(
+                        // 트랙 포맷이 알려 주는 값이 없을 수 있어 프레임 수로 되짚는다.
+                        reportedFrameRate = null,
+                        frameCount = longMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT).toInt(),
+                        durationMs = longMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION),
+                    ),
+                // 컨테이너 MIME(video/mp4)이 아니라 비디오 트랙의 코덱 MIME 이어야 한다.
+                codec = videoCodecOf(videoTrackMimeOf(file)),
                 bitrateBps =
                     longMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE).toInt().takeIf { it > 0 },
             )
 
         private fun MediaMetadataRetriever.longMetadata(key: Int): Long = extractMetadata(key)?.toLongOrNull() ?: 0L
+
+        /**
+         * 비디오 트랙의 코덱 MIME.
+         *
+         * MediaMetadataRetriever 의 MIME 은 컨테이너(video/mp4)라 코덱을 가릴 수 없다. 트랙
+         * 포맷을 직접 봐야 한다. 헤더만 읽으므로 비용은 무시할 만하다.
+         */
+        @Suppress("TooGenericExceptionCaught") // 손상 파일에 다양한 RuntimeException 이 나온다.
+        private fun videoTrackMimeOf(file: File): String? {
+            val extractor = MediaExtractor()
+            return try {
+                extractor.setDataSource(file.absolutePath)
+                (0 until extractor.trackCount)
+                    .asSequence()
+                    .map { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME) }
+                    .firstOrNull { it?.startsWith("video/") == true }
+            } catch (unreadable: RuntimeException) {
+                Log.w(LOG_TAG, "코덱을 읽지 못했다: ${file.name}", unreadable)
+                null
+            } finally {
+                extractor.release()
+            }
+        }
     }
 
 private const val MIME_TYPE = "video/mp4"

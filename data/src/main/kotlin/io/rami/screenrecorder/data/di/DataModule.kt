@@ -31,11 +31,6 @@ internal abstract class DataBindsModule {
     abstract fun bindSessionFactory(implementation: ProjectionRecorderSessionFactory): RecorderSessionFactory
 
     @Binds
-    abstract fun bindCaptureConsentRepository(
-        implementation: io.rami.screenrecorder.data.recorder.TokenHolderCaptureConsentRepository,
-    ): io.rami.screenrecorder.domain.repository.CaptureConsentRepository
-
-    @Binds
     abstract fun bindFileNameProvider(implementation: DefaultFileNameProvider): FileNameProvider
 
     @Binds

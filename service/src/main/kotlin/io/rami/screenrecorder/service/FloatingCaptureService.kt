@@ -69,7 +69,7 @@ class FloatingCaptureService : Service() {
         }
         startForeground(
             NOTIFICATION_ID,
-            notifications.buildFloatingBubble(),
+            buildFloatingBubbleNotification(),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
         showBubble()

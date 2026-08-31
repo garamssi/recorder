@@ -50,7 +50,7 @@ internal class QuickCaptureRunner(
             result.exceptionOrNull()?.let { failure ->
                 android.util.Log.w(LOG_TAG, "화면 캡처 실패", failure)
             }
-            notifications.showCompleted(
+            service.showCompletedNotification(
                 service.getString(
                     if (result.isSuccess) {
                         R.string.screenshot_notification_saved
@@ -85,7 +85,7 @@ internal class QuickCaptureRunner(
             val memo = useCases.stopVoiceRecording().getOrNull()
             voiceObserverJob?.cancel()
             voiceObserverJob = null
-            notifications.showCompleted(
+            service.showCompletedNotification(
                 service.getString(
                     if (memo != null) R.string.voice_notification_saved else R.string.voice_notification_empty,
                 ),
@@ -96,7 +96,7 @@ internal class QuickCaptureRunner(
 
     /** 다른 캡처가 이미 돌고 있어 시작할 수 없음을 알린다. */
     fun notifyBusy() {
-        notifications.showCompleted(service.getString(R.string.capture_busy_recording))
+        service.showBusyNotification(service.getString(R.string.capture_busy_recording))
     }
 
     private suspend fun observeElapsed() {
