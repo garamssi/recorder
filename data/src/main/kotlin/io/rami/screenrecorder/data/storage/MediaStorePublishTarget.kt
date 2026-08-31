@@ -1,10 +1,12 @@
 package io.rami.screenrecorder.data.storage
 
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -78,6 +80,46 @@ internal class MediaStorePublishTarget
 
         override fun discard(slot: PublishSlot) {
             context.contentResolver.delete(slot.toUri(), null, null)
+        }
+
+        /**
+         * 우리 폴더의 미완성 레코드를 모은다.
+         *
+         * 미완성 항목은 만든 앱에만 보이므로 소유권을 따로 거를 필요가 없다. 그래도
+         * `includePending` 을 명시한다 — 기본 동작에 기대면 플랫폼 버전에 따라 조용히 비게 된다.
+         */
+        override fun listPending(): List<PendingPublish> {
+            val queryArgs =
+                Bundle().apply {
+                    putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                    putString(
+                        ContentResolver.QUERY_ARG_SQL_SELECTION,
+                        "${MediaStore.Video.Media.RELATIVE_PATH} = ? AND ${MediaStore.Video.Media.IS_PENDING} = 1",
+                    )
+                    putStringArray(
+                        ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
+                        arrayOf("$RECORDINGS_RELATIVE_PATH/"),
+                    )
+                }
+            val pending = mutableListOf<PendingPublish>()
+            context.contentResolver
+                .query(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    arrayOf(MediaStore.Video.Media._ID, MediaStore.Video.Media.DATE_ADDED),
+                    queryArgs,
+                    null,
+                )?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(0)
+                        val entryUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+                        pending +=
+                            PendingPublish(
+                                slot = PublishSlot(id = id, uri = entryUri.toString()),
+                                createdAtEpochSeconds = cursor.getLong(1),
+                            )
+                    }
+                }
+            return pending
         }
 
         private fun PublishSlot.toUri(): Uri = Uri.parse(uri)

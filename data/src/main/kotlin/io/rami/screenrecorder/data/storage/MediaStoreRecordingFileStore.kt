@@ -24,6 +24,7 @@ internal class MediaStoreRecordingFileStore
     constructor(
         @ApplicationContext private val context: Context,
         private val publisher: RecordingPublisher,
+        private val cleaner: AbandonedPublishCleaner,
     ) : RecordingFileStore {
         override fun createTempFile(fileName: String): File {
             val directory = File(context.cacheDir, TEMP_DIRECTORY).apply { mkdirs() }
@@ -57,6 +58,9 @@ internal class MediaStoreRecordingFileStore
             tempFile: File,
             fileName: String,
         ): Recording? = withContext(Dispatchers.IO) { publisher.publish(tempFile, fileName) }
+
+        override suspend fun discardAbandonedPublishes(): Int =
+            withContext(Dispatchers.IO) { cleaner.discardAbandoned() }
 
         private companion object {
             const val TEMP_DIRECTORY = "recordings"

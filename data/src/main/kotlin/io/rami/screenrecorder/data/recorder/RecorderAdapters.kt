@@ -209,6 +209,13 @@ interface RecordingFileStore {
         tempFile: File,
         fileName: String,
     ): io.rami.screenrecorder.domain.model.Recording?
+
+    /**
+     * 발행 도중 죽어 남은 미완성 레코드를 회수한다 (기능명세서 6.1절).
+     *
+     * @return 회수한 레코드 수.
+     */
+    suspend fun discardAbandonedPublishes(): Int
 }
 
 /** 디스플레이 정보 제공자 (기기 최대 해상도 해석용). */

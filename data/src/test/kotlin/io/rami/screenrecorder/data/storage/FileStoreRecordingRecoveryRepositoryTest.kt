@@ -35,6 +35,13 @@ class FileStoreRecordingRecoveryRepositoryTest {
 
         override suspend fun existingFileNames(): Set<String> = emptySet()
 
+        var abandonedDiscardCount = 0
+
+        override suspend fun discardAbandonedPublishes(): Int {
+            abandonedDiscardCount++
+            return 0
+        }
+
         override suspend fun publish(
             tempFile: File,
             fileName: String,

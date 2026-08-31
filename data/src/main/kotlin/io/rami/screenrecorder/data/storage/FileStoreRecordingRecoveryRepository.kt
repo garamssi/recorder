@@ -38,6 +38,10 @@ class FileStoreRecordingRecoveryRepository
                 fileStore.publish(tempFile, id)
             }
 
+        override suspend fun cleanUpAbandonedPublishes() {
+            fileStore.discardAbandonedPublishes()
+        }
+
         override suspend fun discard(id: String) {
             withContext(Dispatchers.IO) {
                 val tempFile = fileStore.listTempFiles().firstOrNull { it.name == id } ?: return@withContext

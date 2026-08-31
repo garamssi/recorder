@@ -27,6 +27,12 @@ class RecoveryUseCasesTest {
             return recoverResult
         }
 
+        var cleanUpCount = 0
+
+        override suspend fun cleanUpAbandonedPublishes() {
+            cleanUpCount++
+        }
+
         override suspend fun discard(id: String) {
             discarded += id
         }

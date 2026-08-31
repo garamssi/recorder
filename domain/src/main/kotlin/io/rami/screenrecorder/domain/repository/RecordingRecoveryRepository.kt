@@ -21,4 +21,11 @@ interface RecordingRecoveryRepository {
 
     /** [id] 임시 파일을 삭제한다. */
     suspend fun discard(id: String)
+
+    /**
+     * 발행 도중 죽어 남은 미완성 레코드를 회수한다 (기능명세서 6.1절).
+     *
+     * 필수 복구가 아니라 조기 회수다 — 실패해도 앱 동작을 막지 않는다.
+     */
+    suspend fun cleanUpAbandonedPublishes()
 }

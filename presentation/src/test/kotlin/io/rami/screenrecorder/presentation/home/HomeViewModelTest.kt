@@ -121,7 +121,10 @@ class HomeViewModelTest {
             /** true면 삭제가 파일 시스템 실패를 흉내내 예외를 던진다. */
             var discardThrows = false
 
-            override suspend fun pendingRecoveries() = pending
+            override suspend fun pendingRecoveries(): List<io.rami.screenrecorder.domain.model.PendingRecovery> {
+                calls += "list"
+                return pending
+            }
 
             override suspend fun recover(id: String): Recording? {
                 check(!recoverThrows) { "MediaStore insert 실패" }
@@ -133,6 +136,13 @@ class HomeViewModelTest {
             override suspend fun discard(id: String) {
                 check(!discardThrows) { "임시 파일 삭제 실패" }
                 discarded += id
+            }
+
+            /** 정리와 조회의 순서를 검증할 수 있도록 호출 순서를 남긴다. */
+            val calls = mutableListOf<String>()
+
+            override suspend fun cleanUpAbandonedPublishes() {
+                calls += "cleanUp"
             }
         }
 
@@ -160,6 +170,9 @@ class HomeViewModelTest {
                     discardRecovery =
                         io.rami.screenrecorder.domain.usecase
                             .DiscardRecoveryUseCase(recoveryRepository),
+                    cleanUpAbandonedPublishes =
+                        io.rami.screenrecorder.domain.usecase
+                            .CleanUpAbandonedPublishesUseCase(recoveryRepository),
                 ),
             storageRepository = StorageRepository { availableBytes },
         )
@@ -420,6 +433,20 @@ class HomeViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf("t.mp4"), viewModel.pendingRecoveries.value.map { it.id })
+        }
+
+    /**
+     * 정리가 조회보다 먼저다 (기능명세서 6.1절 [결정]).
+     *
+     * 순서가 반대면 복구 재발행이 고아 레코드와 파일명이 충돌해 "(1)" 접미어가 붙는다.
+     */
+    @Test
+    fun `버려진 발행을 정리한 뒤에 복구 목록을 읽는다`() =
+        runTest {
+            viewModel()
+            advanceUntilIdle()
+
+            assertEquals(listOf("cleanUp", "list"), recoveryRepository.calls)
         }
 
     private companion object {

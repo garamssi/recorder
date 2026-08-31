@@ -15,6 +15,7 @@ import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.SortOrder
 import io.rami.screenrecorder.domain.repository.StorageRepository
+import io.rami.screenrecorder.domain.usecase.CleanUpAbandonedPublishesUseCase
 import io.rami.screenrecorder.domain.usecase.DiscardRecoveryUseCase
 import io.rami.screenrecorder.domain.usecase.GetPendingRecoveriesUseCase
 import io.rami.screenrecorder.domain.usecase.GetRecordingsUseCase
@@ -66,6 +67,7 @@ class HomeUseCases
         val getPendingRecoveries: GetPendingRecoveriesUseCase,
         val recoverRecording: RecoverRecordingUseCase,
         val discardRecovery: DiscardRecoveryUseCase,
+        val cleanUpAbandonedPublishes: CleanUpAbandonedPublishesUseCase,
     )
 
 /** 홈 화면 ViewModel (기능명세서 2절). */
@@ -109,6 +111,9 @@ class HomeViewModel
                 // 서비스가 녹화 중인 채로 Activity가 재생성되면 활성 temp 파일을 고아로 오인하기 때문이다.
                 // finalize는 임시 파일을 정리한 뒤 Idle로 전이하므로, Idle 시점의 조회는 활성 파일을 포함하지 않는다.
                 observeRecordingState().first { it is RecordingState.Idle }
+                // 정리가 먼저다 — 순서가 반대면 복구 재발행이 고아 레코드와 파일명이 충돌해
+                // "(1)" 접미어가 붙는다 (기능명세서 6.1절 [결정]).
+                useCases.cleanUpAbandonedPublishes()
                 mutablePendingRecoveries.value = useCases.getPendingRecoveries()
             }
         }

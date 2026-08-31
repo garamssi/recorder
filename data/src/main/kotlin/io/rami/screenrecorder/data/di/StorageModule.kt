@@ -1,5 +1,7 @@
 package io.rami.screenrecorder.data.di
 
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import dagger.Binds
 import dagger.Module
@@ -7,6 +9,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.rami.screenrecorder.data.recorder.RecordingFileStore
+import io.rami.screenrecorder.data.storage.AbandonedPublishCleaner
 import io.rami.screenrecorder.data.storage.MediaMetadataRecordingReader
 import io.rami.screenrecorder.data.storage.MediaStorePublishTarget
 import io.rami.screenrecorder.data.storage.MediaStoreRecordingFileStore
@@ -52,6 +55,23 @@ internal object StorageProvidesModule {
             // release 빌드에서는 R8 규칙이 Log.i 를 걷어낸다.
             onPhaseMeasured = { phase, millis -> Log.i(PUBLISH_LOG_TAG, "발행 단계 $phase: ${millis}ms") },
         )
+
+    /**
+     * 이 프로세스가 시작된 벽시계 시각(초).
+     *
+     * MediaStore 의 `DATE_ADDED` 가 벽시계 초 단위라 같은 축으로 환산해야 견줄 수 있다.
+     * 싱글턴 생성 시각을 쓰면 안 된다 — 압축 워커가 이 싱글턴보다 먼저 레코드를 만들 수 있고,
+     * 그러면 진행 중인 압축을 버려진 것으로 오판한다.
+     */
+    @Provides
+    @Singleton
+    fun provideAbandonedPublishCleaner(target: PublishTarget): AbandonedPublishCleaner =
+        AbandonedPublishCleaner(target) {
+            val uptimeMillis = SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime()
+            (System.currentTimeMillis() - uptimeMillis) / MILLIS_PER_SECOND
+        }
+
+    private const val MILLIS_PER_SECOND = 1_000L
 
     private const val PUBLISH_LOG_TAG = "RecordingPublish"
 }

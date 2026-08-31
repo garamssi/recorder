@@ -70,6 +70,8 @@ class RecordingPublisherTest {
             calls += "discard"
             discardFailure?.let { throw it }
         }
+
+        override fun listPending(): List<PendingPublish> = emptyList()
     }
 
     @Test
