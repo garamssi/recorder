@@ -56,11 +56,6 @@ internal abstract class DataBindsModule {
     abstract fun bindTranscodeRepository(
         implementation: io.rami.screenrecorder.data.transcode.WorkManagerTranscodeRepository,
     ): io.rami.screenrecorder.domain.repository.TranscodeRepository
-
-    @Binds
-    abstract fun bindRecoveryRepository(
-        implementation: io.rami.screenrecorder.data.storage.FileStoreRecordingRecoveryRepository,
-    ): io.rami.screenrecorder.domain.repository.RecordingRecoveryRepository
 }
 
 /** 화면 캡처·음성 녹음 구현체 바인딩 (기능명세서 12, 13절). */

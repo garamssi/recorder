@@ -10,6 +10,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.rami.screenrecorder.data.recorder.RecordingFileStore
 import io.rami.screenrecorder.data.storage.AbandonedPublishCleaner
+import io.rami.screenrecorder.data.storage.FileStoreRecordingRecoveryRepository
 import io.rami.screenrecorder.data.storage.MediaMetadataRecordingReader
 import io.rami.screenrecorder.data.storage.MediaStorePublishTarget
 import io.rami.screenrecorder.data.storage.MediaStoreRecordingFileStore
@@ -17,6 +18,7 @@ import io.rami.screenrecorder.data.storage.PublishTarget
 import io.rami.screenrecorder.data.storage.RecordingMetadataReader
 import io.rami.screenrecorder.data.storage.RecordingPublisher
 import io.rami.screenrecorder.data.storage.processStartEpochSeconds
+import io.rami.screenrecorder.domain.repository.RecordingRecoveryRepository
 import javax.inject.Singleton
 
 /**
@@ -56,6 +58,12 @@ internal object StorageProvidesModule {
             // release 빌드에서는 R8 규칙이 Log.i 를 걷어낸다.
             onPhaseMeasured = { phase, millis -> Log.i(PUBLISH_LOG_TAG, "발행 단계 $phase: ${millis}ms") },
         )
+
+    /** 복구 저장소는 기본 디스패처를 쓰므로 @Inject 대신 여기서 조립한다 (Hilt 는 기본 파라미터를 다루지 못한다). */
+    @Provides
+    @Singleton
+    fun provideRecoveryRepository(fileStore: RecordingFileStore): RecordingRecoveryRepository =
+        FileStoreRecordingRecoveryRepository(fileStore)
 
     /**
      * 정리기는 프로세스 시작 시각을 **한 번만** 재어 들고 있다.

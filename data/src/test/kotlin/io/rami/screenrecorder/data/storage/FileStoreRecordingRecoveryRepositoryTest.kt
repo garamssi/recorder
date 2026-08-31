@@ -7,6 +7,8 @@ import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -21,6 +23,7 @@ import kotlin.time.Duration.Companion.seconds
  * 복구 저장소는 [RecordingFileStore] 인터페이스에만 의존하므로,
  * 실제 임시 파일 디렉터리를 쓰는 페이크로 JVM에서 검증한다.
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class FileStoreRecordingRecoveryRepositoryTest {
     @TempDir
     lateinit var tempDir: File
@@ -146,7 +149,7 @@ class FileStoreRecordingRecoveryRepositoryTest {
             File(tempDir, "t.mp4").writeText("녹화")
             val gate = CompletableDeferred<Unit>()
             fileStore.publishGate = gate
-            val repository = FileStoreRecordingRecoveryRepository(fileStore)
+            val repository = FileStoreRecordingRecoveryRepository(fileStore, StandardTestDispatcher(testScheduler))
 
             val caller = async { repository.recover("t.mp4") }
             testScheduler.advanceUntilIdle()
@@ -162,9 +165,11 @@ class FileStoreRecordingRecoveryRepositoryTest {
         runTest {
             val fileStore = FakeFileStore()
             val file = File(tempDir, "t.mp4").apply { writeText("녹화") }
-            val repository = FileStoreRecordingRecoveryRepository(fileStore)
+            val repository = FileStoreRecordingRecoveryRepository(fileStore, StandardTestDispatcher(testScheduler))
 
-            val caller = async { repository.discard("t.mp4") }
+            // 호출자를 Unconfined 로 돌려 withContext 진입까지 즉시 도달시킨 뒤 취소한다.
+            // 시작 전에 취소하면 아예 돌지 않아 NonCancellable 이 검증되지 않는다.
+            val caller = async(UnconfinedTestDispatcher(testScheduler)) { repository.discard("t.mp4") }
             caller.cancel()
             testScheduler.advanceUntilIdle()
 
