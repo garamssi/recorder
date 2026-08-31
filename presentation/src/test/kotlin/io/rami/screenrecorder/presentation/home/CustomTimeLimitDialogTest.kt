@@ -138,13 +138,26 @@ class CustomTimeLimitDialogTest {
     }
 
     @Test
-    fun `분은 59에서 더 오르지 않고 자리 넘김도 없다`() {
+    fun `분은 59에서 올리면 0으로 돌아가고 자리 넘김은 없다`() {
         showDialog()
+        typeInto("시", "1")
         typeInto("분", "59")
 
         compose.onNodeWithContentDescription("분 늘리기").performClick()
 
-        compose.onNodeWithText("59").assertExists()
+        assertEquals("0", valueOf("분"))
+        assertEquals("1", valueOf("시"))
+    }
+
+    @Test
+    fun `초는 0에서 내리면 59로 돌아간다`() {
+        showDialog()
+        typeInto("분", "1")
+
+        compose.onNodeWithContentDescription("초 줄이기").performClick()
+
+        assertEquals("59", valueOf("초"))
+        assertEquals("1", valueOf("분"))
     }
 
     @Test

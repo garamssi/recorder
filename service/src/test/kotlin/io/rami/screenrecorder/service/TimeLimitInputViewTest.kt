@@ -154,24 +154,35 @@ class TimeLimitInputViewTest {
     }
 
     @Test
-    fun `분은 59에서 더 오르지 않고 시로 넘어가지도 않는다`() {
+    fun `분은 59에서 올리면 0으로 돌아가고 시로 넘어가지 않는다`() {
         val views = build(TimeLimit.None)
 
-        views.type("0", "59", "0")
+        views.type("1", "59", "0")
         views.stepUp(TimeLimitField.MINUTES).performClick()
 
-        assertEquals("59", views.minutes.text.toString())
-        assertEquals("0", views.hours.text.toString())
+        assertEquals("0", views.minutes.text.toString())
+        assertEquals("1", views.hours.text.toString())
     }
 
     @Test
-    fun `0에서 더 내려가지 않는다`() {
+    fun `초는 0에서 내리면 59로 돌아간다`() {
+        val views = build(TimeLimit.None)
+
+        views.type("0", "1", "0")
+        views.stepDown(TimeLimitField.SECONDS).performClick()
+
+        assertEquals("59", views.seconds.text.toString())
+        assertEquals("1", views.minutes.text.toString())
+    }
+
+    @Test
+    fun `시는 0에서 더 내려가지 않는다`() {
         val views = build(TimeLimit.None)
 
         views.type("0", "0", "0")
-        views.stepDown(TimeLimitField.SECONDS).performClick()
+        views.stepDown(TimeLimitField.HOURS).performClick()
 
-        assertEquals("0", views.seconds.text.toString())
+        assertEquals("0", views.hours.text.toString())
     }
 
     @Test

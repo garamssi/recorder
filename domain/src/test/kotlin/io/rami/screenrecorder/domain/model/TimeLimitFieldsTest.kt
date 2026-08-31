@@ -43,32 +43,50 @@ class TimeLimitFieldsTest {
     }
 
     @Test
-    fun `0에서 더 내려가지 않는다`() {
-        val fields = TimeLimitFields(0, 0, 0)
+    fun `분과 초는 0에서 내리면 59로 돌아간다`() {
+        val fields = TimeLimitFields(1, 0, 0)
 
-        assertEquals(fields, fields.stepped(TimeLimitField.HOURS, -1))
-        assertEquals(fields, fields.stepped(TimeLimitField.MINUTES, -1))
-        assertEquals(fields, fields.stepped(TimeLimitField.SECONDS, -1))
+        assertEquals(TimeLimitFields(1, 59, 0), fields.stepped(TimeLimitField.MINUTES, -1))
+        assertEquals(TimeLimitFields(1, 0, 59), fields.stepped(TimeLimitField.SECONDS, -1))
     }
 
     @Test
-    fun `분과 초는 59에서 더 올라가지 않고 자리 넘김도 없다`() {
-        val fields = TimeLimitFields(0, 59, 59)
+    fun `분과 초는 59에서 올리면 0으로 돌아간다`() {
+        val fields = TimeLimitFields(1, 59, 59)
 
-        assertEquals(fields, fields.stepped(TimeLimitField.MINUTES, 1))
-        assertEquals(fields, fields.stepped(TimeLimitField.SECONDS, 1))
+        assertEquals(TimeLimitFields(1, 0, 59), fields.stepped(TimeLimitField.MINUTES, 1))
+        assertEquals(TimeLimitFields(1, 59, 0), fields.stepped(TimeLimitField.SECONDS, 1))
     }
 
     @Test
-    fun `시는 최대 제한 시간인 12에서 멈춘다`() {
-        val fields = TimeLimitFields(12, 0, 0)
+    fun `순환해도 옆 칸은 그대로다`() {
+        val fields = TimeLimitFields(1, 59, 0)
 
-        assertEquals(fields, fields.stepped(TimeLimitField.HOURS, 1))
+        assertEquals(1, fields.stepped(TimeLimitField.MINUTES, 1).hours)
+        assertEquals(59, fields.stepped(TimeLimitField.SECONDS, -1).minutes)
+    }
+
+    @Test
+    fun `시는 순환하지 않고 0과 12에서 멈춘다`() {
+        val bottom = TimeLimitFields(0, 30, 0)
+        val top = TimeLimitFields(12, 0, 0)
+
+        assertEquals(bottom, bottom.stepped(TimeLimitField.HOURS, -1))
+        assertEquals(top, top.stepped(TimeLimitField.HOURS, 1))
     }
 
     @Test
     fun `칸을 직접 고쳐도 범위 안으로 맞춘다`() {
         assertEquals(TimeLimitFields(12, 59, 59), TimeLimitFields(99, 99, 99))
+    }
+
+    /** 순환은 한 눈금 옮기는 증감 버튼의 규칙이다. 친 값을 반대편으로 뒤집지는 않는다. */
+    @Test
+    fun `키보드로 친 값은 순환하지 않고 상한으로 맞춘다`() {
+        assertEquals(
+            TimeLimitFields(0, 59, 0),
+            TimeLimitFields(0, 0, 0).withValue(TimeLimitField.MINUTES, 99),
+        )
     }
 
     @Test
