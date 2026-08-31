@@ -92,6 +92,9 @@ internal class MediaStorePublishTarget
          * 미완성 항목은 만든 앱에만 보이므로 소유권을 따로 거를 필요가 없다. 그래도
          * `includePending` 을 명시한다 — 기본 동작에 기대면 플랫폼 버전에 따라 조용히 비게 된다.
          */
+        override fun sizeOf(slot: PublishSlot): Long =
+            context.contentResolver.openFileDescriptor(slot.toUri(), "r")?.use { it.statSize } ?: 0L
+
         override fun listPending(): List<PendingPublish> {
             val queryArgs =
                 Bundle().apply {

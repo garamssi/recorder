@@ -38,6 +38,8 @@ class AbandonedPublishCleanerTest {
                 discarded += slot.uri
             }
 
+            override fun sizeOf(slot: PublishSlot): Long = 0L
+
             override fun listPending(): List<PendingPublish> = pending
 
             override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = slot.id in created

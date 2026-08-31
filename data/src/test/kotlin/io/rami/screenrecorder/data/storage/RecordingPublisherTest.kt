@@ -71,6 +71,10 @@ class RecordingPublisherTest {
             discardFailure?.let { throw it }
         }
 
+        var publishedSize = 0L
+
+        override fun sizeOf(slot: PublishSlot): Long = publishedSize
+
         override fun listPending(): List<PendingPublish> = emptyList()
 
         override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = slot.id == SLOT_ID
@@ -102,9 +106,8 @@ class RecordingPublisherTest {
         assertEquals(SAMPLE_METADATA.durationMs.milliseconds, recording.duration)
         assertEquals(SAMPLE_METADATA.resolution, recording.resolution)
         assertEquals(FIXED_NOW, recording.createdAtEpochMillis)
-        // 아래 넷은 postmortem 3번이 "틀린 값"으로 지목한 필드다. 지금 고정해 두어야
-        // 고칠 때 무엇이 바뀌는지가 이 테스트의 변경으로 드러난다.
-        assertEquals(SAMPLE_METADATA.sizeBytes, recording.sizeBytes)
+        // 크기는 임시 파일이 아니라 발행된 파일에서 온다 (기능명세서 6.1절 [결정]).
+        assertEquals(0L, recording.sizeBytes)
         assertEquals(SAMPLE_METADATA.frameRate, recording.frameRate)
         assertEquals(SAMPLE_METADATA.codec, recording.codec)
         assertEquals(SAMPLE_METADATA.bitrateBps, recording.bitrateBps)
@@ -247,6 +250,21 @@ class RecordingPublisherTest {
         assertThrows<IllegalStateException> { publisher().publish(file, FILE_NAME) }
 
         assertTrue(file.exists())
+    }
+
+    /**
+     * 크기는 발행된 파일에서 읽는다 (기능명세서 6.1절 [결정]).
+     *
+     * remux 는 컨테이너를 바꾸므로 임시 파일과 발행된 파일의 크기가 다르다. 임시 파일 크기를
+     * 담으면 사용자가 보는 값이 틀린다.
+     */
+    @Test
+    fun `발행 결과의 크기는 발행된 파일에서 읽는다`() {
+        target.publishedSize = 999L
+
+        val recording = requireNotNull(publisher().publish(tempFile(), FILE_NAME))
+
+        assertEquals(999L, recording.sizeBytes)
     }
 
     private companion object {

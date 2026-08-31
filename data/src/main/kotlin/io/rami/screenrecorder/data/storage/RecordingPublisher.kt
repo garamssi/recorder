@@ -40,6 +40,14 @@ internal interface PublishTarget {
     /** 미완성 자리를 지운다. */
     fun discard(slot: PublishSlot)
 
+    /**
+     * 발행된 파일의 크기.
+     *
+     * remux 는 컨테이너를 바꾸므로 임시 파일과 크기가 다르다. 임시 파일 크기를 담으면
+     * 사용자가 보는 값이 틀린다 (기능명세서 6.1절 [결정]).
+     */
+    fun sizeOf(slot: PublishSlot): Long
+
     /** 이 앱이 이 폴더에 만든 미완성(IS_PENDING) 레코드. */
     fun listPending(): List<PendingPublish>
 
@@ -156,8 +164,9 @@ internal class RecordingPublisher(
         // 실패하면 미완성 자리는 정리되고 원인이 올라온다. 임시 파일은 남는다 —
         // 저장 공간 부족이면 원본도 사본도 없어진다 (기능명세서 6.1절 [결정]).
         val slot = target.publishing(fileName) { measure(PHASE_WRITE) { target.write(it, tempFile) } }
+        val publishedSize = target.sizeOf(slot)
         tempFile.delete()
-        return metadata.toRecording(slot, fileName)
+        return metadata.toRecording(slot, fileName, publishedSize)
     }
 
     /**
@@ -181,12 +190,13 @@ internal class RecordingPublisher(
     private fun RecordingMetadata.toRecording(
         slot: PublishSlot,
         fileName: String,
+        publishedSizeBytes: Long,
     ): Recording =
         Recording(
             id = RecordingId(slot.id),
             displayName = fileName,
             contentUri = slot.uri,
-            sizeBytes = sizeBytes,
+            sizeBytes = publishedSizeBytes,
             duration = durationMs.milliseconds,
             resolution = resolution,
             frameRate = frameRate,

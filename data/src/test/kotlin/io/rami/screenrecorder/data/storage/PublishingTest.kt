@@ -35,6 +35,8 @@ class PublishingTest {
                 calls += "discard"
             }
 
+            override fun sizeOf(slot: PublishSlot): Long = 0L
+
             override fun listPending(): List<PendingPublish> = emptyList()
 
             override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = true
