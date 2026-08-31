@@ -1,7 +1,5 @@
 package io.rami.screenrecorder.data.di
 
-import android.os.Process
-import android.os.SystemClock
 import android.util.Log
 import dagger.Binds
 import dagger.Module
@@ -14,10 +12,10 @@ import io.rami.screenrecorder.data.storage.FileStoreRecordingRecoveryRepository
 import io.rami.screenrecorder.data.storage.MediaMetadataRecordingReader
 import io.rami.screenrecorder.data.storage.MediaStorePublishTarget
 import io.rami.screenrecorder.data.storage.MediaStoreRecordingFileStore
+import io.rami.screenrecorder.data.storage.ProcessStartTime
 import io.rami.screenrecorder.data.storage.PublishTarget
 import io.rami.screenrecorder.data.storage.RecordingMetadataReader
 import io.rami.screenrecorder.data.storage.RecordingPublisher
-import io.rami.screenrecorder.data.storage.processStartEpochSeconds
 import io.rami.screenrecorder.domain.repository.RecordingRecoveryRepository
 import javax.inject.Singleton
 
@@ -66,24 +64,17 @@ internal object StorageProvidesModule {
         FileStoreRecordingRecoveryRepository(fileStore)
 
     /**
-     * 정리기는 프로세스 시작 시각을 **한 번만** 재어 들고 있다.
+     * 정리기의 폴백 기준 시각은 [ProcessStartTime] 이 프로세스 기동 시 고정한 값을 쓴다.
      *
-     * 정리할 때마다 다시 재면, 부팅 뒤 NTP 보정으로 벽시계가 앞으로 점프했을 때 기준선이 같이
-     * 밀려 진행 중인 발행·압축을 지운다 (기능명세서 6.1절 [결정]). 싱글턴 생성 시점이 프로세스
-     * 시작보다 늦더라도 환산은 Process.getStartElapsedRealtime() 기준이라 값이 흔들리지 않는다.
+     * 여기서 직접 재면 싱글턴 최초 주입 시점이라, 그 전에 시계가 보정됐으면 기준선이 밀린다
+     * (기능명세서 6.1절 [결정]).
      */
     @Provides
     @Singleton
-    fun provideAbandonedPublishCleaner(target: PublishTarget): AbandonedPublishCleaner =
-        AbandonedPublishCleaner(
-            target = target,
-            processStartedAtEpochSeconds =
-                processStartEpochSeconds(
-                    nowEpochMillis = System.currentTimeMillis(),
-                    elapsedRealtimeMillis = SystemClock.elapsedRealtime(),
-                    processStartElapsedRealtimeMillis = Process.getStartElapsedRealtime(),
-                ),
-        )
+    fun provideAbandonedPublishCleaner(
+        target: PublishTarget,
+        processStartTime: ProcessStartTime,
+    ): AbandonedPublishCleaner = AbandonedPublishCleaner(target, processStartTime.epochSeconds)
 
     private const val PUBLISH_LOG_TAG = "RecordingPublish"
 }

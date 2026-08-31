@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 // 녹화본 발행의 플랫폼 절반 (기능명세서 6.1절).
@@ -24,6 +25,14 @@ internal class MediaStorePublishTarget
     constructor(
         @ApplicationContext private val context: Context,
     ) : PublishTarget {
+        /**
+         * 이 프로세스가 만든 자리의 id.
+         *
+         * 발행 스레드와 정리 스레드가 함께 본다. 지우지 않는다 — 프로세스 수명 동안 만든
+         * 발행 수만큼만 늘고, 지우면 확정에 실패해 남은 자리를 시각만으로 판정하게 된다.
+         */
+        private val createdIds = ConcurrentHashMap.newKeySet<Long>()
+
         override fun create(fileName: String): PublishSlot {
             val values =
                 ContentValues().apply {
@@ -36,7 +45,9 @@ internal class MediaStorePublishTarget
                 checkNotNull(
                     context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values),
                 ) { "MediaStore insert 실패: $fileName" }
-            return PublishSlot(id = ContentUris.parseId(uri), uri = uri.toString())
+            return PublishSlot(id = ContentUris.parseId(uri), uri = uri.toString()).also {
+                createdIds += it.id
+            }
         }
 
         /**
@@ -121,6 +132,8 @@ internal class MediaStorePublishTarget
                 }
             return pending
         }
+
+        override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = slot.id in createdIds
 
         private fun PublishSlot.toUri(): Uri = Uri.parse(uri)
     }

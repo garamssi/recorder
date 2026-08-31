@@ -72,6 +72,8 @@ class RecordingPublisherTest {
         }
 
         override fun listPending(): List<PendingPublish> = emptyList()
+
+        override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = slot.id == SLOT_ID
     }
 
     @Test

@@ -40,8 +40,16 @@ internal interface PublishTarget {
     /** 미완성 자리를 지운다. */
     fun discard(slot: PublishSlot)
 
-    /** 이 앱이 만든 미완성(IS_PENDING) 레코드 전부. */
+    /** 이 앱이 이 폴더에 만든 미완성(IS_PENDING) 레코드. */
     fun listPending(): List<PendingPublish>
+
+    /**
+     * [slot] 을 이 프로세스가 [create] 로 만들었는지.
+     *
+     * 정리는 시각으로 판정하는데 시계가 보정되면 기준선이 밀려 방금 만든 자리도 "프로세스보다
+     * 먼저" 로 보인다. 그때 진행 중인 발행을 지우지 않으려면 이 사실이 필요하다.
+     */
+    fun wasCreatedByThisProcess(slot: PublishSlot): Boolean
 }
 
 /** 아직 확정되지 않은 발행 자리. 정리 대상 판정에 만들어진 시각이 필요하다. */

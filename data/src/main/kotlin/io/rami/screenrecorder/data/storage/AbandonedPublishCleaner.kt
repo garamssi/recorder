@@ -21,11 +21,20 @@ internal class AbandonedPublishCleaner(
 ) {
     /** @return 회수한 레코드 수. */
     fun discardAbandoned(): Int {
-        val abandoned = target.listPending().filter { it.createdAtEpochSeconds < processStartedAtEpochSeconds }
+        val abandoned = target.listPending().filter { it.isAbandoned() }
         val discarded = abandoned.count { discardQuietly(it) }
         if (discarded > 0) Log.i(LOG_TAG, "버려진 발행 $discarded 건을 회수했다")
         return discarded
     }
+
+    /**
+     * 이 프로세스가 만들지 않았고, 이 프로세스보다 먼저 만들어졌는가.
+     *
+     * id 가 1차 판정이다. 시각 비교는 다른 프로세스의 잔여물에만 쓰는 폴백으로, 시계가
+     * 보정되면 기준선이 밀리므로 그것만 믿으면 진행 중인 발행을 지운다 (기능명세서 6.1절 [결정]).
+     */
+    private fun PendingPublish.isAbandoned(): Boolean =
+        !target.wasCreatedByThisProcess(slot) && createdAtEpochSeconds < processStartedAtEpochSeconds
 
     /**
      * 한 건이 실패해도 나머지는 계속 지운다 (기능명세서 6.1절 [결정]).

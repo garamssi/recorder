@@ -39,6 +39,8 @@ class AbandonedPublishCleanerTest {
             }
 
             override fun listPending(): List<PendingPublish> = pending
+
+            override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = slot.id in created
         }
 
     private fun cleaner() = AbandonedPublishCleaner(target, PROCESS_STARTED_AT)

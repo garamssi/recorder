@@ -26,6 +26,7 @@ import io.rami.screenrecorder.domain.usecase.RecoverRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -207,6 +208,9 @@ class HomeViewModel
                     try {
                         action()
                         true
+                    } catch (cancelled: CancellationException) {
+                        // 취소를 삼키면 실패 스낵바로 둔갑한다.
+                        throw cancelled
                     } catch (
                         @Suppress("TooGenericExceptionCaught") failure: Exception,
                     ) {
@@ -238,6 +242,9 @@ class HomeViewModel
         private suspend fun cleanUpAbandonedPublishesQuietly() {
             try {
                 cleanUpAbandonedPublishes()
+            } catch (cancelled: CancellationException) {
+                // 취소는 실패가 아니다. 삼키면 호출자가 죽은 뒤에도 다음 줄이 이어 돈다.
+                throw cancelled
             } catch (failure: Exception) {
                 android.util.Log.w(LOG_TAG, "버려진 발행 정리 실패", failure)
             }
