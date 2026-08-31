@@ -126,4 +126,34 @@ class BubbleStateMappingTest {
 
         assertEquals(BubbleState.Busy(BubbleBusyReason.PREPARING), state)
     }
+
+    /**
+     * 녹화 상태가 늘어도 유휴 메뉴로 새지 않아야 한다 (기능명세서 6.1절 [결정]).
+     *
+     * 이 매핑이 `when { ... else -> Idle }` 이던 동안 Stopping 과 CountingDown 이 차례로
+     * 새어 나가 "녹화 시작"을 노출했다. 같은 실수를 두 번 했으니 구조로 막아야 한다 —
+     * 이 테스트는 그 구조가 실제로 서 있는지 확인한다.
+     */
+    @Test
+    fun `녹화 중이 아닌 상태만 유휴 메뉴로 간다`() {
+        val idleOnly =
+            listOf(
+                RecordingState.Idle,
+                RecordingState.CountingDown(remainingSeconds = 3),
+                RecordingState.Recording(1.minutes),
+                RecordingState.Paused(1.minutes),
+                RecordingState.Stopping,
+            ).associateWith { bubbleStateFor(it, noVoice, TimeLimit.None) is BubbleState.Idle }
+
+        assertEquals(
+            mapOf(
+                RecordingState.Idle to true,
+                RecordingState.CountingDown(remainingSeconds = 3) to false,
+                RecordingState.Recording(1.minutes) to false,
+                RecordingState.Paused(1.minutes) to false,
+                RecordingState.Stopping to false,
+            ),
+            idleOnly,
+        )
+    }
 }

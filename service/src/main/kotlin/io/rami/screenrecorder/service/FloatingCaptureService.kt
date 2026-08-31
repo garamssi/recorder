@@ -147,27 +147,32 @@ internal fun bubbleStateFor(
     voice: VoiceRecordingState,
     settingTimeLimit: TimeLimit,
 ): BubbleState =
-    when {
-        screen is RecordingState.Recording ->
+    // when (screen) 으로 두어 상태가 늘면 컴파일러가 잡게 한다. `else -> Idle` 이던 동안
+    // Stopping 과 CountingDown 이 차례로 새어 나가 "녹화 시작" 을 노출했다 (명세 6.1절 [결정]).
+    when (screen) {
+        is RecordingState.Recording ->
             BubbleState.ScreenRecording(
                 DurationFormatter.formatElapsedWithLimit(screen.elapsed, screen.timeLimit.durationOrNull()),
                 isPaused = false,
             )
 
-        screen is RecordingState.Paused ->
+        is RecordingState.Paused ->
             BubbleState.ScreenRecording(
                 DurationFormatter.formatElapsedWithLimit(screen.elapsed, screen.timeLimit.durationOrNull()),
                 isPaused = true,
             )
 
-        screen is RecordingState.Stopping -> BubbleState.Busy(BubbleBusyReason.SAVING)
+        RecordingState.Stopping -> BubbleState.Busy(BubbleBusyReason.SAVING)
 
-        screen is RecordingState.CountingDown -> BubbleState.Busy(BubbleBusyReason.PREPARING)
+        is RecordingState.CountingDown -> BubbleState.Busy(BubbleBusyReason.PREPARING)
 
-        voice is VoiceRecordingState.Recording ->
-            BubbleState.VoiceRecording(DurationFormatter.formatElapsed(voice.elapsed))
-
-        else -> BubbleState.Idle(settingTimeLimit)
+        // 화면 녹화가 없을 때만 음성 녹음이 버블을 차지한다.
+        RecordingState.Idle ->
+            if (voice is VoiceRecordingState.Recording) {
+                BubbleState.VoiceRecording(DurationFormatter.formatElapsed(voice.elapsed))
+            } else {
+                BubbleState.Idle(settingTimeLimit)
+            }
     }
 
 /**
