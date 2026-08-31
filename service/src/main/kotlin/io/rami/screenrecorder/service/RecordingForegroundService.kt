@@ -5,16 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
-import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
-import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.AudioSource
 import io.rami.screenrecorder.domain.model.CaptureMode
 import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.model.CaptureRegion
-import io.rami.screenrecorder.domain.model.MicrophoneDevice
-import io.rami.screenrecorder.domain.model.RecordingSessionEvent
-import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.usecase.CaptureScreenshotUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
@@ -31,8 +26,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -77,6 +70,19 @@ class RecordingForegroundService : Service() {
     private val notifications by lazy { RecordingNotifications(this) }
 
     private val countdownOverlay by lazy { CountdownOverlayWindow(this) }
+
+    /** 무엇을 보여 줄지는 여기가 정한다. 서비스는 수명과 인텐트만 다룬다. */
+    private val presenter by lazy {
+        RecordingSessionPresenter(
+            context = this,
+            notifications = notifications,
+            countdownOverlay = countdownOverlay,
+            onIdle = ::stopSelf,
+            onSkipCountdown = skipCountdown::invoke,
+        )
+    }
+
+    private var completionObserverJob: kotlinx.coroutines.Job? = null
 
     private val quickCapture by lazy {
         QuickCaptureRunner(
@@ -167,8 +173,10 @@ class RecordingForegroundService : Service() {
                 return@launch
             }
         }
-        stateObserverJob = serviceScope.launch { observeStateForNotification() }
-        eventObserverJob = serviceScope.launch { observeSessionEvents() }
+        stateObserverJob = serviceScope.launch { presenter.observeState(observeRecordingState()) }
+        eventObserverJob = serviceScope.launch { presenter.observeEvents(sessionRepository.sessionEvents) }
+        completionObserverJob =
+            serviceScope.launch { presenter.observeCompletion(sessionRepository.completedRecordings) }
     }
 
     /** 마이크를 쓰는 세션은 microphone FGS 타입을 함께 선언해야 한다 (Android 14+). */
@@ -182,87 +190,6 @@ class RecordingForegroundService : Service() {
         } else {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         }
-    }
-
-    private suspend fun observeStateForNotification() {
-        // 세션 시작 전의 초기 Idle은 종료 신호가 아니다 (병렬 구독 레이스 방지).
-        observeRecordingState().dropWhile { it is RecordingState.Idle }.collectLatest { state ->
-            when (state) {
-                is RecordingState.CountingDown ->
-                    countdownOverlay.show(state.remainingSeconds, onSkip = skipCountdown::invoke)
-
-                is RecordingState.Recording, is RecordingState.Paused -> {
-                    countdownOverlay.dismiss()
-                    ongoingNotificationText(state)?.let {
-                        notifications.updateOngoing(it, isPaused = state is RecordingState.Paused)
-                    }
-                }
-
-                // 발행은 취소할 수 없으므로 중지·일시정지 버튼을 주지 않는다 (명세 6.1절 [결정]).
-                is RecordingState.Stopping -> {
-                    countdownOverlay.dismiss()
-                    ongoingNotificationText(state)?.let(notifications::showSaving)
-                }
-
-                is RecordingState.Idle -> {
-                    countdownOverlay.dismiss()
-                    stopSelf()
-                }
-            }
-        }
-    }
-
-    /** 예고/자동 중지 이벤트를 알림으로 반영한다 (기능명세서 11절). */
-    private suspend fun observeSessionEvents() {
-        sessionRepository.sessionEvents.collectLatest { event ->
-            when (event) {
-                is RecordingSessionEvent.TimeLimitWarning ->
-                    notifications.updateOngoing(
-                        getString(
-                            R.string.recording_notification_time_limit_warning,
-                            DurationFormatter.formatElapsed(event.remaining),
-                        ),
-                        isPaused = false,
-                    )
-
-                is RecordingSessionEvent.PauseTimeoutWarning ->
-                    notifications.updateOngoing(
-                        getString(
-                            R.string.recording_notification_pause_timeout_warning,
-                            DurationFormatter.formatElapsed(event.remaining),
-                        ),
-                        isPaused = true,
-                    )
-
-                is RecordingSessionEvent.AutoStopped ->
-                    notifications.showCompleted(autoStopText(event.reason))
-
-                is RecordingSessionEvent.MicrophoneFellBack -> showMicrophoneFallback(event.requested)
-
-                is RecordingSessionEvent.RegionInvalidatedByRotation ->
-                    // 명세 5절 [결정]: "영역을 다시 지정하거나 중지하세요"
-                    notifications.updateOngoing(
-                        getString(R.string.recording_notification_region_rotated),
-                        isPaused = true,
-                    )
-            }
-        }
-    }
-
-    /**
-     * 선택한 마이크를 쓸 수 없을 때 알린다 (기능명세서 4.2절 [결정]).
-     *
-     * 다른 앱 위에서 녹화를 시작했을 수도 있으므로 앱 내 스낵바가 아닌 토스트를 쓴다.
-     * 진행 알림 문구는 경과 시간 갱신으로 곧 덮이므로 쓰지 않는다.
-     */
-    private fun showMicrophoneFallback(requested: MicrophoneDevice) {
-        val message =
-            getString(
-                R.string.recording_microphone_fell_back,
-                getString(microphoneDeviceNameRes(requested)),
-            )
-        // 이벤트 수집은 백그라운드 디스패처에서 일어나므로 토스트는 메인 스레드로 올린다.
-        mainExecutor.execute { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
     }
 
     companion object {
@@ -346,11 +273,3 @@ class RecordingForegroundService : Service() {
             Intent(context, RecordingForegroundService::class.java).setAction(ACTION_STOP_VOICE)
     }
 }
-
-/** 폴백 안내에 쓸 마이크 장치 이름. 자동은 폴백 대상이 아니므로 나타나지 않는다. */
-private fun microphoneDeviceNameRes(device: MicrophoneDevice): Int =
-    when (device) {
-        MicrophoneDevice.BUILT_IN, MicrophoneDevice.AUTO -> R.string.microphone_device_built_in
-        MicrophoneDevice.BLUETOOTH -> R.string.microphone_device_bluetooth
-        MicrophoneDevice.WIRED -> R.string.microphone_device_wired
-    }

@@ -12,6 +12,7 @@
     <string name="recording_notification_time_limit_warning">Ending in %1$s</string>
     <string name="recording_notification_pause_timeout_warning">Auto-stop in %1$s (paused too long)</string>
     <string name="recording_notification_completed_title">Recording saved</string>
+    <string name="recording_notification_completed_saved">Saved</string>
     <string name="recording_notification_completed_time_limit">Time limit reached — recording saved</string>
     <string name="recording_notification_completed_storage_low">Storage low — recording saved safely</string>
     <string name="recording_notification_completed_pause_timeout">Paused too long — recording saved</string>

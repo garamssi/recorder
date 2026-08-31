@@ -1,6 +1,5 @@
 package io.rami.screenrecorder.service
 
-import android.app.Service
 import android.content.Context
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.AutoStopReason
@@ -36,8 +35,17 @@ internal fun Context.elapsedText(
         DurationFormatter.formatElapsedWithLimit(elapsed, timeLimit.durationOrNull()),
     )
 
+/**
+ * 완료 알림 문구 (기능명세서 6.1절 [결정]).
+ *
+ * 완료는 발행이 끝난 시점에 알린다. 자동 중지였다면 그 사유를, 수동 중지였다면 사유 없이
+ * 저장 사실만 알린다 — 수동 중지도 알려야 "저장하는 중"이 조용히 사라지는 것과 구별된다.
+ */
+internal fun Context.completedText(reason: AutoStopReason?): String =
+    if (reason == null) getString(R.string.recording_notification_completed_saved) else autoStopText(reason)
+
 /** 자동 중지 사유별 완료 알림 문구 (기능명세서 11.4절). */
-internal fun Service.autoStopText(reason: AutoStopReason): String =
+internal fun Context.autoStopText(reason: AutoStopReason): String =
     when (reason) {
         AutoStopReason.TIME_LIMIT_REACHED ->
             getString(R.string.recording_notification_completed_time_limit)
