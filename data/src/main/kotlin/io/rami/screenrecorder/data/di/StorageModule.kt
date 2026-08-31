@@ -33,6 +33,7 @@ internal abstract class StorageBindsModule {
     abstract fun bindFileStore(implementation: MediaStoreRecordingFileStore): RecordingFileStore
 
     @Binds
+    @Singleton
     abstract fun bindPublishTarget(implementation: MediaStorePublishTarget): PublishTarget
 
     @Binds

@@ -144,8 +144,5 @@ internal class RecordingNotifications(
 
         /** Foreground Service 진행 알림 ID. */
         const val NOTIFICATION_ID = 1
-
-        /** 완료 알림 ID (진행 알림과 분리). */
-        const val COMPLETED_NOTIFICATION_ID = 2
     }
 }

@@ -14,7 +14,6 @@ import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.rami.screenrecorder.domain.model.Resolution
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 // 녹화본 발행의 플랫폼 절반 (기능명세서 6.1절).
@@ -25,15 +24,8 @@ internal class MediaStorePublishTarget
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
+        private val ownSlots: OwnPublishSlots,
     ) : PublishTarget {
-        /**
-         * 이 프로세스가 만든 자리의 id.
-         *
-         * 발행 스레드와 정리 스레드가 함께 본다. 지우지 않는다 — 프로세스 수명 동안 만든
-         * 발행 수만큼만 늘고, 지우면 확정에 실패해 남은 자리를 시각만으로 판정하게 된다.
-         */
-        private val createdIds = ConcurrentHashMap.newKeySet<Long>()
-
         override fun create(fileName: String): PublishSlot {
             val values =
                 ContentValues().apply {
@@ -47,7 +39,7 @@ internal class MediaStorePublishTarget
                     context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values),
                 ) { "MediaStore insert 실패: $fileName" }
             return PublishSlot(id = ContentUris.parseId(uri), uri = uri.toString()).also {
-                createdIds += it.id
+                ownSlots.remember(it.id)
             }
         }
 
@@ -134,7 +126,7 @@ internal class MediaStorePublishTarget
             return pending
         }
 
-        override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = slot.id in createdIds
+        override fun wasCreatedByThisProcess(slot: PublishSlot): Boolean = ownSlots.contains(slot.id)
 
         private fun PublishSlot.toUri(): Uri = Uri.parse(uri)
     }
@@ -175,8 +167,9 @@ internal class MediaMetadataRecordingReader
         private fun MediaMetadataRetriever.hasVideoTrack(): Boolean =
             extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes"
 
-        private fun MediaMetadataRetriever.toMetadata(file: File): RecordingMetadata =
-            RecordingMetadata(
+        private fun MediaMetadataRetriever.toMetadata(file: File): RecordingMetadata {
+            val trackFormat = videoTrackFormatOf(file)
+            return RecordingMetadata(
                 sizeBytes = file.length(),
                 durationMs = longMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION),
                 resolution =
@@ -192,41 +185,49 @@ internal class MediaMetadataRecordingReader
                     ),
                 frameRate =
                     frameRateOf(
-                        // 트랙 포맷이 알려 주는 값이 없을 수 있어 프레임 수로 되짚는다.
-                        reportedFrameRate = null,
+                        reportedFrameRate = trackFormat?.reportedFrameRate(),
+                        // fMP4 트랙 포맷에 프레임레이트가 없을 수 있어 프레임 수로 되짚는다.
                         frameCount = longMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT).toInt(),
                         durationMs = longMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION),
                     ),
                 // 컨테이너 MIME(video/mp4)이 아니라 비디오 트랙의 코덱 MIME 이어야 한다.
-                codec = videoCodecOf(videoTrackMimeOf(file)),
+                codec = videoCodecOf(trackFormat?.getString(MediaFormat.KEY_MIME)),
                 bitrateBps =
                     longMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE).toInt().takeIf { it > 0 },
             )
+        }
 
         private fun MediaMetadataRetriever.longMetadata(key: Int): Long = extractMetadata(key)?.toLongOrNull() ?: 0L
 
         /**
-         * 비디오 트랙의 코덱 MIME.
+         * 비디오 트랙 포맷.
          *
-         * MediaMetadataRetriever 의 MIME 은 컨테이너(video/mp4)라 코덱을 가릴 수 없다. 트랙
-         * 포맷을 직접 봐야 한다. 헤더만 읽으므로 비용은 무시할 만하다.
+         * MediaMetadataRetriever 의 MIME 은 컨테이너(video/mp4)라 코덱을 가릴 수 없고,
+         * 프레임레이트 키는 카메라 전용이라 값이 없다. 트랙 포맷을 직접 봐야 둘 다 얻는다.
+         *
+         * 비용은 아직 재지 않았다. 발행 임계 경로에 있으므로 기기가 생기면 1시간짜리 fMP4 로
+         * 측정해야 한다 (CLAUDE.md 8절).
          */
         @Suppress("TooGenericExceptionCaught") // 손상 파일에 다양한 RuntimeException 이 나온다.
-        private fun videoTrackMimeOf(file: File): String? {
+        private fun videoTrackFormatOf(file: File): MediaFormat? {
             val extractor = MediaExtractor()
             return try {
                 extractor.setDataSource(file.absolutePath)
                 (0 until extractor.trackCount)
                     .asSequence()
-                    .map { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME) }
-                    .firstOrNull { it?.startsWith("video/") == true }
+                    .map(extractor::getTrackFormat)
+                    .firstOrNull { it.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true }
             } catch (unreadable: RuntimeException) {
-                Log.w(LOG_TAG, "코덱을 읽지 못했다: ${file.name}", unreadable)
+                Log.w(LOG_TAG, "트랙 포맷을 읽지 못했다: ${file.name}", unreadable)
                 null
             } finally {
                 extractor.release()
             }
         }
+
+        /** 포맷이 알려 주는 프레임레이트. 없으면 null 이라 프레임 수로 되짚는다. */
+        private fun MediaFormat.reportedFrameRate(): Int? =
+            if (containsKey(MediaFormat.KEY_FRAME_RATE)) getInteger(MediaFormat.KEY_FRAME_RATE) else null
     }
 
 private const val MIME_TYPE = "video/mp4"

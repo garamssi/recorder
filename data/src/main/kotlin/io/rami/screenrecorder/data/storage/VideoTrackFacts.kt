@@ -31,7 +31,8 @@ internal fun frameRateOf(
 ): Int =
     when {
         reportedFrameRate != null && reportedFrameRate > 0 -> reportedFrameRate
-        frameCount > 0 && durationMs > 0 -> (frameCount * MILLIS_PER_SECOND / durationMs).toInt()
+        // 버리면 60fps 녹화가 59fps 로 보인다.
+        frameCount > 0 && durationMs > 0 -> Math.round(frameCount * MILLIS_PER_SECOND.toDouble() / durationMs).toInt()
         else -> 0
     }
 

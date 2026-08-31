@@ -48,4 +48,10 @@ class VideoTrackFactsTest {
     fun `재생 시간이 0이면 되짚지 않는다`() {
         assertEquals(0, frameRateOf(reportedFrameRate = null, frameCount = 3_000, durationMs = 0))
     }
+
+    /** 버리면 60fps 녹화가 59fps 로 보인다 (기능명세서 6.1절 [결정]). */
+    @Test
+    fun `되짚기는 반올림한다`() {
+        assertEquals(60, frameRateOf(reportedFrameRate = null, frameCount = 3_597, durationMs = 60_000))
+    }
 }
