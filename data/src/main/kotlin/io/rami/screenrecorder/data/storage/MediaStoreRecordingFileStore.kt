@@ -15,21 +15,16 @@ import javax.inject.Singleton
  * [RecordingFileStore] 의 MediaStore 구현 (기능명세서 6.1절).
  *
  * 녹화 중에는 앱 전용 캐시에 기록하고, 완료 시 Movies/ScreenRecorder 로 옮긴다.
- * 옮기는 순서와 실패 처리는 [RecordingPublisher] 가, 플랫폼 호출은
- * [MediaStorePublishTarget]·[MediaMetadataRecordingReader] 가 맡는다.
+ * 옮기는 순서와 실패 처리는 [RecordingPublisher] 가 맡는다 — 이 클래스는 임시 파일 관리와
+ * 조립만 한다. 발행기를 주입받아야 계측 테스트에서 플랫폼 절반을 갈아 끼울 수 있다.
  */
 @Singleton
-class MediaStoreRecordingFileStore
+internal class MediaStoreRecordingFileStore
     @Inject
     constructor(
         @ApplicationContext private val context: Context,
+        private val publisher: RecordingPublisher,
     ) : RecordingFileStore {
-        private val publisher =
-            RecordingPublisher(
-                target = MediaStorePublishTarget(context),
-                readMetadata = MediaMetadataRecordingReader(),
-            )
-
         override fun createTempFile(fileName: String): File {
             val directory = File(context.cacheDir, TEMP_DIRECTORY).apply { mkdirs() }
             return File(directory, fileName)
@@ -48,7 +43,7 @@ class MediaStoreRecordingFileStore
                         MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                         arrayOf(MediaStore.Video.Media.DISPLAY_NAME),
                         "${MediaStore.Video.Media.RELATIVE_PATH} = ?",
-                        arrayOf("$RELATIVE_PATH/"),
+                        arrayOf("$RECORDINGS_RELATIVE_PATH/"),
                         null,
                     )?.use { cursor ->
                         while (cursor.moveToNext()) {

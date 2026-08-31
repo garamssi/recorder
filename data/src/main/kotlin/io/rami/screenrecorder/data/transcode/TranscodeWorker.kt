@@ -16,6 +16,7 @@ import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import io.rami.screenrecorder.data.storage.RECORDINGS_RELATIVE_PATH
 import io.rami.screenrecorder.domain.model.CompressionPlan
 import io.rami.screenrecorder.domain.model.CompressionPreset
 import io.rami.screenrecorder.domain.model.CompressionSource
@@ -172,7 +173,7 @@ class TranscodeWorker(
             ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.RELATIVE_PATH, RELATIVE_PATH)
+                put(MediaStore.Video.Media.RELATIVE_PATH, RECORDINGS_RELATIVE_PATH)
                 put(MediaStore.Video.Media.IS_PENDING, 1)
             }
         val uri =
@@ -240,7 +241,6 @@ class TranscodeWorker(
         const val KEY_PROGRESS = "progress"
         const val KEY_OUTPUT_NAME = "output_name"
         private const val PROGRESS_POLL_MS = 500L
-        private const val RELATIVE_PATH = "Movies/ScreenRecorder"
         private const val BITS_PER_BYTE = 8
         private const val MS_PER_SECOND = 1_000L
 

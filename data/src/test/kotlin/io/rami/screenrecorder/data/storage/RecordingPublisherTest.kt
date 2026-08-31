@@ -24,26 +24,32 @@ class RecordingPublisherTest {
     @TempDir
     lateinit var tempDirectory: File
 
-    private val target = RecordingTarget()
+    private val target = CallLoggingPublishTarget()
 
     private var metadata: RecordingMetadata? = SAMPLE_METADATA
 
     private fun publisher() =
         RecordingPublisher(
             target = target,
-            readMetadata = { metadata },
+            metadataReader = { metadata },
             nowEpochMillis = { FIXED_NOW },
         )
 
     private fun tempFile(content: String = "녹화"): File = File(tempDirectory, "Rec.mp4").apply { writeText(content) }
 
-    /** 호출 순서를 그대로 기록하는 발행 대상. */
-    private class RecordingTarget : PublishTarget {
+    /** 호출 순서를 그대로 기록하고, 원하는 단계에서 실패시킬 수 있는 발행 대상. */
+    private class CallLoggingPublishTarget : PublishTarget {
         val calls = mutableListOf<String>()
+        var createdFor: String? = null
+        var createFailure: Exception? = null
         var writeFailure: Exception? = null
+        var finishFailure: Exception? = null
+        var discardFailure: Exception? = null
 
         override fun create(fileName: String): PublishSlot {
             calls += "create"
+            createdFor = fileName
+            createFailure?.let { throw it }
             return PublishSlot(id = SLOT_ID, uri = SLOT_URI)
         }
 
@@ -57,10 +63,12 @@ class RecordingPublisherTest {
 
         override fun finish(slot: PublishSlot) {
             calls += "finish"
+            finishFailure?.let { throw it }
         }
 
         override fun discard(slot: PublishSlot) {
             calls += "discard"
+            discardFailure?.let { throw it }
         }
     }
 
@@ -90,6 +98,12 @@ class RecordingPublisherTest {
         assertEquals(SAMPLE_METADATA.durationMs.milliseconds, recording.duration)
         assertEquals(SAMPLE_METADATA.resolution, recording.resolution)
         assertEquals(FIXED_NOW, recording.createdAtEpochMillis)
+        // 아래 넷은 postmortem 3번이 "틀린 값"으로 지목한 필드다. 지금 고정해 두어야
+        // 고칠 때 무엇이 바뀌는지가 이 테스트의 변경으로 드러난다.
+        assertEquals(SAMPLE_METADATA.sizeBytes, recording.sizeBytes)
+        assertEquals(SAMPLE_METADATA.frameRate, recording.frameRate)
+        assertEquals(SAMPLE_METADATA.codec, recording.codec)
+        assertEquals(SAMPLE_METADATA.bitrateBps, recording.bitrateBps)
     }
 
     @Test
@@ -129,13 +143,54 @@ class RecordingPublisherTest {
         assertFalse(file.exists(), "아직은 지운다 — 소실 경로다")
     }
 
+    /**
+     * 확정(IS_PENDING 해제)은 쓰기와 같은 try 안에 있어야 한다.
+     *
+     * 이 범위가 이 경로에서 가장 깨지기 쉬운 부분이다. finish 를 try 밖으로 빼면 확정에
+     * 실패했을 때 미완성 레코드가 그대로 남는데, 아무 테스트도 빨개지지 않는다.
+     */
     @Test
-    fun `임시 파일 삭제에 실패해도 발행 결과는 돌려준다`() {
-        val missing = File(tempDirectory, "없는파일.mp4")
+    fun `확정에 실패해도 미완성 자리를 지우고 원인을 전파한다`() {
+        target.finishFailure = IOException("MediaStore update 실패")
 
-        val recording = publisher().publish(missing, FILE_NAME)
+        assertThrows<IOException> { publisher().publish(tempFile(), FILE_NAME) }
 
-        assertTrue(recording != null)
+        assertEquals(listOf("create", "write", "finish", "discard"), target.calls)
+    }
+
+    /** 자리를 못 만들면 아직 아무것도 안 썼으므로 임시 파일을 남긴다 — 유일하게 옳게 도는 실패 분기다. */
+    @Test
+    fun `자리를 만들지 못하면 임시 파일을 남긴다`() {
+        target.createFailure = IllegalStateException("MediaStore insert 실패")
+        val file = tempFile()
+
+        assertThrows<IllegalStateException> { publisher().publish(file, FILE_NAME) }
+
+        assertTrue(file.exists())
+        assertEquals(listOf("create"), target.calls)
+    }
+
+    @Test
+    fun `발행할 이름을 그대로 자리에 넘긴다`() {
+        publisher().publish(tempFile(), FILE_NAME)
+
+        assertEquals(FILE_NAME, target.createdFor)
+    }
+
+    /**
+     * 현재 동작을 고정한다 — 정리에 실패하면 원래 원인이 통째로 가려진다.
+     *
+     * `addSuppressed` 가 없어 "왜 발행이 실패했는가"를 잃는다. 회귀는 아니지만(원본도 같았다)
+     * 고칠 때 이 테스트가 뒤집혀야 한다.
+     */
+    @Test
+    fun `현재는 정리에 실패하면 원래 원인이 가려진다`() {
+        target.writeFailure = IOException("저장 공간 부족")
+        target.discardFailure = IllegalStateException("정리 실패")
+
+        val thrown = assertThrows<IllegalStateException> { publisher().publish(tempFile(), FILE_NAME) }
+
+        assertEquals("정리 실패", thrown.message)
     }
 
     private companion object {

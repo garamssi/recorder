@@ -11,8 +11,11 @@ import kotlin.time.Duration.Companion.milliseconds
  * 발행 자리 하나 — MediaStore 가 내준 미완성(IS_PENDING) 레코드.
  *
  * 플랫폼 타입(`android.net.Uri`)을 담지 않아 [RecordingPublisher] 가 순수 JVM 으로 남는다.
+ *
+ * [id] 는 [uri] 에서 뽑아낼 수 있지만 그 파생이 `ContentUris.parseId` (Android API)라
+ * 일부러 따로 담는다. 중복으로 보고 지우면 정책 쪽이 다시 플랫폼에 묶인다.
  */
-internal class PublishSlot(
+internal data class PublishSlot(
     val id: Long,
     val uri: String,
 )
@@ -26,7 +29,6 @@ internal interface PublishTarget {
     /** [fileName] 자리를 IS_PENDING 으로 만든다. */
     fun create(fileName: String): PublishSlot
 
-    /** [tempFile] 내용을 [slot] 에 쓴다. */
     fun write(
         slot: PublishSlot,
         tempFile: File,
@@ -40,7 +42,7 @@ internal interface PublishTarget {
 }
 
 /** 임시 파일에서 읽어 낸 녹화본 정보. 재생 가능한 트랙이 없으면 null 로 표현한다. */
-internal class RecordingMetadata(
+internal data class RecordingMetadata(
     val sizeBytes: Long,
     val durationMs: Long,
     val resolution: Resolution,
@@ -62,7 +64,7 @@ internal fun interface RecordingMetadataReader {
  */
 internal class RecordingPublisher(
     private val target: PublishTarget,
-    private val readMetadata: RecordingMetadataReader,
+    private val metadataReader: RecordingMetadataReader,
     private val nowEpochMillis: () -> Long = System::currentTimeMillis,
 ) {
     /**
@@ -77,7 +79,7 @@ internal class RecordingPublisher(
         // 프레임이 인코딩되기 전에 중지되면 빈/재생 불가 파일이 남는다.
         // 저장할 내용이 없으므로 임시 파일만 정리하고 null 을 반환한다 (오류 아님).
         val metadata =
-            readMetadata.read(tempFile) ?: run {
+            metadataReader.read(tempFile) ?: run {
                 tempFile.delete()
                 return null
             }

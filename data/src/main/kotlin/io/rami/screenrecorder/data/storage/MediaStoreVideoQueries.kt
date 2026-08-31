@@ -32,7 +32,7 @@ internal class MediaStoreVideoQueries(
                     MediaStore.Video.Media.DATE_ADDED,
                 ),
                 "${MediaStore.Video.Media.RELATIVE_PATH} = ? AND ${MediaStore.Video.Media.IS_PENDING} = 0",
-                arrayOf("$RELATIVE_PATH/"),
+                arrayOf("$RECORDINGS_RELATIVE_PATH/"),
                 "${MediaStore.Video.Media.DATE_ADDED} DESC",
             )?.use { cursor ->
                 val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
@@ -135,7 +135,6 @@ internal class MediaStoreVideoQueries(
     }
 
     private companion object {
-        const val RELATIVE_PATH = "Movies/ScreenRecorder"
         const val MILLIS_PER_SECOND = 1_000L
         const val MILLIS_PER_DAY = 86_400_000L
     }

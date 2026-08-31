@@ -13,10 +13,8 @@ import io.rami.screenrecorder.data.recorder.ProjectionRecorderSessionFactory
 import io.rami.screenrecorder.data.recorder.RecorderDependencies
 import io.rami.screenrecorder.data.recorder.RecorderSessionFactory
 import io.rami.screenrecorder.data.recorder.RecordingCoordinator
-import io.rami.screenrecorder.data.recorder.RecordingFileStore
 import io.rami.screenrecorder.data.recorder.WindowMetricsDisplayInfoProvider
 import io.rami.screenrecorder.data.storage.DeviceStorageRepository
-import io.rami.screenrecorder.data.storage.MediaStoreRecordingFileStore
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
 import io.rami.screenrecorder.domain.session.MonotonicClock
@@ -31,9 +29,6 @@ import javax.inject.Singleton
 internal abstract class DataBindsModule {
     @Binds
     abstract fun bindSessionFactory(implementation: ProjectionRecorderSessionFactory): RecorderSessionFactory
-
-    @Binds
-    abstract fun bindFileStore(implementation: MediaStoreRecordingFileStore): RecordingFileStore
 
     @Binds
     abstract fun bindFileNameProvider(implementation: DefaultFileNameProvider): FileNameProvider
