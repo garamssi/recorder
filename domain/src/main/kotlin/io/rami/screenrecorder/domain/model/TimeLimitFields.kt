@@ -11,7 +11,8 @@ enum class TimeLimitField {
  * 시간 제한 직접 입력 칸의 값 (기능명세서 11.4절).
  *
  * 어떤 값을 넣어도 칸별 범위(시 0~12, 분·초 0~59)로 맞춰 담는다. 그래서 증감 버튼은
- * 범위를 따로 확인하지 않고 [stepped]만 부르면 되고, 끝에 닿으면 그 자리에 머문다.
+ * 범위를 따로 확인하지 않고 [stepped]만 부르면 된다.
+ *
  * 자리 넘김은 하지 않는다 — 한 번 눌러 총 시간이 크게 뛰면 무엇이 바뀌었는지 알기 어렵다.
  *
  * 칸별 범위와 총합 검증([validate])은 별개다. 12시 30분은 칸별로는 넣을 수 있지만
@@ -33,15 +34,27 @@ class TimeLimitFields(
     /** 초 칸 (0~59). */
     val seconds: Int = seconds.coerceIn(0, MAX_SECONDS)
 
-    /** [field]를 [delta]만큼 옮긴 새 값. 칸별 범위를 벗어나면 그 자리에 머문다. */
+    /**
+     * [field]를 [delta]만큼 옮긴 새 값 (기능명세서 11.4절 [결정]).
+     *
+     * 분·초는 끝에 닿으면 그 칸 안에서 순환한다 — 0에서 내리면 59, 59에서 올리면 0.
+     * 끝에서 멈추면 버튼을 눌러도 아무 일이 없어 고장으로 보이고, 0분에서 59분으로 가려면
+     * 한 눈금씩 59번을 눌러야 한다.
+     *
+     * 시는 순환하지 않고 0과 12에서 멈춘다. 한 번 눌러 12시간이 뛰면 총합이 통째로 달라진다.
+     *
+     * 어느 쪽이든 옆 칸은 건드리지 않는다.
+     */
     fun stepped(
         field: TimeLimitField,
         delta: Int,
     ): TimeLimitFields =
         when (field) {
             TimeLimitField.HOURS -> TimeLimitFields(hours + delta, minutes, seconds)
-            TimeLimitField.MINUTES -> TimeLimitFields(hours, minutes + delta, seconds)
-            TimeLimitField.SECONDS -> TimeLimitFields(hours, minutes, seconds + delta)
+            TimeLimitField.MINUTES ->
+                TimeLimitFields(hours, minutes.cycled(delta, MAX_MINUTES), seconds)
+            TimeLimitField.SECONDS ->
+                TimeLimitFields(hours, minutes, seconds.cycled(delta, MAX_SECONDS))
         }
 
     /** [field] 칸의 현재 값. */
@@ -90,7 +103,7 @@ class TimeLimitFields(
         /** 시 칸의 상한 — 총합 최대값과 같은 시간 수다. */
         val MAX_HOURS: Int = TimeLimit.MAX_DURATION.inWholeHours.toInt()
 
-        /** 분 칸의 상한. 자리 넘김이 없으므로 60이 아니라 59에서 멈춘다. */
+        /** 분 칸의 상한. 자리 넘김이 없으므로 60으로 올라가지 않고 0으로 돌아간다. */
         const val MAX_MINUTES = 59
 
         /** 초 칸의 상한. */
@@ -101,4 +114,17 @@ class TimeLimitFields(
 
         private const val HASH_FACTOR = 31
     }
+}
+
+/**
+ * 0..[max] 안에서 [delta]만큼 옮긴 값. 끝을 넘으면 반대편으로 돌아간다.
+ *
+ * 나머지 연산은 음수에 음수를 돌려주므로 [max]+1을 한 번 더해 양수로 끌어올린다.
+ */
+private fun Int.cycled(
+    delta: Int,
+    max: Int,
+): Int {
+    val size = max + 1
+    return ((this + delta) % size + size) % size
 }
