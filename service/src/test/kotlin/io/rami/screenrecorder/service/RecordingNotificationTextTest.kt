@@ -51,4 +51,16 @@ class RecordingNotificationTextTest {
 
         assertEquals(context.getString(R.string.recording_notification_completed_saved), text)
     }
+
+    @Test
+    fun `카운트다운 중에는 준비 중을 보여 준다`() {
+        val text = context.ongoingNotificationText(RecordingState.CountingDown(remainingSeconds = 3))
+
+        assertEquals(context.getString(R.string.recording_notification_preparing), text)
+    }
+
+    @Test
+    fun `유휴 상태는 갱신할 문구가 없다`() {
+        assertEquals(null, context.ongoingNotificationText(RecordingState.Idle))
+    }
 }

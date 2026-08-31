@@ -106,6 +106,24 @@ class BubbleStateMappingTest {
                 settingTimeLimit = TimeLimit.None,
             )
 
-        assertEquals(BubbleState.Saving, state)
+        assertEquals(BubbleState.Busy(BubbleBusyReason.SAVING), state)
+    }
+
+    /**
+     * 카운트다운 중에도 유휴 메뉴를 띄우면 안 된다 (기능명세서 6.1절 [결정]).
+     *
+     * 발행 중과 같은 이유다 — "녹화 시작"을 누르면 MediaProjection 동의만 소비하고
+     * 서비스가 진행 중인 세션 때문에 START 를 버린다.
+     */
+    @Test
+    fun `카운트다운 중에는 유휴 메뉴 대신 준비 중을 보여 준다`() {
+        val state =
+            bubbleStateFor(
+                screen = RecordingState.CountingDown(remainingSeconds = 3),
+                voice = noVoice,
+                settingTimeLimit = TimeLimit.None,
+            )
+
+        assertEquals(BubbleState.Busy(BubbleBusyReason.PREPARING), state)
     }
 }
