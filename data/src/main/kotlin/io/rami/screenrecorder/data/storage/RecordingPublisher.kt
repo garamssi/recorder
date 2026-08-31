@@ -99,14 +99,17 @@ internal class RecordingPublisher(
         tempFile: File,
         fileName: String,
     ): Recording? {
-        // 프레임이 인코딩되기 전에 중지되면 빈/재생 불가 파일이 남는다.
-        // 저장할 내용이 없으므로 임시 파일만 정리하고 null 을 반환한다 (오류 아님).
-        val read = measure(PHASE_READ_METADATA) { metadataReader.read(tempFile) }
-        if (read !is RecordingMetadataResult.Readable) {
-            tempFile.delete()
-            return null
-        }
-        val metadata = read.metadata
+        val metadata =
+            when (val read = measure(PHASE_READ_METADATA) { metadataReader.read(tempFile) }) {
+                is RecordingMetadataResult.Readable -> read.metadata
+                // 프레임이 인코딩되기 전에 중지되면 빈 파일이 남는다. 저장할 내용이 없다.
+                RecordingMetadataResult.Empty -> {
+                    tempFile.delete()
+                    return null
+                }
+                // 판독 실패는 발행 실패다 — 지우지 않는다 (기능명세서 6.1절 [결정]).
+                is RecordingMetadataResult.Unreadable -> throw read.cause
+            }
         val slot = target.create(fileName)
         try {
             measure(PHASE_WRITE) { target.write(slot, tempFile) }

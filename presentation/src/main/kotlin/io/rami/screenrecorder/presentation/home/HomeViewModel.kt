@@ -98,10 +98,10 @@ class HomeViewModel
         /** 지금 복구/삭제 중인 임시 파일 id. 없으면 null (기능명세서 6.1절 [결정]). */
         val recoveringId: StateFlow<String?> = mutableRecoveringId.asStateFlow()
 
-        private val mutableRecoveryFailed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        private val mutableRecoveryFailed = MutableSharedFlow<RecoveryFailure>(extraBufferCapacity = 1)
 
         /** 복구/삭제가 실패했을 때 한 번 발생하는 이벤트 (스낵바 안내용). */
-        val recoveryFailed: Flow<Unit> = mutableRecoveryFailed
+        val recoveryFailed: Flow<RecoveryFailure> = mutableRecoveryFailed
 
         init {
             viewModelScope.launch {
@@ -170,12 +170,12 @@ class HomeViewModel
 
         /** 임시 파일 복구 확정 (기능명세서 6.1절). MediaStore로 발행하고 목록에서 제거한다. */
         fun onRecoverConfirmed(id: String) {
-            runRecoveryAction(id) { recoverRecording(id) }
+            runRecoveryAction(id, keepOnFailure = false) { recoverRecording(id) }
         }
 
         /** 임시 파일 삭제 (기능명세서 6.1절). */
         fun onDiscardRecovery(id: String) {
-            runRecoveryAction(id) { discardRecovery(id) }
+            runRecoveryAction(id, keepOnFailure = true) { discardRecovery(id) }
         }
 
         /**
@@ -191,6 +191,7 @@ class HomeViewModel
          */
         private fun runRecoveryAction(
             id: String,
+            keepOnFailure: Boolean,
             action: suspend () -> Unit,
         ) {
             if (mutableRecoveringId.value != null) return
@@ -209,13 +210,18 @@ class HomeViewModel
                         // 실패했더라도 내려야 사용자가 다시 시도할 수 있다.
                         mutableRecoveringId.value = null
                     }
-                // 실패해도 목록에서 내린다 (기능명세서 6.1절 [결정]). 임시 파일은 남아 있으므로
-                // 다음 실행에서 다시 제안된다. 같은 이유로 계속 실패하는 파일을 계속 띄우면,
-                // 닫을 수 없는 다이얼로그 때문에 사용자가 "삭제" 말고는 앱을 쓸 수 없다.
-                removePending(id)
-                if (!succeeded) mutableRecoveryFailed.emit(Unit)
+                // 복구 실패는 목록에서 내린다 — 녹화물이 보존되니 다음 진입에서 다시 만난다.
+                // 계속 실패하는 파일을 계속 띄우면 닫을 수 없는 다이얼로그가 앱을 막는다.
+                // 삭제 실패는 남긴다 — 내리면 사용자가 지웠다고 믿는다 (기능명세서 6.1절 [결정]).
+                if (succeeded || !keepOnFailure) removePending(id)
+                if (!succeeded) mutableRecoveryFailed.emit(RecoveryFailure(keepOnFailure))
             }
         }
+
+        /** 실패한 동작이 무엇이었는지. 안내 문구가 달라진다. */
+        class RecoveryFailure(
+            val wasDiscard: Boolean,
+        )
 
         private fun removePending(id: String) {
             mutablePendingRecoveries.update { list -> list.filterNot { it.id == id } }

@@ -40,7 +40,9 @@ class FileStoreRecordingRecoveryRepository
 
         override suspend fun discard(id: String) {
             withContext(Dispatchers.IO) {
-                fileStore.listTempFiles().firstOrNull { it.name == id }?.delete()
+                val tempFile = fileStore.listTempFiles().firstOrNull { it.name == id } ?: return@withContext
+                // 반환값을 버리면 삭제 실패가 성공으로 보고돼 사용자가 지웠다고 믿는다.
+                check(tempFile.delete()) { "임시 파일을 지우지 못했다: $id" }
             }
         }
     }

@@ -90,24 +90,34 @@ internal class MediaMetadataRecordingReader
         override fun read(file: File): RecordingMetadataResult {
             if (file.length() == 0L) return RecordingMetadataResult.Empty
             return MediaMetadataRetriever().use { retriever ->
-                if (!retriever.tryReadVideoTrack(file)) {
-                    RecordingMetadataResult.Empty
-                } else {
-                    RecordingMetadataResult.Readable(retriever.toMetadata(file))
+                val failure = retriever.tryOpen(file)
+                when {
+                    failure != null -> RecordingMetadataResult.Unreadable(failure)
+                    !retriever.hasVideoTrack() -> RecordingMetadataResult.Empty
+                    else -> RecordingMetadataResult.Readable(retriever.toMetadata(file))
                 }
             }
         }
 
-        /** 데이터 소스를 열고 비디오 트랙이 있으면 true. 손상 파일은 저장할 내용 없음으로 본다. */
+        /**
+         * 데이터 소스를 열어 본다. 성공하면 null, 실패하면 그 원인.
+         *
+         * 실패를 "트랙 없음"으로 접지 않는다 — 접으면 발행 경로가 그 파일을 지운다.
+         * remux 는 이 파서보다 관용적이라 살릴 수 있는 경우가 있다 (기능명세서 6.1절 [결정]).
+         */
         @Suppress("TooGenericExceptionCaught") // setDataSource 는 손상 파일에 다양한 RuntimeException 을 던진다.
-        private fun MediaMetadataRetriever.tryReadVideoTrack(file: File): Boolean =
+        private fun MediaMetadataRetriever.tryOpen(file: File): Throwable? =
             try {
                 setDataSource(file.absolutePath)
-                extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes"
+                null
             } catch (unreadable: RuntimeException) {
-                Log.w(LOG_TAG, "임시 파일을 읽을 수 없어 복구 대상에서 제외한다: ${file.name}", unreadable)
-                false
+                Log.w(LOG_TAG, "임시 파일을 읽지 못했다 — 발행 실패로 다룬다: ${file.name}", unreadable)
+                unreadable
             }
+
+        /** 재생 가능한 비디오 트랙이 있는지. 열기에 성공한 뒤에만 묻는다. */
+        private fun MediaMetadataRetriever.hasVideoTrack(): Boolean =
+            extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes"
 
         private fun MediaMetadataRetriever.toMetadata(file: File): RecordingMetadata =
             RecordingMetadata(

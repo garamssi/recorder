@@ -148,7 +148,8 @@
     <string name="recovery_message">A recording (%1$s) was left unsaved after an unexpected exit. Restore it or delete it?</string>
     <string name="recovery_restore">Restore</string>
     <string name="recovery_delete">Delete</string>
-    <string name="recovery_failed">Recovery failed. Please try again later.</string>
+    <string name="recovery_failed">Recovery failed. The recording was kept and will be offered again next time.</string>
+    <string name="recovery_discard_failed">Delete failed. The file is still there.</string>
     <string name="recovery_in_progress">Recovering…</string>
     <string name="options_time_limit_custom">Custom</string>
     <string name="options_time_limit_custom_title">Recording time limit</string>

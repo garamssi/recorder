@@ -154,8 +154,13 @@ private fun ObserveRecoveryFailures(
     snackbarHost: SnackbarHostState,
 ) {
     val recoveryFailedMessage = stringResource(R.string.recovery_failed)
+    val discardFailedMessage = stringResource(R.string.recovery_discard_failed)
     LaunchedEffect(Unit) {
-        viewModel.recoveryFailed.collect { snackbarHost.showSnackbar(recoveryFailedMessage) }
+        viewModel.recoveryFailed.collect { failure ->
+            snackbarHost.showSnackbar(
+                if (failure.wasDiscard) discardFailedMessage else recoveryFailedMessage,
+            )
+        }
     }
 }
 
