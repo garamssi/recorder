@@ -90,4 +90,22 @@ class BubbleStateMappingTest {
 
         assertEquals(BubbleState.Idle(TimeLimit.Limited(10.minutes)), state)
     }
+
+    /**
+     * 발행 중에 유휴 메뉴를 띄우면 안 된다 (기능명세서 6.1절 [결정]).
+     *
+     * "녹화 시작"을 누르면 MediaProjection 동의 다이얼로그까지 소비하고, 서비스는
+     * 진행 중인 세션 때문에 START 를 조용히 무시한다. 동의만 받고 아무 일도 안 일어난다.
+     */
+    @Test
+    fun `발행 중에는 유휴 메뉴 대신 저장 중을 보여 준다`() {
+        val state =
+            bubbleStateFor(
+                screen = RecordingState.Stopping,
+                voice = noVoice,
+                settingTimeLimit = TimeLimit.None,
+            )
+
+        assertEquals(BubbleState.Saving, state)
+    }
 }

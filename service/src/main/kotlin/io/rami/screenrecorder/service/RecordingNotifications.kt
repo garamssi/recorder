@@ -51,6 +51,24 @@ internal class RecordingNotifications(
             .build()
     }
 
+    /**
+     * 발행 중 알림을 띄운다 — 조작 액션 없이 (기능명세서 6.1절 [결정]).
+     *
+     * 발행은 취소할 수 없다. 중지·일시정지 버튼을 남겨 두면 누를 수 있어 보이는데 아무 일도
+     * 일어나지 않는다. 같은 NOTIFICATION_ID 를 유지해야 포그라운드 서비스 알림이 이어진다.
+     */
+    fun showSaving(contentText: String) {
+        val notification =
+            Notification
+                .Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.presence_video_online)
+                .setContentTitle(context.getString(R.string.recording_notification_title))
+                .setContentText(contentText)
+                .setOngoing(true)
+                .build()
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
     /** 진행 알림을 갱신한다. */
     fun updateOngoing(
         contentText: String,

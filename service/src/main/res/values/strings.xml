@@ -3,6 +3,7 @@
     <string name="recording_notification_channel">Recording</string>
     <string name="recording_notification_title">Screen recording</string>
     <string name="recording_notification_preparing">Preparing…</string>
+    <string name="recording_notification_saving">Saving recording…</string>
     <string name="recording_notification_elapsed">Recording %1$s</string>
     <string name="recording_notification_paused">Paused · %1$s</string>
     <string name="recording_notification_stop">Stop</string>
@@ -18,6 +19,7 @@
     <string name="floating_pause">Pause</string>
     <string name="floating_resume">Resume</string>
     <string name="floating_stop">Stop</string>
+    <string name="floating_saving">Saving…</string>
     <string name="capture_busy_recording">Another capture is already running.</string>
     <string name="screenshot_notification_capturing">Capturing screen…</string>
     <string name="screenshot_notification_saved">Screenshot saved to Pictures/ScreenRecorder</string>

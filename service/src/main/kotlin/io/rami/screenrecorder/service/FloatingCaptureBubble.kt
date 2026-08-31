@@ -28,6 +28,14 @@ internal sealed interface BubbleState {
         val isPaused: Boolean,
     ) : BubbleState
 
+    /**
+     * 발행 중 — 조작 없이 "저장 중"만 (기능명세서 6.1절 [결정]).
+     *
+     * 이 구간에 유휴 메뉴를 띄우면 "녹화 시작"이 노출되는데, 누르면 MediaProjection 동의만
+     * 소비하고 서비스가 진행 중인 세션 때문에 START 를 조용히 무시한다.
+     */
+    data object Saving : BubbleState
+
     /** 음성 전용 녹음 중 — 경과 시간과 중지. */
     data class VoiceRecording(
         val elapsed: String,
@@ -171,6 +179,7 @@ internal class FloatingCaptureBubble(
             is BubbleState.Idle -> context.bubbleToggle(expanded, ::toggleExpanded).also { dragHandle = it }
             is BubbleState.ScreenRecording -> context.buildScreenRecordingPill(current, actions)?.let(::adopt)
             is BubbleState.VoiceRecording -> context.buildVoiceRecordingPill(current, actions)?.let(::adopt)
+            is BubbleState.Saving -> context.buildSavingPill()?.let(::adopt)
         }
 
     private fun adopt(pill: PillViews): View {
@@ -318,6 +327,7 @@ private fun BubbleState.elapsedText(): String =
         is BubbleState.ScreenRecording -> elapsed
         is BubbleState.VoiceRecording -> elapsed
         is BubbleState.Idle -> ""
+        is BubbleState.Saving -> ""
     }
 
 /** 시간 제한 줄에 붙는 현재 값 — 없으면 "제한 없음". */

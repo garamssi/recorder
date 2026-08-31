@@ -32,6 +32,14 @@ internal fun Context.buildScreenRecordingPill(
     }
 }
 
+/**
+ * 발행 중 pill을 만든다 — 조작 버튼 없이 문구만 (기능명세서 6.1절 [결정]).
+ *
+ * 발행은 취소할 수 없으므로 누를 것을 주지 않는다. 유휴 메뉴로 되돌리면 "녹화 시작"이
+ * 노출돼 MediaProjection 동의만 소비하게 된다.
+ */
+internal fun Context.buildSavingPill(): PillViews? = buildPill(getString(R.string.floating_saving), active = false) { }
+
 /** 음성 녹음 중 pill을 만든다. */
 internal fun Context.buildVoiceRecordingPill(
     current: BubbleState.VoiceRecording,

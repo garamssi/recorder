@@ -191,26 +191,23 @@ class RecordingForegroundService : Service() {
                 is RecordingState.CountingDown ->
                     countdownOverlay.show(state.remainingSeconds, onSkip = skipCountdown::invoke)
 
-                is RecordingState.Recording -> {
+                is RecordingState.Recording, is RecordingState.Paused -> {
                     countdownOverlay.dismiss()
-                    notifications.updateOngoing(elapsedText(state.timeLimit, state.elapsed), isPaused = false)
+                    ongoingNotificationText(state)?.let {
+                        notifications.updateOngoing(it, isPaused = state is RecordingState.Paused)
+                    }
                 }
 
-                is RecordingState.Paused ->
-                    notifications.updateOngoing(
-                        getString(
-                            R.string.recording_notification_paused,
-                            elapsedText(state.timeLimit, state.elapsed),
-                        ),
-                        isPaused = true,
-                    )
+                // 발행은 취소할 수 없으므로 중지·일시정지 버튼을 주지 않는다 (명세 6.1절 [결정]).
+                is RecordingState.Stopping -> {
+                    countdownOverlay.dismiss()
+                    ongoingNotificationText(state)?.let(notifications::showSaving)
+                }
 
                 is RecordingState.Idle -> {
                     countdownOverlay.dismiss()
                     stopSelf()
                 }
-
-                else -> countdownOverlay.dismiss()
             }
         }
     }

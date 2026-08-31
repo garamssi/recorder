@@ -3,6 +3,7 @@
     <string name="recording_notification_channel">녹화</string>
     <string name="recording_notification_title">화면 녹화</string>
     <string name="recording_notification_preparing">준비 중…</string>
+    <string name="recording_notification_saving">녹화를 저장하는 중…</string>
     <string name="recording_notification_elapsed">녹화 중 %1$s</string>
     <string name="recording_notification_paused">일시정지됨 · %1$s</string>
     <string name="recording_notification_stop">중지</string>
@@ -18,6 +19,7 @@
     <string name="floating_pause">일시정지</string>
     <string name="floating_resume">재개</string>
     <string name="floating_stop">중지</string>
+    <string name="floating_saving">저장 중…</string>
     <string name="capture_busy_recording">다른 캡처가 이미 진행 중입니다.</string>
     <string name="screenshot_notification_capturing">화면을 캡처하는 중…</string>
     <string name="screenshot_notification_saved">Pictures/ScreenRecorder에 저장했습니다</string>
