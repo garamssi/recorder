@@ -20,6 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.rami.screenrecorder.domain.model.TimeLimit
 import io.rami.screenrecorder.domain.model.TimeLimitField
 import io.rami.screenrecorder.domain.model.TimeLimitFields
@@ -76,7 +78,12 @@ fun CustomTimeLimitDialog(
     }
     val validation = fields.validate()
 
-    Dialog(onDismissRequest = onDismiss) {
+    // 닫는 길은 아래 버튼뿐이다 (기능명세서 11.4절 [결정]). 증감 버튼이 작아 빠르게
+    // 누르다 보면 손끝이 카드 밖으로 벗어나는데, 그때 닫히면 설정 자체가 되지 않는다.
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnClickOutside = false),
+    ) {
         Surface(
             shape = RoundedCornerShape(CARD_CORNER.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -228,6 +235,9 @@ private fun StepButton(
     description: String,
     onStep: () -> Unit,
 ) {
+    // 한 번 오를 때마다 onStep 은 값이 바뀐 새 람다가 된다. 그것을 pointerInput 의 키로
+    // 쓰면 첫 증가가 곧바로 제스처 감지기를 다시 시작시켜 연속 증감이 시작도 못 한다.
+    val latestStep by rememberUpdatedState(onStep)
     Text(
         text = glyph,
         style = MaterialTheme.typography.labelMedium,
@@ -241,16 +251,16 @@ private fun StepButton(
                     RoundedCornerShape(STEP_CORNER.dp),
                 ).padding(vertical = STEP_PADDING.dp)
                 .semantics { contentDescription = description }
-                .pointerInput(onStep) {
+                .pointerInput(Unit) {
                     detectTapGestures(
                         onPress = {
-                            onStep()
+                            latestStep()
                             coroutineScope {
                                 val repeat =
                                     launch {
                                         delay(REPEAT_START_MS)
                                         while (true) {
-                                            onStep()
+                                            latestStep()
                                             delay(REPEAT_INTERVAL_MS)
                                         }
                                     }
