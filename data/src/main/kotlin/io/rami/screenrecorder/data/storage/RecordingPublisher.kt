@@ -90,13 +90,13 @@ internal class RecordingPublisher(
             target.finish(slot)
         } catch (
             // 복사 실패 시 IS_PENDING 고아 레코드가 남지 않도록 정리 후 원인을 그대로 전파한다.
+            // 임시 파일은 남긴다 — 저장 공간 부족이면 원본도 사본도 없어진다 (명세 6.1절 [결정]).
             @Suppress("TooGenericExceptionCaught") publishFailure: Exception,
         ) {
             target.discard(slot)
             throw publishFailure
-        } finally {
-            tempFile.delete()
         }
+        tempFile.delete()
         return metadata.toRecording(slot, fileName)
     }
 
