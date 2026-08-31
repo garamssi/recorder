@@ -128,19 +128,29 @@ class RecordingPublisherTest {
     }
 
     /**
-     * 현재 동작을 있는 그대로 고정한다 — 발행이 실패해도 임시 파일이 사라진다.
+     * 발행에 실패하면 임시 파일을 남긴다 (기능명세서 6.1절 [결정]).
      *
-     * 이것은 녹화물 소실 경로이며 곧 고칠 대상이다. 지금 고정해 두는 이유는, 고칠 때
-     * 무엇이 바뀌는지가 이 테스트의 변경으로 드러나게 하기 위해서다.
+     * 저장 공간이 부족하면 remux 도 원본 복사도 실패한다. 그때 임시 파일까지 지우면
+     * 원본도 사본도 남지 않는다 — 1시간짜리 녹화가 통째로 사라진다.
      */
     @Test
-    fun `현재는 발행에 실패해도 임시 파일을 지운다`() {
+    fun `발행에 실패하면 임시 파일을 남긴다`() {
         target.writeFailure = IOException("저장 공간 부족")
         val file = tempFile()
 
         assertThrows<IOException> { publisher().publish(file, FILE_NAME) }
 
-        assertFalse(file.exists(), "아직은 지운다 — 소실 경로다")
+        assertTrue(file.exists(), "다음 실행에서 복구할 수 있어야 한다")
+    }
+
+    @Test
+    fun `확정에 실패해도 임시 파일을 남긴다`() {
+        target.finishFailure = IOException("MediaStore update 실패")
+        val file = tempFile()
+
+        assertThrows<IOException> { publisher().publish(file, FILE_NAME) }
+
+        assertTrue(file.exists())
     }
 
     /**

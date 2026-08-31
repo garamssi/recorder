@@ -242,7 +242,7 @@ class HomeViewModelTest {
         }
 
     @Test
-    fun `복구 실패 시 크래시 대신 실패 이벤트를 내고 목록을 유지한다`() =
+    fun `복구 실패 시 크래시 대신 실패 이벤트를 낸다`() =
         runTest {
             recoveryRepository.recoverThrows = true
             val viewModel = viewModel()
@@ -253,8 +253,25 @@ class HomeViewModelTest {
 
                 awaitItem() // 실패 이벤트 발생 (예외로 크래시하지 않음)
             }
-            // 실패했으므로 임시 파일은 목록에 남아 다음에 재시도할 수 있다.
-            assertEquals(listOf("t.mp4"), viewModel.pendingRecoveries.value.map { it.id })
+        }
+
+    /**
+     * 실패한 복구는 그 실행에서 제안을 내린다 (기능명세서 6.1절 [결정]).
+     *
+     * 임시 파일은 남으므로 다음 실행에서 다시 제안된다. 같은 이유로 계속 실패하는 파일을
+     * 계속 띄우면, 닫을 수 없는 다이얼로그 때문에 사용자가 "삭제" 말고는 앱을 쓸 수 없다.
+     */
+    @Test
+    fun `복구가 실패하면 그 실행에서는 다시 제안하지 않는다`() =
+        runTest {
+            recoveryRepository.recoverThrows = true
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onRecoverConfirmed("t.mp4")
+            advanceUntilIdle()
+
+            assertEquals(emptyList<String>(), viewModel.pendingRecoveries.value.map { it.id })
         }
 
     @Test
