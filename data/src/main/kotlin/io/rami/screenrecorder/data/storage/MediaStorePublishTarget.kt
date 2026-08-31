@@ -87,11 +87,14 @@ internal class MediaStorePublishTarget
 internal class MediaMetadataRecordingReader
     @Inject
     constructor() : RecordingMetadataReader {
-        /** 빈 파일이거나 재생 가능한 비디오 트랙이 없으면 null. */
-        override fun read(file: File): RecordingMetadata? {
-            if (file.length() == 0L) return null
+        override fun read(file: File): RecordingMetadataResult {
+            if (file.length() == 0L) return RecordingMetadataResult.Empty
             return MediaMetadataRetriever().use { retriever ->
-                if (!retriever.tryReadVideoTrack(file)) null else retriever.toMetadata(file)
+                if (!retriever.tryReadVideoTrack(file)) {
+                    RecordingMetadataResult.Empty
+                } else {
+                    RecordingMetadataResult.Readable(retriever.toMetadata(file))
+                }
             }
         }
 

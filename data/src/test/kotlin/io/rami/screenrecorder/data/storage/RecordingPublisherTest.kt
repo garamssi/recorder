@@ -26,12 +26,12 @@ class RecordingPublisherTest {
 
     private val target = CallLoggingPublishTarget()
 
-    private var metadata: RecordingMetadata? = SAMPLE_METADATA
+    private var readResult: RecordingMetadataResult = RecordingMetadataResult.Readable(SAMPLE_METADATA)
 
     private fun publisher() =
         RecordingPublisher(
             target = target,
-            metadataReader = { metadata },
+            metadataReader = { readResult },
             nowEpochMillis = { FIXED_NOW },
         )
 
@@ -108,7 +108,7 @@ class RecordingPublisherTest {
 
     @Test
     fun `재생 가능한 내용이 없으면 자리를 만들지 않고 임시 파일만 지운다`() {
-        metadata = null
+        readResult = RecordingMetadataResult.Empty
         val file = tempFile()
 
         val recording = publisher().publish(file, FILE_NAME)
@@ -201,6 +201,48 @@ class RecordingPublisherTest {
         val thrown = assertThrows<IllegalStateException> { publisher().publish(tempFile(), FILE_NAME) }
 
         assertEquals("정리 실패", thrown.message)
+    }
+
+    /**
+     * 판독 실패를 "저장할 내용 없음" 으로 접지 않는다 (기능명세서 6.1절 [결정]).
+     *
+     * 판정에 쓰는 파서와 발행에 쓰는 파서는 관용도가 다르다. 꼬리가 잘린 fMP4 는 판정이
+     * 실패해도 remux 로는 살아날 수 있는데, 접어 버리면 그 녹화물을 지워 버린다.
+     */
+    @Test
+    fun `읽지 못한 파일은 지우지 않고 발행 실패로 다룬다`() {
+        readResult = RecordingMetadataResult.Unreadable(IllegalStateException("파싱 실패"))
+        val file = tempFile()
+
+        assertThrows<IllegalStateException> { publisher().publish(file, FILE_NAME) }
+
+        assertTrue(file.exists(), "remux 로 살릴 수 있을지 모른다")
+        assertEquals(emptyList<String>(), target.calls)
+    }
+
+    @Test
+    fun `메타데이터를 읽다 예외가 나도 임시 파일을 남긴다`() {
+        val file = tempFile()
+        val publisher =
+            RecordingPublisher(
+                target = target,
+                metadataReader = { throw OutOfMemoryError("판독 중 메모리 부족") },
+            )
+
+        assertThrows<OutOfMemoryError> { publisher.publish(file, FILE_NAME) }
+
+        assertTrue(file.exists())
+    }
+
+    @Test
+    fun `정리까지 실패해도 임시 파일을 남긴다`() {
+        target.writeFailure = IOException("저장 공간 부족")
+        target.discardFailure = IllegalStateException("정리 실패")
+        val file = tempFile()
+
+        assertThrows<IllegalStateException> { publisher().publish(file, FILE_NAME) }
+
+        assertTrue(file.exists())
     }
 
     private companion object {

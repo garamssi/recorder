@@ -51,9 +51,31 @@ internal data class RecordingMetadata(
     val bitrateBps: Int?,
 )
 
-/** 임시 파일의 메타데이터를 읽는 경계. 읽을 수 없거나 비디오 트랙이 없으면 null. */
+/**
+ * 임시 파일 판독 결과 (기능명세서 6.1절 [결정]).
+ *
+ * "읽지 못했다"와 "트랙이 없다"를 반드시 갈라야 한다. 판정에 쓰는 파서와 발행에 쓰는 파서는
+ * 관용도가 다르므로, 판정이 실패한 파일도 remux 로는 살아날 수 있다. 하나로 접으면 그런
+ * 녹화물을 지워 버린다.
+ */
+internal sealed interface RecordingMetadataResult {
+    /** 정상적으로 읽었다. */
+    data class Readable(
+        val metadata: RecordingMetadata,
+    ) : RecordingMetadataResult
+
+    /** 재생 가능한 트랙이 없다고 확인했다 — 저장할 내용이 없다. */
+    data object Empty : RecordingMetadataResult
+
+    /** 읽지 못했다. 지우면 안 된다. */
+    data class Unreadable(
+        val cause: Throwable,
+    ) : RecordingMetadataResult
+}
+
+/** 임시 파일의 메타데이터를 읽는 경계. */
 internal fun interface RecordingMetadataReader {
-    fun read(file: File): RecordingMetadata?
+    fun read(file: File): RecordingMetadataResult
 }
 
 /**
@@ -79,11 +101,12 @@ internal class RecordingPublisher(
     ): Recording? {
         // 프레임이 인코딩되기 전에 중지되면 빈/재생 불가 파일이 남는다.
         // 저장할 내용이 없으므로 임시 파일만 정리하고 null 을 반환한다 (오류 아님).
-        val metadata =
-            measure(PHASE_READ_METADATA) { metadataReader.read(tempFile) } ?: run {
-                tempFile.delete()
-                return null
-            }
+        val read = measure(PHASE_READ_METADATA) { metadataReader.read(tempFile) }
+        if (read !is RecordingMetadataResult.Readable) {
+            tempFile.delete()
+            return null
+        }
+        val metadata = read.metadata
         val slot = target.create(fileName)
         try {
             measure(PHASE_WRITE) { target.write(slot, tempFile) }

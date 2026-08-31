@@ -118,6 +118,9 @@ class HomeViewModelTest {
              */
             var recoverGate: CompletableDeferred<Unit>? = null
 
+            /** true면 삭제가 파일 시스템 실패를 흉내내 예외를 던진다. */
+            var discardThrows = false
+
             override suspend fun pendingRecoveries() = pending
 
             override suspend fun recover(id: String): Recording? {
@@ -128,6 +131,7 @@ class HomeViewModelTest {
             }
 
             override suspend fun discard(id: String) {
+                check(!discardThrows) { "임시 파일 삭제 실패" }
                 discarded += id
             }
         }
@@ -398,6 +402,24 @@ class HomeViewModelTest {
             advanceUntilIdle()
 
             assertEquals(null, viewModel.recoveringId.value)
+        }
+
+    /**
+     * 삭제 실패는 복구 실패와 다르게 다룬다 (기능명세서 6.1절 [결정]).
+     *
+     * 목록에서 내리면 사용자는 지웠다고 믿지만, 그 파일은 다음 진입에서 다시 나타난다.
+     */
+    @Test
+    fun `삭제가 실패하면 목록에 남긴다`() =
+        runTest {
+            recoveryRepository.discardThrows = true
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onDiscardRecovery("t.mp4")
+            advanceUntilIdle()
+
+            assertEquals(listOf("t.mp4"), viewModel.pendingRecoveries.value.map { it.id })
         }
 
     private companion object {
