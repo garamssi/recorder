@@ -59,6 +59,15 @@ internal class SaveOverlayWindow(
     /** 완료 표시를 지우려고 예약해 둔 일. 새 발행이 시작되면 거둔다. */
     private var pendingRemoval: Runnable? = null
 
+    /**
+     * 완료를 이미 보여 줬는지.
+     *
+     * 상태 흐름과 완료 흐름은 서로 다른 수집기에서 돈다. 마지막 진행률 갱신이 완료보다 늦게
+     * 도착할 수 있는데, 그것을 그리면 완료 표시가 "저장 중 100%" 로 되돌아가고 제거 예약까지
+     * 거둬 가 카드가 그대로 굳는다.
+     */
+    private var completed = false
+
     override fun showSaving(
         elapsed: String,
         fileName: String,
@@ -67,6 +76,7 @@ internal class SaveOverlayWindow(
         // 진행 구간에는 권한이 없어도 대체하지 않는다. 알림이 이미 퍼센트를 알리고 있고,
         // 발행 2~4분 동안 토스트를 반복해 띄우면 화면을 가린다.
         if (!Settings.canDrawOverlays(context)) return
+        if (completed) return
         render(SaveOverlayContent(elapsed, fileName, progress, done = false))
     }
 
@@ -78,6 +88,7 @@ internal class SaveOverlayWindow(
             fallBackToToast(fileName)
             return
         }
+        completed = true
         render(SaveOverlayContent(elapsed, fileName, progress = 1f, done = true)) {
             val removal = Runnable { removeExisting() }
             pendingRemoval = removal
@@ -132,6 +143,7 @@ internal class SaveOverlayWindow(
     private fun removeExisting() {
         pendingRemoval?.let(mainHandler::removeCallbacks)
         pendingRemoval = null
+        completed = false
         val attached = card ?: return
         card = null
         windows.detach(attached.root)

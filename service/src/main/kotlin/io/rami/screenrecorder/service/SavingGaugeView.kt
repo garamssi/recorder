@@ -71,11 +71,20 @@ internal class SavingGaugeView(
 
     private val startedAtMillis = AnimationUtils.currentAnimationTimeMillis()
 
+    /** 링 반지름. 뷰가 아니라 링 크기에서 정한다 — 뷰는 후광이 들어갈 만큼 더 크다. */
+    private val ringRadiusPx = RING_SIZE_DP * density / 2 - ringWidthPx / 2
+
+    /**
+     * 뷰는 링이 아니라 **후광 지름**에 맞춘다.
+     *
+     * Compose 의 Canvas 는 노드 경계를 넘어 그려도 클립하지 않지만 플랫폼 뷰는 자기 경계에서
+     * 자른다. 링 크기로 재면 후광이 사각으로 잘려 붉은 얼룩이 된다.
+     */
     override fun onMeasure(
         widthMeasureSpec: Int,
         heightMeasureSpec: Int,
     ) {
-        val size = (RING_SIZE_DP * density).toInt()
+        val size = (RING_SIZE_DP * GLOW_RADIUS_SCALE * density).toInt()
         setMeasuredDimension(size, size)
     }
 
@@ -85,12 +94,11 @@ internal class SavingGaugeView(
         oldWidth: Int,
         oldHeight: Int,
     ) {
-        val ringRadius = minOf(width, height) / 2f - ringWidthPx / 2
         glowPaint.shader =
             RadialGradient(
                 width / 2f,
                 height / 2f,
-                ringRadius * GLOW_RADIUS_SCALE,
+                ringRadiusPx * GLOW_RADIUS_SCALE,
                 intArrayOf(TRANSPARENT, BUBBLE_ACCENT, TRANSPARENT),
                 floatArrayOf(GLOW_HOLLOW_STOP, GLOW_PEAK_STOP, 1f),
                 Shader.TileMode.CLAMP,
@@ -101,7 +109,7 @@ internal class SavingGaugeView(
         val elapsed = AnimationUtils.currentAnimationTimeMillis() - startedAtMillis
         val centerX = width / 2f
         val centerY = height / 2f
-        val ringRadius = minOf(width, height) / 2f - ringWidthPx / 2
+        val ringRadius = ringRadiusPx
 
         // 1. 링 밖으로 번지는 후광. 중심을 비워 두어야 가운데 시간 텍스트의 대비를 깎지 않는다.
         glowPaint.alpha = (glowAlphaAt(elapsed) * OPAQUE).toInt()

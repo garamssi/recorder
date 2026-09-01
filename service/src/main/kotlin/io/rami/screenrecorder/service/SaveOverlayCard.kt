@@ -129,19 +129,25 @@ internal class SaveOverlayCard(
                 addView(context.statusDot(active = true))
                 addView(statusLabel, statusLabelParams())
             }
+        val statusRowParams =
+            LinearLayout
+                .LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = context.dpToPx(ROW_GAP_DP) }
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             background =
                 GradientDrawable().apply {
-                    setColor(BUBBLE_SURFACE)
+                    setColor(OVERLAY_SURFACE)
                     cornerRadius = context.dpToPx(CORNER_DP).toFloat()
                 }
             val paddingH = context.dpToPx(PADDING_H_DP)
             val paddingV = context.dpToPx(PADDING_V_DP)
             setPadding(paddingH, paddingV, paddingH, paddingV)
             addView(ring)
-            addView(statusRow)
+            addView(statusRow, statusRowParams)
             addView(fileNameText)
         }
     }
@@ -154,6 +160,14 @@ internal class SaveOverlayCard(
             ).apply { marginStart = context.dpToPx(GAP_DP) }
 
     private companion object {
+        /**
+         * 카드 배경 — 버블 알약(`BUBBLE_SURFACE`, 93%)과 달리 **불투명**하다.
+         *
+         * 알약은 작아서 살짝 비쳐도 읽히지만, 이 카드는 200dp가 넘어 아래 앱의 제목과 본문이
+         * 그대로 뚫고 올라온다. 실기기에서 실제로 앱 글자가 링 위에 겹쳐 보였다.
+         */
+        const val OVERLAY_SURFACE = 0xFF18181B.toInt()
+
         const val ELAPSED_TEXT_SP = 40f
         const val PERCENT_TEXT_SP = 12f
         const val LABEL_TEXT_SP = 15f
@@ -163,6 +177,7 @@ internal class SaveOverlayCard(
         const val PADDING_H_DP = 24f
         const val PADDING_V_DP = 20f
         const val GAP_DP = 8f
+        const val ROW_GAP_DP = 12f
         const val PERCENT_SCALE = 100
     }
 }

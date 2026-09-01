@@ -199,6 +199,28 @@ class SaveOverlayTest {
         )
     }
 
+    /**
+     * 상태 흐름과 완료 흐름은 서로 다른 수집기에서 돈다. 마지막 진행률 갱신이 완료보다 늦게
+     * 도착하면 완료 표시를 덮고 제거 예약까지 거둬 가, 카드가 "저장 중 100%" 로 굳는다.
+     * 실기기에서 실제로 그렇게 굳었다.
+     */
+    @Test
+    fun `완료 뒤 늦은 진행률 갱신이 완료 표시를 덮지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaved(ELAPSED, FILE_NAME)
+        settle()
+
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 1f)
+        settle()
+
+        val texts = windowShadow.views.single().allTexts()
+        assertTrue("완료 문구가 사라졌다: $texts", context.getString(R.string.save_complete_banner) in texts)
+
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS + MARGIN_MILLIS)
+        assertEquals("제거 예약이 거둬졌다", 0, windowShadow.views.size)
+    }
+
     /** 저장 중에는 스스로 사라지면 안 된다 — 발행이 끝날 때까지가 사용자가 기다리는 시간이다. */
     @Test
     fun `저장 중 표시는 시간이 지나도 사라지지 않는다`() {
