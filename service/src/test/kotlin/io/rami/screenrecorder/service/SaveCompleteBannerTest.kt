@@ -13,7 +13,6 @@ import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -62,6 +61,16 @@ class SaveCompleteBannerTest {
         }
     }
 
+    /** 시스템이 창을 거부하는 상황. Robolectric 으로는 addView 를 던지게 만들 수 없다. */
+    private object RejectingWindows : OverlayWindows {
+        override fun attach(
+            view: View,
+            params: WindowManager.LayoutParams,
+        ): Boolean = false
+
+        override fun detach(view: View) = Unit
+    }
+
     private class FakeBanner : SaveCompleteBanner {
         val shown = mutableListOf<String>()
         var dismissCount = 0
@@ -98,24 +107,43 @@ class SaveCompleteBannerTest {
             assertEquals(listOf(FILE_NAME), banner.shown)
         }
 
-    /** 발행이 아무것도 남기지 않은 세션(빈 녹화·발행 실패)은 이 흐름에 흐르지 않는다. */
+    /**
+     * 발행 실패와 빈 세션(프레임 0개)도 `Stopping -> Idle` 로 똑같이 끝난다. 상태 전이로
+     * 판정하면 저장되지 않은 녹화를 "저장했습니다" 로 알린다 (기능명세서 2.1절 [결정]).
+     */
     @Test
-    fun `발행이 확정되지 않으면 배너를 띄우지 않는다`() =
+    fun `저장되지 않고 중지만 끝나면 배너를 띄우지 않는다`() =
         runTest {
             val banner = FakeBanner()
 
-            presenter(banner).observeCompletion(emptyFlow())
+            presenter(banner).observeState(
+                flowOf(
+                    RecordingState.Stopping(elapsed = 3.minutes, fileName = FILE_NAME),
+                    RecordingState.Idle,
+                ),
+            )
 
             assertEquals(emptyList<String>(), banner.shown)
         }
 
     /** 지난 녹화의 완료 배너가 새 녹화의 첫 프레임에 찍히면 안 된다. */
     @Test
-    fun `새 세션이 시작되면 배너를 내린다`() =
+    fun `준비 구간에 들어가면 배너를 내린다`() =
         runTest {
             val banner = FakeBanner()
 
             presenter(banner).observeState(flowOf(RecordingState.Preparing))
+
+            assertEquals(1, banner.dismissCount)
+        }
+
+    /** 카운트다운을 켠 설정이 기본값이므로 이쪽이 오히려 주 경로다. */
+    @Test
+    fun `카운트다운이 시작되면 배너를 내린다`() =
+        runTest {
+            val banner = FakeBanner()
+
+            presenter(banner).observeState(flowOf(RecordingState.CountingDown(remainingSeconds = 3)))
 
             assertEquals(1, banner.dismissCount)
         }
@@ -150,8 +178,11 @@ class SaveCompleteBannerTest {
         SaveCompleteOverlayWindow(context).show(FILE_NAME)
         settle()
         // 시간을 재는 테스트여야 한다. "충분히 오래 뒤에 없다"만 보면 3초가 30ms 가 돼도 통과한다.
-        // 정확한 경계 1ms 는 섀도 시계 구현에 달려 있어 고정하지 않는다 — 500ms 여유로도
-        // 3초가 300ms 나 30초가 되는 회귀는 잡힌다.
+        //
+        // 1ms 경계를 고정하지 않는 이유는 섀도 시계가 부정확해서가 아니다. addView 가 실제
+        // measure/layout 을 돌리며 시계를 수십 ms 밀어 올려, settle() 뒤에 읽는 기준점이 실제
+        // 예약 시점보다 그만큼 뒤에 있다. 그 오차는 뷰 작업량과 머신 속도에 따라 달라진다.
+        // 500ms 여유는 그 오차보다 훨씬 크고, 3초가 300ms 나 30초가 되는 회귀는 여전히 잡는다.
         advanceMillis(SAVE_COMPLETE_DISPLAY_MILLIS - MARGIN_MILLIS)
         assertEquals("아직 사라지면 안 된다", 1, windowShadow.views.size)
 
@@ -177,6 +208,11 @@ class SaveCompleteBannerTest {
         advanceMillis(200)
 
         assertEquals("앞 배너의 예약이 뒤 배너를 지웠다", 1, windowShadow.views.size)
+        // 남은 한 장이 뒤 배너여야 한다. 개수만 보면 앞 배너가 그대로 남는 회귀를 놓친다.
+        assertTrue(
+            "떠 있는 것이 뒤 배너가 아니다",
+            OTHER_FILE_NAME in windowShadow.views.first().allTexts(),
+        )
     }
 
     @Test
@@ -190,6 +226,23 @@ class SaveCompleteBannerTest {
         settle()
 
         assertEquals(0, windowShadow.views.size)
+    }
+
+    /**
+     * 권한 검사와 실제 창 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다. 명세는 그 상황을
+     * "오버레이 권한이 없으면 토스트로 대체한다" 로 규정하므로, 거부됐다고 아무것도 안 보여
+     * 주어서는 안 된다 (기능명세서 6.1절 [결정]).
+     */
+    @Test
+    fun `창이 거부되면 토스트로 넘어간다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+
+        SaveCompleteOverlayWindow(context, windows = RejectingWindows).show(FILE_NAME)
+        settle()
+
+        assertEquals(0, windowShadow.views.size)
+        val toast = ShadowToast.getTextOfLatestToast()
+        assertTrue("거부됐는데 토스트도 없다", toast != null && FILE_NAME in toast)
     }
 
     /** 오버레이 권한이 없으면 화면에 그릴 수단이 토스트뿐이다. 그래도 내용은 같아야 한다. */

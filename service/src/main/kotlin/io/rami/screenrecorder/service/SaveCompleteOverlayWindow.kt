@@ -21,7 +21,7 @@ import android.widget.Toast
  * 서비스는 "언제" 를 알고 "어디에 어떻게" 는 구현이 정한다. 시점 검증이 창을 띄우지 않고도
  * 되도록 경계를 둔다.
  */
-internal interface SaveCompleteBanner {
+interface SaveCompleteBanner {
     /** [fileName] 이 저장됐음을 잠깐 보여 준다. */
     fun show(fileName: String)
 
@@ -41,8 +41,8 @@ internal interface SaveCompleteBanner {
  */
 internal class SaveCompleteOverlayWindow(
     private val context: Context,
+    private val windows: OverlayWindows = SystemOverlayWindows(context),
 ) : SaveCompleteBanner {
-    private val windowManager = context.getSystemService(WindowManager::class.java)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var root: View? = null
 
@@ -50,12 +50,8 @@ internal class SaveCompleteOverlayWindow(
     private var pendingRemoval: Runnable? = null
 
     override fun show(fileName: String) {
-        // 권한이 없으면 화면에 그릴 수단이 토스트뿐이다. 조용히 넘어가면 아무 표시도 남지 않는다.
         if (!Settings.canDrawOverlays(context)) {
-            mainHandler.post {
-                val text = context.getString(R.string.save_complete_toast, fileName)
-                Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-            }
+            fallBackToToast(fileName)
             return
         }
         mainHandler.post {
@@ -63,11 +59,24 @@ internal class SaveCompleteOverlayWindow(
             // 앞 배너의 제거 예약도 함께 거둔다 — 그대로 두면 그 예약이 새 배너를 지운다.
             removeExisting()
             val banner = context.buildSaveCompleteBanner(fileName)
-            if (!attach(banner)) return@post
+            // 권한 검사와 실제 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다. 거부는
+            // 권한이 없는 것과 같은 상황이므로 같은 대체 수단으로 넘어간다.
+            if (!windows.attach(banner, saveCompleteLayoutParams(context.dpToPx(TOP_OFFSET_DP)))) {
+                fallBackToToast(fileName)
+                return@post
+            }
             root = banner
             val removal = Runnable { removeExisting() }
             pendingRemoval = removal
             mainHandler.postDelayed(removal, SAVE_COMPLETE_DISPLAY_MILLIS)
+        }
+    }
+
+    /** 화면에 그릴 수단이 토스트뿐인 경우 (기능명세서 6.1절 [결정]). */
+    private fun fallBackToToast(fileName: String) {
+        mainHandler.post {
+            val text = context.getString(R.string.save_complete_toast, fileName)
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -80,36 +89,67 @@ internal class SaveCompleteOverlayWindow(
         pendingRemoval = null
         val banner = root ?: return
         root = null
-        detach(banner)
+        windows.detach(banner)
     }
 
+    private companion object {
+        const val TOP_OFFSET_DP = 24f
+    }
+}
+
+/**
+ * 오버레이 창 조작 (플랫폼 경계).
+ *
+ * 창을 붙이지 못하는 상황은 테스트에서 만들 수 없으므로 얇은 경계로 빼 둔다
+ * (CLAUDE.md 5절: 플랫폼 API 는 얇은 어댑터로 격리한다).
+ */
+internal interface OverlayWindows {
+    /** 창을 붙인다. 시스템이 거부하면 false. */
+    fun attach(
+        view: View,
+        params: WindowManager.LayoutParams,
+    ): Boolean
+
+    /** 창을 뗀다. 이미 떨어져 있으면 조용히 지나간다. */
+    fun detach(view: View)
+}
+
+/** [WindowManager] 를 쓰는 실제 구현. */
+internal class SystemOverlayWindows(
+    context: Context,
+) : OverlayWindows {
+    private val windowManager = context.getSystemService(WindowManager::class.java)
+
     /**
-     * 창을 붙인다. 성공하면 true.
-     *
-     * [Settings.canDrawOverlays] 검사와 실제 [WindowManager.addView] 는 스레드가 달라 그 사이에
-     * 권한이 사라질 수 있고, 일부 기기는 검사가 통과해도 창을 거부한다. 붙이지 못하는 것은
-     * 우리가 고칠 수 있는 상태가 아니므로 표시를 포기하되, 저장을 알리려다 앱을 죽이지는 않는다.
+     * 권한 검사와 실제 붙이기는 스레드가 다르고, 일부 기기는 검사가 통과해도 창을 거부한다.
+     * 붙이지 못하는 것은 앱이 고칠 수 있는 상태가 아니므로 표시를 포기하되, 저장을 알리려다
+     * 앱을 죽이지는 않는다.
      */
-    private fun attach(banner: View): Boolean =
+    override fun attach(
+        view: View,
+        params: WindowManager.LayoutParams,
+    ): Boolean =
         try {
-            windowManager.addView(banner, saveCompleteLayoutParams(context.dpToPx(TOP_OFFSET_DP)))
+            windowManager.addView(view, params)
             true
         } catch (denied: WindowManager.BadTokenException) {
             Log.w(LOG_TAG, "완료 배너를 띄우지 못했다 — 오버레이 권한이 없다", denied)
             false
+        } catch (gone: WindowManager.InvalidDisplayException) {
+            Log.w(LOG_TAG, "완료 배너를 띄우지 못했다 — 디스플레이가 사라졌다", gone)
+            false
         }
 
-    /** 창을 뗀다. 시스템이 이미 떼어 간 창이면 조용히 지나간다 (권한 회수 등). */
-    private fun detach(banner: View) {
+    /** 시스템이 이미 떼어 간 창이면 조용히 지나간다 (권한 회수 등). */
+    override fun detach(view: View) {
         try {
-            windowManager.removeView(banner)
+            windowManager.removeView(view)
         } catch (alreadyGone: IllegalArgumentException) {
             Log.w(LOG_TAG, "완료 배너가 이미 창에서 떨어져 있다", alreadyGone)
         }
     }
 
     private companion object {
-        const val TOP_OFFSET_DP = 24f
         const val LOG_TAG = "SaveCompleteBanner"
     }
 }
