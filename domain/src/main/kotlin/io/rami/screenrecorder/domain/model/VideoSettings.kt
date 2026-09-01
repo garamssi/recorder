@@ -35,9 +35,30 @@ sealed interface ResolutionOption {
     fun resolve(deviceMax: Resolution): Resolution =
         when (this) {
             is DeviceMax -> deviceMax
-            is Fixed -> resolution
+            is Fixed -> resolution.fittedTo(deviceMax)
         }
 }
+
+/**
+ * 프리셋을 기기 화면 비율에 맞춘다 (기능명세서 4.1절 [결정]).
+ *
+ * 프리셋의 숫자는 짧은 변이다 — "1080p"는 1920x1080 이 아니라 "짧은 변 1080, 비율은 기기 그대로"다.
+ * 16:9 로 못 박으면 16:10 화면(3200x2000)에서 미러링이 좌우에 검은 띠를 넣어 화면의 10%를 버린다.
+ *
+ * 기기보다 크게 올리지는 않는다. 없는 화소를 만들어 내는 확대는 용량만 늘린다.
+ */
+private fun Resolution.fittedTo(display: Resolution): Resolution {
+    val presetShortEdge = minOf(width, height)
+    val displayShortEdge = minOf(display.width, display.height)
+    if (displayShortEdge <= presetShortEdge) return display
+    return Resolution(
+        width = evenDown(display.width * presetShortEdge / displayShortEdge),
+        height = evenDown(display.height * presetShortEdge / displayShortEdge),
+    )
+}
+
+/** H.264 색차 정렬을 위해 짝수로 내린다. */
+private fun evenDown(value: Int): Int = value - value % 2
 
 /** 프레임레이트 선택지 (기능명세서 4.1절). */
 enum class FrameRate(

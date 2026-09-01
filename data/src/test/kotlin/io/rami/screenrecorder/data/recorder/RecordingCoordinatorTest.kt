@@ -419,15 +419,20 @@ class RecordingCoordinatorTest {
             job.cancel()
         }
 
+    /**
+     * 페이크 화면은 2560x1600(16:10)이다. 1080p 프리셋은 짧은 변만 정하므로 1728x1080 이
+     * 되어야 한다 — 1920x1080 으로 못 박으면 좌우에 검은 띠가 생긴다 (기능명세서 4.1절 [결정]).
+     * 자동 비트레이트는 그 해상도에서 다시 계산된다(픽셀 처리량 0.9배 -> 13.5Mbps).
+     */
     @Test
     fun `설정 해상도와 자동 비트레이트가 인코더에 전달된다`() =
         runTest {
             coordinator().start(noCountdownConfig)
 
             val config = requireNotNull(encoder.lastConfig)
-            assertEquals(Resolution.FHD, config.resolution)
+            assertEquals(Resolution(1728, 1080), config.resolution)
             assertEquals(60, config.frameRateFps)
-            assertEquals(15_000_000, config.bitrateBps)
+            assertEquals(13_500_000, config.bitrateBps)
         }
 
     // --- 인코더 출력 -> 먹서 ---
