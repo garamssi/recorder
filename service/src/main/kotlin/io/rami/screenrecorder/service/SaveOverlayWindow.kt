@@ -169,6 +169,12 @@ internal fun saveOverlayLayoutParams(topOffsetPx: Int): WindowManager.LayoutPara
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             // 누를 것이 없으므로 터치를 받지 않는다 — 카드 아래의 앱이 그대로 눌린다.
+            //
+            // 대가가 있다. Android 12+ 는 터치를 받지 않는 오버레이의 불투명도를
+            // `maximum_obscuring_opacity_for_touch`(기본 0.8)로 깎는다. 배경을 완전 불투명으로
+            // 선언해도 화면에는 80%로 그려져 아래 앱 글자가 옅게 비친다. 실기기에서 플래그를
+            // 빼면 정확히 1.00 이 나오는 것으로 확인했다. 터치를 가로채는 쪽이 더 나쁘므로
+            // 비침을 감수한다 (docs/postmortem/2026-09-01-overlay-opacity-cap.md).
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT,
