@@ -25,7 +25,7 @@ internal class RecordingSessionPresenter(
     private val context: Context,
     private val notifications: RecordingNotifications,
     private val countdownOverlay: CountdownOverlayWindow,
-    private val saveCompleteBanner: SaveCompleteBanner,
+    private val saveOverlay: SaveOverlay,
     private val onIdle: () -> Unit,
     private val onSkipCountdown: () -> Unit,
 ) {
@@ -41,8 +41,8 @@ internal class RecordingSessionPresenter(
         completed.collectLatest { recording ->
             context.showCompletedNotification(context.completedText(autoStopReason))
             // 알림만으로는 화면에서 아무 일도 일어나지 않는다. 사용자는 다른 앱을 보고 있다
-            // (기능명세서 6.1절 [결정]).
-            saveCompleteBanner.show(recording.displayName)
+            // (기능명세서 6.1절 [결정]). 링이 꽉 찬 채 중앙이 체크로 바뀐다.
+            saveOverlay.showSaved(DurationFormatter.formatElapsed(recording.duration), recording.displayName)
             autoStopReason = null
         }
     }
@@ -55,8 +55,8 @@ internal class RecordingSessionPresenter(
         states.dropWhile { it is RecordingState.Idle }.collectLatest { state ->
             when (state) {
                 is RecordingState.CountingDown -> {
-                    // 지난 녹화의 완료 배너가 새 녹화의 첫 프레임에 찍히면 안 된다.
-                    saveCompleteBanner.dismiss()
+                    // 지난 발행의 표시가 새 녹화의 첫 프레임에 찍히면 안 된다.
+                    saveOverlay.dismiss()
                     countdownOverlay.show(state.remainingSeconds, onSkip = onSkipCountdown)
                     // 이 구간의 일시정지는 아무 일도 하지 않는다 (명세 6.1절 [결정]).
                     context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = true) }
@@ -66,7 +66,7 @@ internal class RecordingSessionPresenter(
                 // 세션이 만들어지는 중이라 코디네이터의 중지가 아무 일도 하지 않는다
                 // (기능명세서 6.1절 [결정]).
                 is RecordingState.Preparing -> {
-                    saveCompleteBanner.dismiss()
+                    saveOverlay.dismiss()
                     countdownOverlay.dismiss()
                     context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = false) }
                 }
@@ -89,6 +89,12 @@ internal class RecordingSessionPresenter(
                             notifications.showLimited(text, stoppable = false)
                         }
                     }
+                    // 홈 카드는 앱 안에 있을 때만 보인다. 실사용의 표시면은 이쪽이다.
+                    saveOverlay.showSaving(
+                        DurationFormatter.formatElapsed(state.elapsed),
+                        state.fileName,
+                        state.progress,
+                    )
                 }
 
                 is RecordingState.Idle -> {

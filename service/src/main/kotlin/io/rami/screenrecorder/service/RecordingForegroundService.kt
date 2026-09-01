@@ -73,7 +73,7 @@ class RecordingForegroundService : Service() {
 
     // 창의 수명이 이 서비스보다 길어 프로세스 스코프로 주입받는다 (ServiceModule 참고).
     // 서비스마다 새로 만들면 다음 세션의 dismiss() 가 빈 객체를 향한다.
-    @Inject lateinit var saveCompleteBanner: SaveCompleteBanner
+    @Inject lateinit var saveOverlay: SaveOverlay
 
     /** 무엇을 보여 줄지는 여기가 정한다. 서비스는 수명과 인텐트만 다룬다. */
     private val presenter by lazy {
@@ -81,7 +81,7 @@ class RecordingForegroundService : Service() {
             context = this,
             notifications = notifications,
             countdownOverlay = countdownOverlay,
-            saveCompleteBanner = saveCompleteBanner,
+            saveOverlay = saveOverlay,
             onIdle = ::stopSelf,
             onSkipCountdown = skipCountdown::invoke,
         )

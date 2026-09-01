@@ -39,7 +39,7 @@ import kotlin.time.Duration.Companion.minutes
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "ko-w1280dp-h800dp")
-class SaveCompleteBannerTest {
+class SaveOverlayTest {
     private val context get() = RuntimeEnvironment.getApplication()
 
     private val windowShadow: ShadowWindowManagerImpl
@@ -71,12 +71,24 @@ class SaveCompleteBannerTest {
         override fun detach(view: View) = Unit
     }
 
-    private class FakeBanner : SaveCompleteBanner {
-        val shown = mutableListOf<String>()
+    private class FakeOverlay : SaveOverlay {
+        val saving = mutableListOf<Triple<String, String, Float?>>()
+        val saved = mutableListOf<String>()
         var dismissCount = 0
 
-        override fun show(fileName: String) {
-            shown += fileName
+        override fun showSaving(
+            elapsed: String,
+            fileName: String,
+            progress: Float?,
+        ) {
+            saving += Triple(elapsed, fileName, progress)
+        }
+
+        override fun showSaved(
+            elapsed: String,
+            fileName: String,
+        ) {
+            saved += fileName
         }
 
         override fun dismiss() {
@@ -98,13 +110,13 @@ class SaveCompleteBannerTest {
     // --- 시점: 발행이 확정될 때만 ---
 
     @Test
-    fun `발행이 확정되면 완료 배너를 띄운다`() =
+    fun `발행이 확정되면 완료 표시로 바꾼다`() =
         runTest {
-            val banner = FakeBanner()
+            val overlay = FakeOverlay()
 
-            presenter(banner).observeCompletion(flowOf(SAVED))
+            presenter(overlay).observeCompletion(flowOf(SAVED))
 
-            assertEquals(listOf(FILE_NAME), banner.shown)
+            assertEquals(listOf(FILE_NAME), overlay.saved)
         }
 
     /**
@@ -112,56 +124,100 @@ class SaveCompleteBannerTest {
      * 판정하면 저장되지 않은 녹화를 "저장했습니다" 로 알린다 (기능명세서 2.1절 [결정]).
      */
     @Test
-    fun `저장되지 않고 중지만 끝나면 배너를 띄우지 않는다`() =
+    fun `저장되지 않고 중지만 끝나면 완료 표시를 띄우지 않는다`() =
         runTest {
-            val banner = FakeBanner()
+            val overlay = FakeOverlay()
 
-            presenter(banner).observeState(
+            presenter(overlay).observeState(
                 flowOf(
                     RecordingState.Stopping(elapsed = 3.minutes, fileName = FILE_NAME),
                     RecordingState.Idle,
                 ),
             )
 
-            assertEquals(emptyList<String>(), banner.shown)
+            assertEquals(emptyList<String>(), overlay.saved)
         }
 
     /** 지난 녹화의 완료 배너가 새 녹화의 첫 프레임에 찍히면 안 된다. */
     @Test
-    fun `준비 구간에 들어가면 배너를 내린다`() =
+    fun `준비 구간에 들어가면 오버레이를 내린다`() =
         runTest {
-            val banner = FakeBanner()
+            val overlay = FakeOverlay()
 
-            presenter(banner).observeState(flowOf(RecordingState.Preparing))
+            presenter(overlay).observeState(flowOf(RecordingState.Preparing))
 
-            assertEquals(1, banner.dismissCount)
+            assertEquals(1, overlay.dismissCount)
         }
 
     /** 카운트다운을 켠 설정이 기본값이므로 이쪽이 오히려 주 경로다. */
     @Test
-    fun `카운트다운이 시작되면 배너를 내린다`() =
+    fun `카운트다운이 시작되면 오버레이를 내린다`() =
         runTest {
-            val banner = FakeBanner()
+            val overlay = FakeOverlay()
 
-            presenter(banner).observeState(flowOf(RecordingState.CountingDown(remainingSeconds = 3)))
+            presenter(overlay).observeState(flowOf(RecordingState.CountingDown(remainingSeconds = 3)))
 
-            assertEquals(1, banner.dismissCount)
+            assertEquals(1, overlay.dismissCount)
         }
+
+    /**
+     * 홈 카드는 앱 안에 있을 때만 보인다. 발행 2~4분 동안 사용자가 보는 화면은 다른 앱이므로
+     * 진행률이 실제로 닿아야 하는 곳은 오버레이다 (기능명세서 6.1절 [결정]).
+     */
+    @Test
+    fun `발행 중에는 경과 시간과 진행률을 오버레이에 실어 보낸다`() =
+        runTest {
+            val overlay = FakeOverlay()
+
+            presenter(overlay).observeState(
+                flowOf(RecordingState.Stopping(elapsed = 3.minutes, fileName = FILE_NAME, progress = 0.62f)),
+            )
+
+            assertEquals(listOf(Triple("03:00", FILE_NAME, 0.62f)), overlay.saving)
+        }
+
+    /** 발행이 끝날 때까지 계속 떠 있어야 한다 — 갱신마다 창을 다시 붙이면 링이 처음부터 돈다. */
+    @Test
+    fun `진행률이 갱신돼도 창은 하나로 유지된다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.1f)
+        settle()
+        val first = windowShadow.views.single()
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.9f)
+        settle()
+
+        assertEquals(1, windowShadow.views.size)
+        assertTrue("창을 새로 붙였다", first === windowShadow.views.single())
+        assertTrue(
+            "갱신한 진행률이 반영되지 않았다",
+            windowShadow.views
+                .single()
+                .allTexts()
+                .any { "90" in it },
+        )
+    }
+
+    /** 저장 중에는 스스로 사라지면 안 된다 — 발행이 끝날 때까지가 사용자가 기다리는 시간이다. */
+    @Test
+    fun `저장 중 표시는 시간이 지나도 사라지지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.2f)
+        settle()
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS * 3)
+
+        assertEquals("발행이 끝나기 전에 사라졌다", 1, windowShadow.views.size)
+    }
 
     // --- 내용: 무엇이 저장됐는지 ---
 
-    @Test
-    fun `배너는 완료 문구와 저장된 파일 이름을 함께 보여 준다`() {
-        val texts = context.buildSaveCompleteBanner(FILE_NAME).allTexts()
-
-        assertTrue("완료 문구가 없다: $texts", context.getString(R.string.save_complete_banner) in texts)
-        assertTrue("파일 이름이 없다: $texts", FILE_NAME in texts)
-    }
-
     /** 누를 것이 없으므로 터치를 받을 이유도 없다 — 배너 아래의 앱이 그대로 눌려야 한다. */
     @Test
-    fun `배너는 아래 앱의 터치를 가로채지 않는다`() {
-        val params = saveCompleteLayoutParams(topOffsetPx = 0)
+    fun `오버레이는 아래 앱의 터치를 가로채지 않는다`() {
+        val params = saveOverlayLayoutParams(topOffsetPx = 0)
 
         assertTrue(
             "FLAG_NOT_TOUCHABLE 이 없다",
@@ -172,10 +228,10 @@ class SaveCompleteBannerTest {
     // --- 수명: 스스로 사라진다 ---
 
     @Test
-    fun `배너는 정해진 시간 동안만 머문다`() {
+    fun `완료 표시는 정해진 시간 동안만 머문다`() {
         ShadowSettings.setCanDrawOverlays(true)
 
-        SaveCompleteOverlayWindow(context).show(FILE_NAME)
+        SaveOverlayWindow(context).showSaved(ELAPSED, FILE_NAME)
         settle()
         // 시간을 재는 테스트여야 한다. "충분히 오래 뒤에 없다"만 보면 3초가 30ms 가 돼도 통과한다.
         //
@@ -183,7 +239,7 @@ class SaveCompleteBannerTest {
         // measure/layout 을 돌리며 시계를 수십 ms 밀어 올려, settle() 뒤에 읽는 기준점이 실제
         // 예약 시점보다 그만큼 뒤에 있다. 그 오차는 뷰 작업량과 머신 속도에 따라 달라진다.
         // 500ms 여유는 그 오차보다 훨씬 크고, 3초가 300ms 나 30초가 되는 회귀는 여전히 잡는다.
-        advanceMillis(SAVE_COMPLETE_DISPLAY_MILLIS - MARGIN_MILLIS)
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS - MARGIN_MILLIS)
         assertEquals("아직 사라지면 안 된다", 1, windowShadow.views.size)
 
         advanceMillis(MARGIN_MILLIS * 2)
@@ -196,14 +252,14 @@ class SaveCompleteBannerTest {
      * 제거 예약은 "지금 떠 있는 창"이 아니라 자기가 띄운 배너를 지목해야 한다.
      */
     @Test
-    fun `연달아 저장해도 뒤 배너가 제 수명을 산다`() {
+    fun `연달아 저장해도 뒤 표시가 제 수명을 산다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val window = SaveCompleteOverlayWindow(context)
-        window.show(FILE_NAME)
+        val window = SaveOverlayWindow(context)
+        window.showSaved(ELAPSED, FILE_NAME)
         settle()
-        advanceMillis(SAVE_COMPLETE_DISPLAY_MILLIS - 100)
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS - 100)
 
-        window.show(OTHER_FILE_NAME)
+        window.showSaved(ELAPSED, OTHER_FILE_NAME)
         settle()
         advanceMillis(200)
 
@@ -223,10 +279,10 @@ class SaveCompleteBannerTest {
      * 실제로 공유되는지(= `ServiceModule` 의 `@Singleton`)는 [ServiceModuleTest] 가 본다.
      */
     @Test
-    fun `서비스가 바뀌어도 다음 세션이 지난 배너를 내린다`() =
+    fun `서비스가 바뀌어도 다음 세션이 지난 표시를 내린다`() =
         runTest {
             ShadowSettings.setCanDrawOverlays(true)
-            val shared = SaveCompleteOverlayWindow(context)
+            val shared = SaveOverlayWindow(context)
 
             presenter(shared).observeCompletion(flowOf(SAVED))
             settle()
@@ -245,10 +301,10 @@ class SaveCompleteBannerTest {
     }
 
     @Test
-    fun `배너를 내리면 창이 사라진다`() {
+    fun `오버레이를 내리면 창이 사라진다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val window = SaveCompleteOverlayWindow(context)
-        window.show(FILE_NAME)
+        val window = SaveOverlayWindow(context)
+        window.showSaved(ELAPSED, FILE_NAME)
         settle()
 
         window.dismiss()
@@ -266,7 +322,7 @@ class SaveCompleteBannerTest {
     fun `창이 거부되면 토스트로 넘어간다`() {
         ShadowSettings.setCanDrawOverlays(true)
 
-        SaveCompleteOverlayWindow(context, windows = RejectingWindows).show(FILE_NAME)
+        SaveOverlayWindow(context, windows = RejectingWindows).showSaved(ELAPSED, FILE_NAME)
         settle()
 
         assertEquals(0, windowShadow.views.size)
@@ -279,7 +335,7 @@ class SaveCompleteBannerTest {
     fun `오버레이 권한이 없으면 파일명까지 담은 토스트로 대신한다`() {
         ShadowSettings.setCanDrawOverlays(false)
 
-        SaveCompleteOverlayWindow(context).show(FILE_NAME)
+        SaveOverlayWindow(context).showSaved(ELAPSED, FILE_NAME)
         settle()
 
         assertEquals(0, windowShadow.views.size)
@@ -289,17 +345,18 @@ class SaveCompleteBannerTest {
         assertTrue("파일 이름이 없다: $toast", FILE_NAME in toast)
     }
 
-    private fun presenter(banner: SaveCompleteBanner) =
+    private fun presenter(overlay: SaveOverlay) =
         RecordingSessionPresenter(
             context = context,
             notifications = RecordingNotifications(context),
             countdownOverlay = CountdownOverlayWindow(context),
-            saveCompleteBanner = banner,
+            saveOverlay = overlay,
             onIdle = {},
             onSkipCountdown = {},
         )
 
     private companion object {
+        const val ELAPSED = "03:42"
         const val FILE_NAME = "Rec_20260901_120000.mp4"
         const val OTHER_FILE_NAME = "Rec_20260901_120500.mp4"
 
