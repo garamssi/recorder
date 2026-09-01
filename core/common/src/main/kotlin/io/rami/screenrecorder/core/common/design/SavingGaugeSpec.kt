@@ -54,9 +54,6 @@ object SavingGaugeSpec {
     /** 점과 상태 문구 사이 간격(dp). */
     const val CAPTION_GAP_DP = 10f
 
-    /** 진행률을 퍼센트로 옮기는 배수. */
-    const val PERCENT_SCALE = 100
-
     /** 링 가운데 경과 시간 글자 크기(sp). 녹화 중(56sp)보다 작은 것이 "이미 끝난 값" 을 뜻한다. */
     const val ELAPSED_SP = 40f
 

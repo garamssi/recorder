@@ -131,7 +131,7 @@ internal class SaveOverlayCard(
             SaveOutcome.FAILED -> R.string.save_failed_overlay
         }
 
-    private fun percentOf(progress: Float): Int = (progress.coerceIn(0f, 1f) * SavingGaugeSpec.PERCENT_SCALE).toInt()
+    private fun percentOf(progress: Float): Int = (progress.coerceIn(0f, 1f) * PERCENT_SCALE).toInt()
 
     private fun buildRoot(): View {
         val paddingH = context.dpToPx(PADDING_H_DP)
@@ -183,7 +183,14 @@ internal class SaveOverlayCard(
             // 맥동을 멈춘 REC 점. 홈의 저장 중 상태 줄과 같은 밝기다 — recRed 를 절반으로
             // 흐리게 한다 (RecordControl.kt 의 animated = false). active = false 의 회색은
             // 버블에서 "녹화 중이 아님" 을 뜻하는 다른 신호라 여기에 쓰면 뜻이 어긋난다.
-            addView(context.statusDot(active = true).apply { alpha = DOT_DIM_ALPHA })
+            val dot =
+                context.statusDot(active = true).apply {
+                    alpha = DOT_DIM_ALPHA
+                    // statusDot 의 시작 여백은 버블 알약 안에서 왼쪽을 띄우려는 값이다. 가운데
+                    // 정렬된 이 행에서는 그만큼 묶음이 왼쪽으로 밀린다.
+                    (layoutParams as LinearLayout.LayoutParams).marginStart = 0
+                }
+            addView(dot)
             addView(statusLabel, statusLabelParams())
         }
 
@@ -221,6 +228,7 @@ internal class SaveOverlayCard(
         const val PADDING_H_DP = 24f
         const val PADDING_V_DP = 20f
         const val ROW_GAP_DP = 12f
+        const val PERCENT_SCALE = 100
 
         /** 홈의 `DISABLED_ALPHA` 와 같은 값. */
         const val DOT_DIM_ALPHA = 0.5f

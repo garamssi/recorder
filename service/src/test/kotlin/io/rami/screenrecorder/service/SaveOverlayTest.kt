@@ -242,6 +242,47 @@ class SaveOverlayTest {
     }
 
     /**
+     * 결말이 새 세션의 dismiss 를 지나치면 안 된다.
+     *
+     * 결말을 그리는 데 메시지를 두 번 쓰면(읽기 한 번, 그리기 한 번) 그 사이에 들어온
+     * dismiss 를 건너뛰어, 새 세션이 시작된 뒤에 지난 결말이 다시 붙는다.
+     */
+    @Test
+    fun `새 세션이 시작되면 직전 결말이 다시 붙지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+
+        overlay.showSaved(FILE_NAME)
+        overlay.dismiss()
+        settle()
+
+        assertEquals("지난 결말이 새 세션 위에 붙었다", 0, windowShadow.views.size)
+    }
+
+    /**
+     * 유휴가 실패보다 먼저 올 수 있다 — 코디네이터가 실패 이벤트를 흘린 직후 유휴로 간다.
+     * 그때 물려줄 값까지 지우면 실패 카드가 빈 링·빈 중앙으로 뜬다.
+     */
+    @Test
+    fun `유휴가 실패보다 먼저 와도 실패가 값을 물려받는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
+        settle()
+
+        overlay.endSaving()
+        settle()
+        assertEquals("발행 중 표시가 남았다", 0, windowShadow.views.size)
+
+        overlay.showFailed()
+        settle()
+
+        val card = windowShadow.views.single()
+        assertTrue("파일명을 잃었다", FILE_NAME in card.visibleTexts())
+        assertEquals("진행률을 잃었다", 0.87f, card.gauge().progress)
+    }
+
+    /**
      * 결말을 그린 뒤에는 물려줄 것이 없다.
      *
      * 남겨 두면 다음 세션이 준비 구간을 못 거친 채(상태 병합) 곧장 실패했을 때, 지난 녹화의

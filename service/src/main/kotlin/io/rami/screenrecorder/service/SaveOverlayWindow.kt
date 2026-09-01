@@ -157,25 +157,28 @@ internal class SaveOverlayWindow(
      * 내용을 값이 아니라 함수로 받는다. 실패 카드는 [lastSaving] 을 읽어야 하는데, 그 읽기를
      * 바깥에서 하면 메시지가 하나 더 늘어 그 사이에 들어온 [dismiss] 를 지나쳐 버린다 — 새
      * 세션이 시작된 뒤에 지난 결말이 다시 붙는다. 읽기와 그리기를 한 메시지 안에 둔다.
+     *
+     * [content] 는 부수 효과가 없어야 한다 — 평가한 뒤 그리지 않고 버릴 수 있다(결말을 보여 준
+     * 뒤에 도착한 진행률 갱신). null 을 돌려주면 그릴 것이 없다는 뜻으로 아무것도 하지 않는다.
      */
     private fun render(
         onAttached: () -> Unit = {},
         content: () -> SaveOverlayContent?,
     ) {
         mainHandler.post {
-            val content = content() ?: return@post
+            val resolved = content() ?: return@post
             // 완료 판정은 메인 스레드 안에서 한다. 상태 흐름과 완료 흐름은 서로 다른 수집기에서
             // 돌아, 호출 스레드에서 보면 늦은 진행률 갱신이 완료를 덮는 창이 남는다.
-            if (outcomeShown && content.outcome == SaveOutcome.IN_PROGRESS) return@post
+            if (outcomeShown && resolved.outcome == SaveOutcome.IN_PROGRESS) return@post
             // 앞 발행의 완료 예약이 남아 있으면 거둔다. 그대로 두면 새 표시를 지운다.
             pendingRemoval?.let(mainHandler::removeCallbacks)
             pendingRemoval = null
             // 결말을 그리고 나면 물려줄 것이 없다. 남겨 두면 다음 세션의 실패가 지난 녹화의
             // 이름을 물려받을 수 있다.
-            lastSaving = content.takeIf { it.outcome == SaveOutcome.IN_PROGRESS }
+            lastSaving = resolved.takeIf { it.outcome == SaveOutcome.IN_PROGRESS }
             val existing = card
             if (existing != null) {
-                existing.render(content)
+                existing.render(resolved)
                 onAttached()
                 return@post
             }
@@ -184,14 +187,14 @@ internal class SaveOverlayWindow(
             if (!Settings.canDrawOverlays(context)) {
                 // 진행 중에는 대체하지 않는다 — 발행 2~4분 동안 토스트를 반복하면 화면을 가린다.
                 // 결말은 성공이든 실패든 알려야 한다. 특히 실패를 놓치면 저장된 줄 알고 넘어간다.
-                if (content.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(content)
+                if (resolved.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(resolved)
                 return@post
             }
             val fresh = SaveOverlayCard(context)
-            fresh.render(content)
+            fresh.render(resolved)
             // 권한 검사와 실제 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다.
             if (!windows.attach(fresh.root, saveOverlayLayoutParams(context.dpToPx(TOP_OFFSET_DP)))) {
-                if (content.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(content)
+                if (resolved.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(resolved)
                 return@post
             }
             card = fresh
@@ -199,17 +202,19 @@ internal class SaveOverlayWindow(
         }
     }
 
-    /** 화면에 그릴 수단이 토스트뿐인 경우 (기능명세서 6.1절 [결정]). */
+    /**
+     * 화면에 그릴 수단이 토스트뿐인 경우 (기능명세서 6.1절 [결정]).
+     *
+     * 호출 지점이 모두 [render] 의 메시지 안이라 이미 메인 스레드다. 다시 post 하지 않는다.
+     */
     private fun fallBackToToast(content: SaveOverlayContent) {
-        mainHandler.post {
-            val template =
-                if (content.outcome == SaveOutcome.FAILED) {
-                    R.string.save_failed_toast
-                } else {
-                    R.string.save_complete_toast
-                }
-            Toast.makeText(context, context.getString(template, content.fileName), Toast.LENGTH_SHORT).show()
-        }
+        val template =
+            if (content.outcome == SaveOutcome.FAILED) {
+                R.string.save_failed_toast
+            } else {
+                R.string.save_complete_toast
+            }
+        Toast.makeText(context, context.getString(template, content.fileName), Toast.LENGTH_SHORT).show()
     }
 
     private fun removeExisting() {
