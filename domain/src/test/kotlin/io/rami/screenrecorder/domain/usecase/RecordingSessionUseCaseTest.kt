@@ -11,8 +11,10 @@ import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
+import io.rami.screenrecorder.domain.repository.CompletedRecordingAnnouncer
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -24,6 +26,7 @@ import kotlin.time.Duration.Companion.seconds
 class RecordingSessionUseCaseTest {
     private val sessionRepository = mockk<RecordingSessionRepository>(relaxed = true)
     private val storageRepository = mockk<StorageRepository>()
+    private val announcer = mockk<CompletedRecordingAnnouncer>(relaxed = true)
 
     private fun givenState(state: RecordingState) {
         every { sessionRepository.state } returns flowOf(state)
@@ -178,19 +181,19 @@ class RecordingSessionUseCaseTest {
     @Test
     fun `보여 주지 못한 완료 녹화본을 그대로 흘려 준다`() =
         runTest {
-            every { sessionRepository.pendingCompletedRecording } returns flowOf(SAVED)
+            every { announcer.pendingCompletedRecording } returns MutableStateFlow(SAVED)
 
-            val pending = ObservePendingCompletedRecordingUseCase(sessionRepository)().first()
+            val pending = ObservePendingCompletedRecordingUseCase(announcer)().first()
 
             assertEquals(SAVED, pending)
         }
 
     @Test
-    fun `소모를 요청하면 세션 저장소에 그대로 넘긴다`() =
+    fun `소모를 요청하면 공지 보관소에 그대로 넘긴다`() =
         runTest {
-            ConsumeCompletedRecordingUseCase(sessionRepository)()
+            ConsumeCompletedRecordingUseCase(announcer)()
 
-            verify(exactly = 1) { sessionRepository.consumeCompletedRecording() }
+            verify(exactly = 1) { announcer.consumeCompletedRecording() }
         }
 
     private companion object {

@@ -124,3 +124,19 @@ data class RecordingConfig(
         private const val DEFAULT_VOLUME_PERCENT = 100
     }
 }
+
+/**
+ * 이 설정이 실제로 쓸 비디오 비트레이트(bps) 추정값 (기능명세서 2.1절 "약 N시간" 표시용).
+ *
+ * 기기 최대 해상도는 [approximateDeviceMax] 로 근사한다 — 남은 시간을 어림하는 용도라
+ * 실제 디스플레이를 조회하려고 화면 계층이 플랫폼에 손을 뻗을 이유가 없다.
+ */
+fun RecordingConfig.estimateBitrateBps(approximateDeviceMax: Resolution = Resolution.FHD): Int =
+    when (val option = bitrate) {
+        is BitrateOption.Fixed -> option.megabitsPerSecond * BPS_PER_MBPS
+        is BitrateOption.Auto ->
+            AutoBitratePolicy.bitrateBpsFor(resolution.resolve(approximateDeviceMax), frameRate)
+    }
+
+/** Mbps 를 bps 로 옮기는 배수. */
+private const val BPS_PER_MBPS = 1_000_000

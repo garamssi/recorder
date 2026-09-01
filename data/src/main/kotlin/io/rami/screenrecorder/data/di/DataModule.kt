@@ -15,6 +15,7 @@ import io.rami.screenrecorder.data.recorder.RecorderSessionFactory
 import io.rami.screenrecorder.data.recorder.RecordingCoordinator
 import io.rami.screenrecorder.data.recorder.WindowMetricsDisplayInfoProvider
 import io.rami.screenrecorder.data.storage.DeviceStorageRepository
+import io.rami.screenrecorder.domain.repository.CompletedRecordingAnnouncer
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
 import io.rami.screenrecorder.domain.session.MonotonicClock
@@ -99,15 +100,25 @@ internal object DataProvidesModule {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
 
+    // 코디네이터는 두 계약(세션 제어 + 완료 공지)을 함께 만족한다. 같은 인스턴스를 나눠 줘야
+    // 발행이 올린 공지를 홈이 읽는다.
     @Provides
     @Singleton
-    fun provideRecordingSessionRepository(
+    fun provideRecordingCoordinator(
         sessionFactory: RecorderSessionFactory,
         dependencies: RecorderDependencies,
-    ): RecordingSessionRepository =
+    ): RecordingCoordinator =
         RecordingCoordinator(
             sessionFactory = sessionFactory,
             dependencies = dependencies,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         )
+
+    @Provides
+    @Singleton
+    fun provideRecordingSessionRepository(coordinator: RecordingCoordinator): RecordingSessionRepository = coordinator
+
+    @Provides
+    @Singleton
+    fun provideCompletedRecordingAnnouncer(coordinator: RecordingCoordinator): CompletedRecordingAnnouncer = coordinator
 }

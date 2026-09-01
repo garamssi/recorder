@@ -3,6 +3,7 @@ package io.rami.screenrecorder.domain.usecase
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.TrashItem
+import io.rami.screenrecorder.domain.repository.CompletedRecordingAnnouncer
 import io.rami.screenrecorder.domain.repository.MediaLibraryRepository
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import kotlinx.coroutines.flow.Flow
@@ -36,20 +37,20 @@ class ObserveCompletedRecordingUseCase
 class ObservePendingCompletedRecordingUseCase
     @Inject
     constructor(
-        private val sessionRepository: RecordingSessionRepository,
+        private val announcer: CompletedRecordingAnnouncer,
     ) {
         /** 아직 보여 주지 못한 완료 녹화본 스트림. 없으면 null. */
-        operator fun invoke(): Flow<Recording?> = sessionRepository.pendingCompletedRecording
+        operator fun invoke(): Flow<Recording?> = announcer.pendingCompletedRecording
     }
 
 /** 완료 표시를 소모한다 (기능명세서 2.1절 [결정]: 홈이 보여 준 뒤에만 부른다). */
 class ConsumeCompletedRecordingUseCase
     @Inject
     constructor(
-        private val sessionRepository: RecordingSessionRepository,
+        private val announcer: CompletedRecordingAnnouncer,
     ) {
         /** 남아 있는 완료 표시를 지운다. */
-        operator fun invoke() = sessionRepository.consumeCompletedRecording()
+        operator fun invoke() = announcer.consumeCompletedRecording()
     }
 
 /** 휴지통 목록을 관찰한다 (기능명세서 9절). */

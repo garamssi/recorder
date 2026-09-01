@@ -71,10 +71,7 @@ class CompressViewModelTest {
         override val state: MutableStateFlow<RecordingState>,
     ) : RecordingSessionRepository {
         override val completedRecordings: Flow<Recording> = emptyFlow()
-        override val pendingCompletedRecording: Flow<Recording?> = MutableStateFlow(null)
         override val sessionEvents: Flow<RecordingSessionEvent> = emptyFlow()
-
-        override fun consumeCompletedRecording() = Unit
 
         override suspend fun start(config: RecordingConfig) = Unit
 
