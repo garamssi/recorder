@@ -503,7 +503,7 @@ class SaveOverlayTest {
     /** 누를 것이 없으므로 터치를 받을 이유도 없다 — 배너 아래의 앱이 그대로 눌려야 한다. */
     @Test
     fun `오버레이는 아래 앱의 터치를 가로채지 않는다`() {
-        val params = saveOverlayLayoutParams(topOffsetPx = 0)
+        val params = saveOverlayLayoutParams(widthPx = 100, topOffsetPx = 0)
 
         assertTrue(
             "FLAG_NOT_TOUCHABLE 이 없다",

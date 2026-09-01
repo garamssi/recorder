@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
+import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
 
 /**
  * 발행 구간을 화면 위에 보여 주는 표시 (기능명세서 6.1절 [결정]).
@@ -193,7 +194,14 @@ internal class SaveOverlayWindow(
             val fresh = SaveOverlayCard(context)
             fresh.render(resolved)
             // 권한 검사와 실제 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다.
-            if (!windows.attach(fresh.root, saveOverlayLayoutParams(context.dpToPx(TOP_OFFSET_DP)))) {
+            if (!windows.attach(
+                    fresh.root,
+                    saveOverlayLayoutParams(
+                        widthPx = context.dpToPx(SavingGaugeSpec.CARD_WIDTH_DP),
+                        topOffsetPx = context.dpToPx(TOP_OFFSET_DP),
+                    ),
+                )
+            ) {
                 if (resolved.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(resolved)
                 return@post
             }
@@ -241,11 +249,17 @@ internal const val SAVE_OVERLAY_DISPLAY_MILLIS = 3_000L
  * 오버레이 창의 배치 (DESIGN_GUIDE.md 4절).
  *
  * 상단 중앙에 띄운다 — 하단은 제스처 바와 플로팅 버블이 차지한다.
+ *
+ * 폭을 고정한다. 내용에 맡기면 국면이 바뀔 때마다 카드가 옆으로 늘었다 줄었다 하고, 짧은
+ * 문구에서는 링이 그 폭으로 눌려 좌우가 잘린다.
  */
-internal fun saveOverlayLayoutParams(topOffsetPx: Int): WindowManager.LayoutParams =
+internal fun saveOverlayLayoutParams(
+    widthPx: Int,
+    topOffsetPx: Int,
+): WindowManager.LayoutParams =
     WindowManager
         .LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            widthPx,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             // 누를 것이 없으므로 터치를 받지 않는다 — 카드 아래의 앱이 그대로 눌린다.

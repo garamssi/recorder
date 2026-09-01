@@ -172,25 +172,47 @@ class SaveOverlayCardTest {
     }
 
     /**
-     * 카드가 링보다 넓어지면 화면 밖으로 나간다. 부모가 WRAP_CONTENT 라 폭을 묶지 않으면
-     * 말줄임이 발동하지 않고 카드가 파일명만큼 늘어난다.
+     * 카드 폭은 링이 정한다 — 내용이 정하면 국면마다 카드가 옆으로 늘었다 줄었다 한다.
      *
-     * 폭이 아니라 제약을 본다 — Robolectric 은 실제 글꼴로 글자를 재지 않아, 긴 이름을 넣어도
-     * 측정 폭이 늘지 않는다. 측정값을 비교하면 무엇을 해도 통과하는 테스트가 된다.
+     * 세로 LinearLayout 은 WRAP_CONTENT 일 때 MATCH_PARENT 자식을 폭 계산에서 뺀다. 링을 담은
+     * 프레임이 기본 LayoutParams 로 MATCH_PARENT 가 되면 폭에 기여하지 못하고, 상태 문구와
+     * 파일명이 카드 폭을 정하게 된다. 그러면 링이 그 폭으로 눌려 좌우가 잘린다.
      */
     @Test
-    fun `파일명 폭을 링 크기에 묶는다`() {
-        val card =
-            SaveOverlayCard(context)
-                .apply { render(SaveOverlayContent(ELAPSED, LONG_FILE_NAME, 0.5f, SaveOutcome.IN_PROGRESS)) }
-                .root
-
-        val fileName = card.textViews().single { it.text == LONG_FILE_NAME }
+    fun `카드 폭은 내용이 바뀌어도 그대로다`() {
+        val saving = measuredWidth(saving(progress = 0.9f))
+        val saved = measuredWidth(SaveOverlayContent(ELAPSED, FILE_NAME, 1f, SaveOutcome.SAVED))
+        val failed = measuredWidth(SaveOverlayContent(ELAPSED, FILE_NAME, 0.9f, SaveOutcome.FAILED))
 
         val glowDiameterDp = SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE
-        assertEquals(context.dpToPx(glowDiameterDp), fileName.maxWidth)
+        assertTrue("링이 카드 밖으로 잘린다", saving >= context.dpToPx(glowDiameterDp))
+        assertEquals("완료로 바뀌며 카드가 늘었다", saving, saved)
+        assertEquals("실패로 바뀌며 카드가 늘었다", saving, failed)
+    }
+
+    /** 창이 폭을 못 박아야 국면이 바뀌어도 카드가 흔들리지 않는다. */
+    @Test
+    fun `창은 고정 폭으로 열린다`() {
+        val params = saveOverlayLayoutParams(widthPx = context.dpToPx(SavingGaugeSpec.CARD_WIDTH_DP), topOffsetPx = 0)
+
+        assertEquals(context.dpToPx(SavingGaugeSpec.CARD_WIDTH_DP), params.width)
+        val glowDiameterDp = SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE
+        assertTrue("링이 카드 폭을 넘는다", params.width >= context.dpToPx(glowDiameterDp))
+    }
+
+    /** 이름이 길어도 카드가 넓어지면 안 된다. 화면 밖으로 나가고 국면마다 크기가 흔들린다. */
+    @Test
+    fun `긴 파일명이 카드를 넓히지 않는다`() {
+        val short = measuredWidth(saving(progress = 0.5f))
+        val long = measuredWidth(SaveOverlayContent(ELAPSED, LONG_FILE_NAME, 0.5f, SaveOutcome.IN_PROGRESS))
+
+        assertEquals("긴 파일명이 카드를 늘렸다", short, long)
+        val fileName = render(saving(progress = 0.5f)).textViews().single { it.text == FILE_NAME }
         assertEquals(TextUtils.TruncateAt.MIDDLE, fileName.ellipsize)
     }
+
+    private fun measuredWidth(content: SaveOverlayContent): Int =
+        render(content).also { it.measure(UNSPECIFIED, UNSPECIFIED) }.measuredWidth
 
     /**
      * 뷰가 링 크기로 재면 후광이 사각으로 잘린다 — 플랫폼 뷰는 Compose 와 달리 자기 경계에서

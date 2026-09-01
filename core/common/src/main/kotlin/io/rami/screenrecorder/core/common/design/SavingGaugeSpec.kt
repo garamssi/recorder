@@ -51,6 +51,15 @@ object SavingGaugeSpec {
     const val TOP_ANGLE_DEGREES = -90f
     const val FULL_TURN_DEGREES = 360f
 
+    /**
+     * 오버레이 카드의 고정 폭(dp).
+     *
+     * 내용이 폭을 정하면 국면이 바뀔 때마다("저장 중…" → "녹화를 저장했습니다") 카드가 옆으로
+     * 늘었다 줄었다 한다. 링(후광 포함 216dp)과 좌우 여백이 들어가고 상태 문구·파일명이 말줄임
+     * 없이 웬만큼 담기도록 넉넉히 잡는다.
+     */
+    const val CARD_WIDTH_DP = 300f
+
     /** 점과 상태 문구 사이 간격(dp). */
     const val CAPTION_GAP_DP = 10f
 

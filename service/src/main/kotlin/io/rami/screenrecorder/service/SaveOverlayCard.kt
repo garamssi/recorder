@@ -9,6 +9,8 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.LinearLayout.LayoutParams.MATCH_PARENT
+import android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
@@ -81,6 +83,8 @@ internal class SaveOverlayCard(
         TextView(context).apply {
             setTextColor(BUBBLE_FOREGROUND)
             textSize = LABEL_TEXT_SP
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         }
 
     private val fileNameText =
@@ -89,9 +93,7 @@ internal class SaveOverlayCard(
             textSize = NAME_TEXT_SP
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.MIDDLE
-            // 폭을 묶지 않으면 말줄임이 발동하지 않고 카드가 파일명만큼 늘어난다. 부모가
-            // WRAP_CONTENT 라 카드가 화면보다 넓어질 수 있다.
-            maxWidth = context.dpToPx(SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE)
+            gravity = Gravity.CENTER
         }
 
     /** 창에 붙일 뷰. 갱신해도 이 참조는 바뀌지 않는다. */
@@ -145,25 +147,33 @@ internal class SaveOverlayCard(
                     cornerRadius = context.dpToPx(CORNER_DP).toFloat()
                 }
             setPadding(paddingH, paddingV, paddingH, paddingV)
-            addView(buildRing())
+            // 링만 카드 폭을 정한다. 아래 두 줄은 정해진 폭을 채우기만 하고 스스로 넓히지
+            // 않는다 — 문구 길이가 폭을 흔들면 국면이 바뀔 때마다 카드가 옆으로 늘었다 줄었다
+            // 하고, 짧은 문구에서는 링이 그 폭으로 눌려 좌우가 잘린다.
+            addView(buildRing(), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
             addView(buildStatusRow(), rowParams())
-            addView(fileNameText)
+            addView(fileNameText, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         }
     }
 
-    /** 링 위에 중앙 내용을 얹은 층. */
+    /**
+     * 링 위에 중앙 내용을 얹은 층.
+     *
+     * 두 자식 모두 크기를 명시한다. 기본 LayoutParams 는 `MATCH_PARENT` 인데, 세로
+     * [LinearLayout] 은 `WRAP_CONTENT` 일 때 그런 자식을 폭 계산에서 빼기 때문이다.
+     */
     private fun buildRing(): View =
         FrameLayout(context).apply {
-            addView(gauge)
-            addView(
-                buildCenter(),
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    Gravity.CENTER,
-                ),
-            )
+            addView(gauge, centeredParams())
+            addView(buildCenter(), centeredParams())
         }
+
+    private fun centeredParams() =
+        FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER,
+        )
 
     /** 링 가운데 — 저장 중에는 길이와 퍼센트, 완료 뒤에는 체크. */
     private fun buildCenter(): View =
@@ -179,7 +189,7 @@ internal class SaveOverlayCard(
     private fun buildStatusRow(): View =
         LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             // 맥동을 멈춘 REC 점. 홈의 저장 중 상태 줄과 같은 밝기다 — recRed 를 절반으로
             // 흐리게 한다 (RecordControl.kt 의 animated = false). active = false 의 회색은
             // 버블에서 "녹화 중이 아님" 을 뜻하는 다른 신호라 여기에 쓰면 뜻이 어긋난다.
@@ -195,11 +205,9 @@ internal class SaveOverlayCard(
         }
 
     private fun rowParams() =
-        LinearLayout
-            .LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = context.dpToPx(ROW_GAP_DP) }
+        LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+            topMargin = context.dpToPx(ROW_GAP_DP)
+        }
 
     private fun statusLabelParams() =
         LinearLayout
