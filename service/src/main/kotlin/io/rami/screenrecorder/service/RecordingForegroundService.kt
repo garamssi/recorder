@@ -151,6 +151,9 @@ class RecordingForegroundService : Service() {
 
     override fun onDestroy() {
         countdownOverlay.dismiss()
+        // 발행 도중 서비스만 파괴되면 유휴가 오지 않아 저장 중 표시가 남는다. 결말을 이미
+        // 보여 줬다면 no-op 이다.
+        saveOverlay.endSaving()
         serviceScope.cancel()
         super.onDestroy()
     }

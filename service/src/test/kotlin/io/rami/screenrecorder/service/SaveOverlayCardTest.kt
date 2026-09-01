@@ -40,8 +40,7 @@ class SaveOverlayCardTest {
             else -> emptyList()
         }
 
-    private fun View.percentView(): TextView =
-        textViews().single { "%" in it.text || it.visibility == View.GONE && it.textSize < 40 }
+    private fun View.percentView(): TextView = textViews().single { it.tag == PERCENT_TAG }
 
     private fun View.textViews(): List<TextView> =
         when (this) {
@@ -50,11 +49,13 @@ class SaveOverlayCardTest {
             else -> emptyList()
         }
 
-    private fun View.gauge(): SavingGaugeView =
+    private fun View.gauge(): SavingGaugeView = checkNotNull(gaugeOrNull()) { "게이지가 없다" }
+
+    private fun View.gaugeOrNull(): SavingGaugeView? =
         when (this) {
             is SavingGaugeView -> this
-            is ViewGroup -> (0 until childCount).firstNotNullOf { runCatching { getChildAt(it).gauge() }.getOrNull() }
-            else -> error("게이지가 없다")
+            is ViewGroup -> (0 until childCount).firstNotNullOfOrNull { getChildAt(it).gaugeOrNull() }
+            else -> null
         }
 
     private fun render(content: SaveOverlayContent): View = SaveOverlayCard(context).apply { render(content) }.root
@@ -86,7 +87,7 @@ class SaveOverlayCardTest {
     /** 다 끝난 값에 퍼센트를 남겨 두면 아직 진행 중으로 읽힌다. */
     @Test
     fun `발행이 확정되면 퍼센트 대신 체크를 보여 준다`() {
-        val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 1f, done = true))
+        val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 1f, SaveOutcome.SAVED))
 
         val texts = card.allTexts()
         assertTrue("완료 문구가 없다: $texts", context.getString(R.string.save_complete_banner) in texts)
@@ -124,10 +125,21 @@ class SaveOverlayCardTest {
     /** 다 끝났는데 원호가 계속 돌면 아직 일하는 중으로 읽힌다. */
     @Test
     fun `발행이 확정되면 링이 꽉 차고 역회전이 멈춘다`() {
-        val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 0.4f, done = true))
+        val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 0.4f, SaveOutcome.SAVED))
 
         assertEquals(1f, card.gauge().progress)
         assertFalse("완료인데 역회전이 돈다", card.gauge().spinning)
+    }
+
+    /** 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다 (기능명세서 6.1절 [결정]). */
+    @Test
+    fun `실패하면 링을 채우지 않고 멈추기만 한다`() {
+        val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 0.87f, SaveOutcome.FAILED))
+
+        assertEquals(0.87f, card.gauge().progress)
+        assertFalse("실패인데 역회전이 돈다", card.gauge().spinning)
+        assertTrue("완료 문구가 떴다", context.getString(R.string.save_complete_banner) !in card.allTexts())
+        assertTrue("실패 문구가 없다", context.getString(R.string.save_failed_overlay) in card.allTexts())
     }
 
     /**
@@ -140,11 +152,13 @@ class SaveOverlayCardTest {
 
         gauge.measure(UNSPECIFIED, UNSPECIFIED)
 
-        val expected = context.dpToPx(SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE)
+        val glowDiameterDp = SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE
+        val expected = context.dpToPx(glowDiameterDp)
         assertEquals(expected, gauge.measuredWidth)
     }
 
-    private fun saving(progress: Float?) = SaveOverlayContent(ELAPSED, FILE_NAME, progress = progress, done = false)
+    private fun saving(progress: Float?) =
+        SaveOverlayContent(ELAPSED, FILE_NAME, progress = progress, SaveOutcome.IN_PROGRESS)
 
     private companion object {
         const val ELAPSED = "03:42"

@@ -10,6 +10,7 @@ import android.view.WindowManager
 import android.widget.TextView
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingId
+import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
@@ -74,6 +75,7 @@ class SaveOverlayTest {
     private class FakeOverlay : SaveOverlay {
         val saving = mutableListOf<Triple<String, String, Float?>>()
         val saved = mutableListOf<String>()
+        val failed = mutableListOf<String>()
         var dismissCount = 0
         var endCount = 0
 
@@ -91,6 +93,10 @@ class SaveOverlayTest {
 
         override fun dismiss() {
             dismissCount++
+        }
+
+        override fun showFailed(fileName: String) {
+            failed += fileName
         }
 
         override fun endSaving() {
@@ -158,6 +164,75 @@ class SaveOverlayTest {
 
             assertEquals(1, overlay.endCount)
         }
+
+    /**
+     * 성공을 화면에 알리기로 한 근거가 실패에는 더 세게 적용된다 — 저장된 줄 알고 넘어가는
+     * 쪽이 저장 안 된 것을 모르고 넘어가는 쪽보다 나쁘다 (기능명세서 6.1절 [결정]).
+     */
+    @Test
+    fun `발행이 실패하면 화면에도 알린다`() =
+        runTest {
+            val overlay = FakeOverlay()
+
+            presenter(overlay).observeEvents(flowOf(RecordingSessionEvent.SaveFailed))
+
+            assertEquals(listOf(""), overlay.failed.map { "" })
+        }
+
+    /** 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다. */
+    @Test
+    fun `실패 표시는 링을 채우지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
+        settle()
+
+        overlay.showFailed(FILE_NAME)
+        settle()
+
+        val texts = windowShadow.views.single().allTexts()
+        assertTrue("실패 문구가 없다: $texts", context.getString(R.string.save_failed_overlay) in texts)
+        assertTrue("완료 문구가 떴다: $texts", context.getString(R.string.save_complete_banner) !in texts)
+    }
+
+    /** 실패도 결말이다 — 뒤이어 오는 유휴가 표시를 즉시 지워서는 안 된다. */
+    @Test
+    fun `실패를 보여 준 뒤에도 유휴가 표시를 지우지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showFailed(FILE_NAME)
+        settle()
+
+        overlay.endSaving()
+        settle()
+
+        assertEquals(1, windowShadow.views.size)
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS + MARGIN_MILLIS)
+        assertEquals("스스로 접히지 않았다", 0, windowShadow.views.size)
+    }
+
+    /**
+     * 유휴가 완료보다 먼저 도착할 수 있다 — 상태 흐름과 완료 흐름은 별개 수집기다.
+     * 그때는 완료가 창을 다시 붙이고 제 수명을 살아야 한다.
+     */
+    @Test
+    fun `유휴가 완료보다 먼저 와도 완료 표시가 제 수명을 산다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.9f)
+        settle()
+
+        overlay.endSaving()
+        settle()
+        assertEquals("발행 중 표시가 남았다", 0, windowShadow.views.size)
+
+        overlay.showSaved(FILE_NAME)
+        settle()
+        assertEquals("완료가 다시 붙지 않았다", 1, windowShadow.views.size)
+
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS + MARGIN_MILLIS)
+        assertEquals(0, windowShadow.views.size)
+    }
 
     /** 성공했을 때는 완료 표시가 제 수명을 살아야 한다 — 유휴는 완료 직후에 온다. */
     @Test

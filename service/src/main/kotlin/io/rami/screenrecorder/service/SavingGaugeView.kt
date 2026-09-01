@@ -89,7 +89,7 @@ internal class SavingGaugeView(
         widthMeasureSpec: Int,
         heightMeasureSpec: Int,
     ) {
-        val size = (SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE * density).toInt()
+        val size = context.dpToPx(SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE)
         setMeasuredDimension(
             resolveSize(size, widthMeasureSpec),
             resolveSize(size, heightMeasureSpec),
@@ -158,10 +158,16 @@ internal class SavingGaugeView(
         postInvalidateOnAnimation()
     }
 
-    /** 지금 그려야 할 진행 비율. 목표로 [SavingGaugeSpec.SWEEP_TWEEN_MILLIS] 동안 옮겨 간다. */
-    internal fun currentSweep(): Float {
+    /**
+     * 지금 그려야 할 진행 비율. 목표로 [SavingGaugeSpec.SWEEP_TWEEN_MILLIS] 동안 옮겨 간다.
+     *
+     * 경과가 음수일 수 있다. setter 는 잠기지 않은 시계(uptime)를, [onDraw] 는 그 프레임의
+     * vsync 시각을 읽는데, setter 가 도는 사이 vsync 가 이미 발신됐으면 프레임 시각이 더
+     * 이르다. 클램프하지 않으면 원호가 한 프레임 뒤로 간다.
+     */
+    private fun currentSweep(): Float {
         val target = progress?.coerceIn(0f, 1f) ?: 0f
-        val since = AnimationUtils.currentAnimationTimeMillis() - sweepChangedAtMillis
+        val since = (AnimationUtils.currentAnimationTimeMillis() - sweepChangedAtMillis).coerceAtLeast(0)
         if (since >= SavingGaugeSpec.SWEEP_TWEEN_MILLIS) return target
         val fraction = since.toFloat() / SavingGaugeSpec.SWEEP_TWEEN_MILLIS
         return sweepFrom + (target - sweepFrom) * fraction

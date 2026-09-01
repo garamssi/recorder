@@ -18,14 +18,26 @@ import android.widget.TextView
  * @param fileName 무엇이 저장되는지 못 박는다.
  * @param progress 0f..1f 발행 진행률. 아직 모르면 null — 발행은 메타데이터 판독으로 시작하는데
  *   그 구간에는 진행률 신호가 없다.
- * @param done 발행이 확정됐는지. 링이 꽉 차고 중앙이 체크로 바뀐다.
+ * @param outcome 발행 구간의 결말. 진행 중이면 링이 돌고, 확정되면 체크, 실패면 멈춘다.
  */
 internal data class SaveOverlayContent(
     val elapsed: String,
     val fileName: String,
     val progress: Float?,
-    val done: Boolean,
+    val outcome: SaveOutcome,
 )
+
+/** 발행 구간의 결말 (기능명세서 6.1절 [결정]). */
+internal enum class SaveOutcome {
+    /** 아직 진행 중. */
+    IN_PROGRESS,
+
+    /** 발행이 확정됐다 — 링이 꽉 차고 중앙이 체크로 바뀐다. */
+    SAVED,
+
+    /** 발행이 실패했다 — 링을 채우지 않는다. 채우면 저장된 것으로 읽힌다. */
+    FAILED,
+}
 
 /**
  * 저장 오버레이 카드 — 홈의 링 게이지를 플랫폼 뷰로 옮긴 것.
@@ -52,6 +64,7 @@ internal class SaveOverlayCard(
         TextView(context).apply {
             setTextColor(BUBBLE_ACCENT)
             textSize = PERCENT_TEXT_SP
+            tag = PERCENT_TAG
             fontFeatureSettings = "tnum"
             gravity = Gravity.CENTER
         }
@@ -81,22 +94,30 @@ internal class SaveOverlayCard(
 
     /** 카드 내용을 [content] 로 맞춘다. */
     fun render(content: SaveOverlayContent) {
+        val settled = content.outcome != SaveOutcome.IN_PROGRESS
         elapsedText.text = content.elapsed
         fileNameText.text = content.fileName
-        gauge.spinning = !content.done
-        gauge.progress = if (content.done) 1f else content.progress
-        statusLabel.text =
-            context.getString(
-                if (content.done) R.string.save_complete_banner else R.string.floating_saving,
-            )
+        gauge.spinning = !settled
+        // 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다.
+        gauge.progress = if (content.outcome == SaveOutcome.SAVED) 1f else content.progress
+        statusLabel.setText(content.outcome.labelRes())
         // 다 끝난 값에 퍼센트를 남겨 두면 아직 진행 중으로 읽힌다.
-        val percent = content.progress?.takeIf { !content.done }
+        val percent = content.progress?.takeIf { !settled }
         percentText.visibility = if (percent == null) View.GONE else View.VISIBLE
         percent?.let { percentText.text = context.getString(R.string.save_overlay_percent, percentOf(it)) }
-        // 중앙은 체크만 그린다. 길이는 저장 중에 이미 보여 줬다.
-        check.visibility = if (content.done) View.VISIBLE else View.GONE
-        elapsedText.visibility = if (content.done) View.GONE else View.VISIBLE
+        // 중앙은 체크만 그린다. 길이는 저장 중에 이미 보여 줬다. 실패는 길이를 그대로 둔다 —
+        // 무엇이 저장되지 못했는지가 그때 필요한 정보다.
+        val saved = content.outcome == SaveOutcome.SAVED
+        check.visibility = if (saved) View.VISIBLE else View.GONE
+        elapsedText.visibility = if (saved) View.GONE else View.VISIBLE
     }
+
+    private fun SaveOutcome.labelRes(): Int =
+        when (this) {
+            SaveOutcome.IN_PROGRESS -> R.string.floating_saving
+            SaveOutcome.SAVED -> R.string.save_complete_banner
+            SaveOutcome.FAILED -> R.string.save_failed_overlay
+        }
 
     private fun percentOf(progress: Float): Int = (progress.coerceIn(0f, 1f) * PERCENT_SCALE).toInt()
 
@@ -147,9 +168,10 @@ internal class SaveOverlayCard(
         LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            // 맥동을 멈춘 REC 점 — 녹화 중이 아니라 이미 끝난 국면이다. 홈의 저장 중
-            // 상태 줄과 같은 흐린 점이다 (RecordControl.kt 의 animated = false).
-            addView(context.statusDot(active = false))
+            // 맥동을 멈춘 REC 점. 홈의 저장 중 상태 줄과 같은 밝기다 — recRed 를 절반으로
+            // 흐리게 한다 (RecordControl.kt 의 animated = false). active = false 의 회색은
+            // 버블에서 "녹화 중이 아님" 을 뜻하는 다른 신호라 여기에 쓰면 뜻이 어긋난다.
+            addView(context.statusDot(active = true).apply { alpha = DOT_DIM_ALPHA })
             addView(statusLabel, statusLabelParams())
         }
 
@@ -187,5 +209,11 @@ internal class SaveOverlayCard(
         const val GAP_DP = 8f
         const val ROW_GAP_DP = 12f
         const val PERCENT_SCALE = 100
+
+        /** 홈의 `DISABLED_ALPHA` 와 같은 값. */
+        const val DOT_DIM_ALPHA = 0.5f
     }
 }
+
+/** 테스트가 퍼센트 뷰를 확정적으로 찾도록 붙이는 표식. */
+internal const val PERCENT_TAG = "save_overlay_percent"

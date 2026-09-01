@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
 import io.rami.screenrecorder.core.common.time.DurationFormatter
-import io.rami.screenrecorder.core.designsystem.component.KINETIC_FADE_MILLIS
 import io.rami.screenrecorder.core.designsystem.theme.tabularNumbers
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingState
@@ -164,7 +163,7 @@ private fun SavingGauge(
     // 0.5% 단위로 올라오는 값을 그대로 그리면 원호가 끊겨 보인다.
     val sweepFraction by animateFloatAsState(
         targetValue = (progress ?: 0f).coerceIn(0f, 1f),
-        animationSpec = tween(KINETIC_FADE_MILLIS),
+        animationSpec = tween(SavingGaugeSpec.SWEEP_TWEEN_MILLIS),
         label = "savingSweep",
     )
     val gaugeColor = MaterialTheme.colorScheme.primary
@@ -288,7 +287,7 @@ private fun DrawScope.drawSavingGauge(
 }
 
 // 저장 중 게이지 (DESIGN_GUIDE.md 4절 "저장 중")
-private val SAVE_ARC_WIDTH = 4.dp
+private val SAVE_ARC_WIDTH = SavingGaugeSpec.ARC_WIDTH_DP.dp
 private val SAVE_ELAPSED_SIZE = 40.sp
 
 /** "HH:MM:SS" 여덟 자를 160dp 링 안에 글꼴 배율 여유까지 두고 담는 크기. */

@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.core.designsystem.component.KineticCard
 import io.rami.screenrecorder.core.designsystem.component.PrimaryActionButton
@@ -280,14 +281,14 @@ internal fun CountdownOverlay(
  */
 private val CONTROL_MIN_HEIGHT = 288.dp
 
-internal val RECORD_RING = 160.dp
+internal val RECORD_RING = SavingGaugeSpec.RING_DP.dp
 private val RECORD_BUTTON = 112.dp
-internal val RING_WIDTH = 2.dp
+internal val RING_WIDTH = SavingGaugeSpec.RING_WIDTH_DP.dp
 private val PULSE_DOT = 10.dp
 private val ELAPSED_SIZE = 56.sp
 private val COUNTDOWN_SIZE = 120.sp
-internal const val RING_ALPHA = 0.3f
+internal const val RING_ALPHA = SavingGaugeSpec.RING_ALPHA
 private const val DISABLED_ALPHA = 0.5f
 private const val PULSE_MIN_ALPHA = 0.25f
-internal const val PULSE_MILLIS = 900
+internal const val PULSE_MILLIS = SavingGaugeSpec.PULSE_MILLIS
 private const val COUNTDOWN_DIM_ALPHA = 0.72f

@@ -39,11 +39,14 @@ interface SaveOverlay {
      */
     fun showSaved(fileName: String)
 
+    /** 발행이 실패했음을 보여 주고 잠시 뒤 스스로 접힌다 (기능명세서 6.1절 [결정]). */
+    fun showFailed(fileName: String)
+
     /**
-     * 발행 구간이 끝났다. 완료를 보여 주지 못한 채 끝났으면 내린다.
+     * 발행 구간이 끝났다. 결말을 보여 주지 못한 채 끝났으면 내린다.
      *
-     * 발행 실패와 빈 세션도 유휴로 똑같이 끝난다. 그때 내리지 않으면 저장 중 표시가 화면에
-     * 영구히 남는다. 완료를 이미 보여 줬다면 그쪽 수명(3초)을 건드리지 않는다.
+     * 빈 세션은 결말 없이 유휴로 끝난다. 그때 내리지 않으면 저장 중 표시가 화면에 영구히
+     * 남는다. 결말(완료·실패)을 이미 보여 줬다면 그쪽 수명(3초)을 건드리지 않는다.
      */
     fun endSaving()
 
@@ -72,25 +75,35 @@ internal class SaveOverlayWindow(
     private var pendingRemoval: Runnable? = null
 
     /**
-     * 완료를 이미 보여 줬는지.
+     * 결말(완료·실패)을 이미 보여 줬는지.
      *
-     * 상태 흐름과 완료 흐름은 서로 다른 수집기에서 돈다. 마지막 진행률 갱신이 완료보다 늦게
-     * 도착할 수 있는데, 그것을 그리면 완료 표시가 "저장 중 100%" 로 되돌아가고 제거 예약까지
+     * 상태 흐름과 결말 흐름은 서로 다른 수집기에서 돈다. 마지막 진행률 갱신이 결말보다 늦게
+     * 도착할 수 있는데, 그것을 그리면 표시가 "저장 중 100%" 로 되돌아가고 제거 예약까지
      * 거둬 가 카드가 그대로 굳는다.
      */
-    private var completed = false
+    private var outcomeShown = false
 
     override fun showSaving(
         elapsed: String,
         fileName: String,
         progress: Float?,
     ) {
-        render(SaveOverlayContent(elapsed, fileName, progress, done = false))
+        render(SaveOverlayContent(elapsed, fileName, progress, SaveOutcome.IN_PROGRESS))
     }
 
     override fun showSaved(fileName: String) {
-        render(SaveOverlayContent(elapsed = "", fileName = fileName, progress = 1f, done = true)) {
-            completed = true
+        showOutcome(SaveOverlayContent(elapsed = "", fileName = fileName, progress = 1f, SaveOutcome.SAVED))
+    }
+
+    override fun showFailed(fileName: String) {
+        // 진행률은 그때까지의 값을 그대로 둔다 — 채우면 저장된 것으로 읽힌다.
+        showOutcome(SaveOverlayContent(elapsed = "", fileName = fileName, progress = null, SaveOutcome.FAILED))
+    }
+
+    /** 결말을 그리고 스스로 접히도록 예약한다. */
+    private fun showOutcome(content: SaveOverlayContent) {
+        render(content) {
+            outcomeShown = true
             val removal = Runnable { removeExisting() }
             pendingRemoval = removal
             mainHandler.postDelayed(removal, SAVE_OVERLAY_DISPLAY_MILLIS)
@@ -100,7 +113,7 @@ internal class SaveOverlayWindow(
     override fun endSaving() {
         mainHandler.post {
             // 완료를 이미 보여 줬다면 그쪽 3초 수명이 접기를 맡는다.
-            if (!completed) removeExisting()
+            if (!outcomeShown) removeExisting()
         }
     }
 
@@ -121,7 +134,7 @@ internal class SaveOverlayWindow(
         mainHandler.post {
             // 완료 판정은 메인 스레드 안에서 한다. 상태 흐름과 완료 흐름은 서로 다른 수집기에서
             // 돌아, 호출 스레드에서 보면 늦은 진행률 갱신이 완료를 덮는 창이 남는다.
-            if (completed && !content.done) return@post
+            if (outcomeShown && content.outcome == SaveOutcome.IN_PROGRESS) return@post
             // 앞 발행의 완료 예약이 남아 있으면 거둔다. 그대로 두면 새 표시를 지운다.
             pendingRemoval?.let(mainHandler::removeCallbacks)
             pendingRemoval = null
@@ -134,14 +147,14 @@ internal class SaveOverlayWindow(
             // 카드가 없을 때만 권한을 확인한다. 진행률은 발행 내내 수백 번 갱신되는데 그때마다
             // 시스템 서버로 바인더 호출을 보낼 이유가 없다.
             if (!Settings.canDrawOverlays(context)) {
-                if (content.done) fallBackToToast(content.fileName)
+                if (content.outcome == SaveOutcome.SAVED) fallBackToToast(content.fileName)
                 return@post
             }
             val fresh = SaveOverlayCard(context)
             fresh.render(content)
             // 권한 검사와 실제 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다.
             if (!windows.attach(fresh.root, saveOverlayLayoutParams(context.dpToPx(TOP_OFFSET_DP)))) {
-                if (content.done) fallBackToToast(content.fileName)
+                if (content.outcome == SaveOutcome.SAVED) fallBackToToast(content.fileName)
                 return@post
             }
             card = fresh
@@ -160,7 +173,7 @@ internal class SaveOverlayWindow(
     private fun removeExisting() {
         pendingRemoval?.let(mainHandler::removeCallbacks)
         pendingRemoval = null
-        completed = false
+        outcomeShown = false
         val attached = card ?: return
         card = null
         windows.detach(attached.root)
