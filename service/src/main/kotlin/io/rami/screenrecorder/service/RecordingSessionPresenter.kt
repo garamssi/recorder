@@ -25,6 +25,7 @@ internal class RecordingSessionPresenter(
     private val context: Context,
     private val notifications: RecordingNotifications,
     private val countdownOverlay: CountdownOverlayWindow,
+    private val saveCompleteBanner: SaveCompleteBanner,
     private val onIdle: () -> Unit,
     private val onSkipCountdown: () -> Unit,
 ) {

@@ -71,12 +71,16 @@ class RecordingForegroundService : Service() {
 
     private val countdownOverlay by lazy { CountdownOverlayWindow(this) }
 
+    // 창의 수명은 이 서비스보다 길다 — 발행이 끝나면 서비스는 곧 접히지만 배너는 남아야 한다.
+    private val saveCompleteBanner by lazy { SaveCompleteOverlayWindow(applicationContext) }
+
     /** 무엇을 보여 줄지는 여기가 정한다. 서비스는 수명과 인텐트만 다룬다. */
     private val presenter by lazy {
         RecordingSessionPresenter(
             context = this,
             notifications = notifications,
             countdownOverlay = countdownOverlay,
+            saveCompleteBanner = saveCompleteBanner,
             onIdle = ::stopSelf,
             onSkipCountdown = skipCountdown::invoke,
         )
