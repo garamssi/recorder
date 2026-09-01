@@ -28,6 +28,7 @@
     <string name="save_failed_overlay">Not saved</string>
     <string name="save_overlay_percent">%1$d%%</string>
     <string name="save_complete_toast">Recording saved · %1$s</string>
+    <string name="save_failed_toast">Recording not saved · %1$s</string>
     <string name="capture_busy_title">Can’t start right now</string>
     <string name="capture_busy_recording">Another capture is already running.</string>
     <string name="screenshot_notification_capturing">Capturing screen…</string>

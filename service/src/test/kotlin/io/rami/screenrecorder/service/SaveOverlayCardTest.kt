@@ -131,7 +131,11 @@ class SaveOverlayCardTest {
         assertFalse("완료인데 역회전이 돈다", card.gauge().spinning)
     }
 
-    /** 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다 (기능명세서 6.1절 [결정]). */
+    /**
+     * 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다 (기능명세서 6.1절 [결정]).
+     *
+     * 입력은 실제 경로와 같다 — 창이 저장 중이던 내용을 그대로 물려주므로 진행률이 실려 온다.
+     */
     @Test
     fun `실패하면 링을 채우지 않고 멈추기만 한다`() {
         val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 0.87f, SaveOutcome.FAILED))

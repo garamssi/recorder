@@ -17,6 +17,7 @@ import io.rami.screenrecorder.domain.model.VideoCodec
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -75,7 +76,7 @@ class SaveOverlayTest {
     private class FakeOverlay : SaveOverlay {
         val saving = mutableListOf<Triple<String, String, Float?>>()
         val saved = mutableListOf<String>()
-        val failed = mutableListOf<String>()
+        var failedCount = 0
         var dismissCount = 0
         var endCount = 0
 
@@ -95,8 +96,8 @@ class SaveOverlayTest {
             dismissCount++
         }
 
-        override fun showFailed(fileName: String) {
-            failed += fileName
+        override fun showFailed() {
+            failedCount++
         }
 
         override fun endSaving() {
@@ -107,6 +108,15 @@ class SaveOverlayTest {
     private fun settle() = shadowOf(Looper.getMainLooper()).idle()
 
     private fun advanceMillis(millis: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(millis))
+
+    private fun View.gauge(): SavingGaugeView = checkNotNull(gaugeOrNull()) { "게이지가 없다" }
+
+    private fun View.gaugeOrNull(): SavingGaugeView? =
+        when (this) {
+            is SavingGaugeView -> this
+            is ViewGroup -> (0 until childCount).firstNotNullOfOrNull { getChildAt(it).gaugeOrNull() }
+            else -> null
+        }
 
     private fun View.allTexts(): List<String> =
         when (this) {
@@ -176,23 +186,46 @@ class SaveOverlayTest {
 
             presenter(overlay).observeEvents(flowOf(RecordingSessionEvent.SaveFailed))
 
-            assertEquals(listOf(""), overlay.failed.map { "" })
+            assertEquals(1, overlay.failedCount)
         }
 
-    /** 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다. */
+    /**
+     * 실패 카드는 그때까지 그리던 것을 그대로 물려받는다 — 무엇이, 어디까지 가다 실패했는지가
+     * 그때 필요한 정보다. 링을 채우지는 않는다(채우면 저장된 것으로 읽힌다).
+     */
     @Test
-    fun `실패 표시는 링을 채우지 않는다`() {
+    fun `실패 표시는 저장 중이던 값을 그대로 물려받는다`() {
         ShadowSettings.setCanDrawOverlays(true)
         val overlay = SaveOverlayWindow(context)
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
         settle()
 
-        overlay.showFailed(FILE_NAME)
+        overlay.showFailed()
         settle()
 
-        val texts = windowShadow.views.single().allTexts()
+        val card = windowShadow.views.single()
+        val texts = card.allTexts()
         assertTrue("실패 문구가 없다: $texts", context.getString(R.string.save_failed_overlay) in texts)
         assertTrue("완료 문구가 떴다: $texts", context.getString(R.string.save_complete_banner) !in texts)
+        assertTrue("파일명이 사라졌다: $texts", FILE_NAME in texts)
+        assertTrue("길이가 사라졌다: $texts", ELAPSED in texts)
+        assertEquals("진행률이 지워졌다", 0.87f, card.gauge().progress)
+        assertFalse("실패인데 역회전이 돈다", card.gauge().spinning)
+    }
+
+    /** 권한이 없으면 화면에 그릴 수단이 토스트뿐이다. 실패야말로 알려야 한다. */
+    @Test
+    fun `권한이 없으면 실패도 토스트로 알린다`() {
+        ShadowSettings.setCanDrawOverlays(false)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
+        settle()
+
+        overlay.showFailed()
+        settle()
+
+        val toast = ShadowToast.getTextOfLatestToast()
+        assertTrue("실패를 알리지 않았다: $toast", toast != null && FILE_NAME in toast)
     }
 
     /** 실패도 결말이다 — 뒤이어 오는 유휴가 표시를 즉시 지워서는 안 된다. */
@@ -200,7 +233,9 @@ class SaveOverlayTest {
     fun `실패를 보여 준 뒤에도 유휴가 표시를 지우지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
         val overlay = SaveOverlayWindow(context)
-        overlay.showFailed(FILE_NAME)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
+        settle()
+        overlay.showFailed()
         settle()
 
         overlay.endSaving()
@@ -257,6 +292,18 @@ class SaveOverlayTest {
         assertEquals(1, windowShadow.views.size)
 
         overlay.endSaving()
+        settle()
+
+        assertEquals(0, windowShadow.views.size)
+    }
+
+    /** 발행 중 표시가 없었다면 물려받을 것이 없다. 알림이 이미 사실을 전달했다. */
+    @Test
+    fun `저장 중을 그린 적 없으면 실패 표시도 띄우지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+
+        overlay.showFailed()
         settle()
 
         assertEquals(0, windowShadow.views.size)

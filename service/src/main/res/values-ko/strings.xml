@@ -28,6 +28,7 @@
     <string name="save_failed_overlay">저장하지 못했습니다</string>
     <string name="save_overlay_percent">%1$d%%</string>
     <string name="save_complete_toast">녹화를 저장했습니다 · %1$s</string>
+    <string name="save_failed_toast">녹화를 저장하지 못했습니다 · %1$s</string>
     <string name="capture_busy_title">지금은 시작할 수 없습니다</string>
     <string name="capture_busy_recording">다른 캡처가 이미 진행 중입니다.</string>
     <string name="screenshot_notification_capturing">화면을 캡처하는 중…</string>

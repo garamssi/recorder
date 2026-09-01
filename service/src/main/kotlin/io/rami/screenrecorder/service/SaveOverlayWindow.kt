@@ -39,8 +39,15 @@ interface SaveOverlay {
      */
     fun showSaved(fileName: String)
 
-    /** 발행이 실패했음을 보여 주고 잠시 뒤 스스로 접힌다 (기능명세서 6.1절 [결정]). */
-    fun showFailed(fileName: String)
+    /**
+     * 발행이 실패했음을 보여 주고 잠시 뒤 스스로 접힌다 (기능명세서 6.1절 [결정]).
+     *
+     * 인자를 받지 않는다. 무엇이 어디까지 가다 실패했는지는 직전까지 그리던 내용이 이미
+     * 알고 있다 — 실패 이벤트에는 그 정보가 없어 부르는 쪽이 다른 코루틴의 상태를 훔쳐보게
+     * 된다. 발행 중 표시가 없었다면 물려받을 것이 없어 아무것도 하지 않는다(알림이 이미
+     * 사실을 전달했다).
+     */
+    fun showFailed()
 
     /**
      * 발행 구간이 끝났다. 결말을 보여 주지 못한 채 끝났으면 내린다.
@@ -75,6 +82,13 @@ internal class SaveOverlayWindow(
     private var pendingRemoval: Runnable? = null
 
     /**
+     * 마지막으로 그린 발행 중 내용.
+     *
+     * 실패 표시가 길이·파일명·진행률을 물려받는 출처다. 메인 스레드에서만 읽고 쓴다.
+     */
+    private var lastSaving: SaveOverlayContent? = null
+
+    /**
      * 결말(완료·실패)을 이미 보여 줬는지.
      *
      * 상태 흐름과 결말 흐름은 서로 다른 수집기에서 돈다. 마지막 진행률 갱신이 결말보다 늦게
@@ -95,9 +109,13 @@ internal class SaveOverlayWindow(
         showOutcome(SaveOverlayContent(elapsed = "", fileName = fileName, progress = 1f, SaveOutcome.SAVED))
     }
 
-    override fun showFailed(fileName: String) {
-        // 진행률은 그때까지의 값을 그대로 둔다 — 채우면 저장된 것으로 읽힌다.
-        showOutcome(SaveOverlayContent(elapsed = "", fileName = fileName, progress = null, SaveOutcome.FAILED))
+    override fun showFailed() {
+        mainHandler.post {
+            // 직전까지 그리던 것을 그대로 물려받되 결말만 바꾼다. 진행률은 채우지 않는다 —
+            // 채우면 저장된 것으로 읽힌다.
+            val saving = lastSaving ?: return@post
+            showOutcome(saving.copy(outcome = SaveOutcome.FAILED))
+        }
     }
 
     /** 결말을 그리고 스스로 접히도록 예약한다. */
@@ -118,7 +136,11 @@ internal class SaveOverlayWindow(
     }
 
     override fun dismiss() {
-        mainHandler.post(::removeExisting)
+        mainHandler.post {
+            // 새 세션이다. 지난 발행의 내용을 물려줄 곳이 없다.
+            lastSaving = null
+            removeExisting()
+        }
     }
 
     /**
@@ -138,6 +160,7 @@ internal class SaveOverlayWindow(
             // 앞 발행의 완료 예약이 남아 있으면 거둔다. 그대로 두면 새 표시를 지운다.
             pendingRemoval?.let(mainHandler::removeCallbacks)
             pendingRemoval = null
+            if (content.outcome == SaveOutcome.IN_PROGRESS) lastSaving = content
             val existing = card
             if (existing != null) {
                 existing.render(content)
@@ -147,14 +170,16 @@ internal class SaveOverlayWindow(
             // 카드가 없을 때만 권한을 확인한다. 진행률은 발행 내내 수백 번 갱신되는데 그때마다
             // 시스템 서버로 바인더 호출을 보낼 이유가 없다.
             if (!Settings.canDrawOverlays(context)) {
-                if (content.outcome == SaveOutcome.SAVED) fallBackToToast(content.fileName)
+                // 진행 중에는 대체하지 않는다 — 발행 2~4분 동안 토스트를 반복하면 화면을 가린다.
+                // 결말은 성공이든 실패든 알려야 한다. 특히 실패를 놓치면 저장된 줄 알고 넘어간다.
+                if (content.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(content)
                 return@post
             }
             val fresh = SaveOverlayCard(context)
             fresh.render(content)
             // 권한 검사와 실제 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다.
             if (!windows.attach(fresh.root, saveOverlayLayoutParams(context.dpToPx(TOP_OFFSET_DP)))) {
-                if (content.outcome == SaveOutcome.SAVED) fallBackToToast(content.fileName)
+                if (content.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(content)
                 return@post
             }
             card = fresh
@@ -163,10 +188,15 @@ internal class SaveOverlayWindow(
     }
 
     /** 화면에 그릴 수단이 토스트뿐인 경우 (기능명세서 6.1절 [결정]). */
-    private fun fallBackToToast(fileName: String) {
+    private fun fallBackToToast(content: SaveOverlayContent) {
         mainHandler.post {
-            val text = context.getString(R.string.save_complete_toast, fileName)
-            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+            val template =
+                if (content.outcome == SaveOutcome.FAILED) {
+                    R.string.save_failed_toast
+                } else {
+                    R.string.save_complete_toast
+                }
+            Toast.makeText(context, context.getString(template, content.fileName), Toast.LENGTH_SHORT).show()
         }
     }
 

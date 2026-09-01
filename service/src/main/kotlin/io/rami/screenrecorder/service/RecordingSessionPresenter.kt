@@ -50,9 +50,6 @@ internal class RecordingSessionPresenter(
     /** 마지막으로 띄운 저장 중 문구. 같은 문구를 다시 알리지 않으려고 기억한다. */
     private var lastSavingText: String? = null
 
-    /** 발행 중인 파일 이름. 실패 이벤트에는 이름이 없어 저장 중 상태에서 본 것을 들고 있는다. */
-    private var savingFileName: String? = null
-
     suspend fun observeState(states: Flow<RecordingState>) {
         // 세션 시작 전의 초기 Idle은 종료 신호가 아니다 (병렬 구독 레이스 방지).
         states.dropWhile { it is RecordingState.Idle }.collectLatest { state ->
@@ -93,7 +90,6 @@ internal class RecordingSessionPresenter(
                         }
                     }
                     // 홈 카드는 앱 안에 있을 때만 보인다. 실사용의 표시면은 이쪽이다.
-                    savingFileName = state.fileName
                     saveOverlay.showSaving(
                         DurationFormatter.formatElapsed(state.elapsed),
                         state.fileName,
@@ -104,7 +100,6 @@ internal class RecordingSessionPresenter(
                 is RecordingState.Idle -> {
                     countdownOverlay.dismiss()
                     lastSavingText = null
-                    savingFileName = null
                     // 빈 세션은 결말 없이 여기로 끝난다. 완료를 보여 주지 못했으면 저장 중
                     // 표시가 화면에 영구히 남으므로 여기서 닫는다 (기능명세서 6.1절 [결정]).
                     saveOverlay.endSaving()
@@ -147,7 +142,7 @@ internal class RecordingSessionPresenter(
                     context.showCompletedNotification(context.getString(R.string.recording_notification_save_failed))
                     // 성공을 화면에 알리기로 한 근거가 실패에는 더 세게 적용된다 — 저장된 줄
                     // 알고 넘어가는 쪽이 더 나쁘다 (기능명세서 6.1절 [결정]).
-                    saveOverlay.showFailed(savingFileName.orEmpty())
+                    saveOverlay.showFailed()
                 }
 
                 is RecordingSessionEvent.RegionInvalidatedByRotation ->
