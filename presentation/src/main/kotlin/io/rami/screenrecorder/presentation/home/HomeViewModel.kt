@@ -3,6 +3,8 @@ package io.rami.screenrecorder.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.rami.screenrecorder.domain.model.AutoBitratePolicy
+import io.rami.screenrecorder.domain.model.BitrateOption
 import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.model.PendingRecovery
 import io.rami.screenrecorder.domain.model.RecordableTimeEstimator
@@ -10,16 +12,14 @@ import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingConfig
 import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.RecordingState
+import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.SortOrder
-import io.rami.screenrecorder.domain.model.estimateBitrateBps
 import io.rami.screenrecorder.domain.repository.StorageRepository
 import io.rami.screenrecorder.domain.usecase.CleanUpAbandonedPublishesUseCase
-import io.rami.screenrecorder.domain.usecase.ConsumeCompletedRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.DiscardRecoveryUseCase
 import io.rami.screenrecorder.domain.usecase.GetPendingRecoveriesUseCase
 import io.rami.screenrecorder.domain.usecase.GetRecordingsUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveCompletedRecordingUseCase
-import io.rami.screenrecorder.domain.usecase.ObservePendingCompletedRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveRecordingStateUseCase
 import io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
 import io.rami.screenrecorder.domain.usecase.RecoverRecordingUseCase
@@ -27,12 +27,14 @@ import io.rami.screenrecorder.domain.usecase.RenameRecordingUseCase
 import io.rami.screenrecorder.domain.usecase.SkipCountdownUseCase
 import io.rami.screenrecorder.domain.usecase.UpdateSettingsUseCase
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -64,8 +66,6 @@ class HomeUseCases
         val skipCountdown: SkipCountdownUseCase,
         val getRecordings: GetRecordingsUseCase,
         val observeCompletedRecording: ObserveCompletedRecordingUseCase,
-        val observePendingCompletedRecording: ObservePendingCompletedRecordingUseCase,
-        val consumeCompletedRecording: ConsumeCompletedRecordingUseCase,
         val renameRecording: RenameRecordingUseCase,
         val getPendingRecoveries: GetPendingRecoveriesUseCase,
         val recoverRecording: RecoverRecordingUseCase,
@@ -109,32 +109,31 @@ class HomeViewModel
         /** 복구/삭제가 실패했을 때 한 번 발생하는 이벤트 (스낵바 안내용). */
         val recoveryFailed: Flow<RecoveryFailure> = mutableRecoveryFailed
 
-        private val consumeCompletedRecording = useCases.consumeCompletedRecording
+        private val mutableJustSaved = MutableStateFlow<Recording?>(null)
 
         /**
-         * 아직 보여 주지 못한 저장 완료 녹화본. 없으면 null (기능명세서 2.1절 [결정]).
+         * 방금 저장된 녹화본. 없으면 null (기능명세서 2.1절 [결정]).
          *
-         * 발행이 확정될 때만 채워지는 세션 저장소의 상태를 그대로 읽는다. 세션 상태의
+         * 발행이 확정될 때만 흐르는 [completedRecordings] 를 쓴다. 세션 상태의
          * `Stopping -> Idle` 전이로 판정하면 발행 실패와 빈 세션도 같은 전이를 만들어
          * 저장되지 않은 녹화를 "저장했습니다" 로 알린다.
          *
-         * 시간이 아니라 [onSavedDisplayed] 로 꺼진다 — 홈이 화면에 없는 동안 만료되면
-         * 버블로 녹화를 시작한 사용자는 표시를 영영 보지 못한다.
+         * 표시는 [SAVED_DISPLAY_MILLIS] 뒤 스스로 사라진다 — 사용자가 누를 것을 두면
+         * 저장할 때마다 손이 한 번 더 가고, 누르지 않으면 다음 녹화가 막힌다.
          */
-        val justSaved: StateFlow<Recording?> =
-            useCases
-                .observePendingCompletedRecording()
-                .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-        /**
-         * 홈이 완료 표시를 실제로 보여 줬다 (기능명세서 2.1절 [결정]).
-         *
-         * 화면이 보이는 동안 표시 시간을 채운 뒤에만 부른다. 부르는 쪽이 가시성을 알고
-         * ViewModel 은 모르므로, 소모 시점은 화면이 정한다.
-         */
-        fun onSavedDisplayed() = consumeCompletedRecording()
+        val justSaved: StateFlow<Recording?> = mutableJustSaved.asStateFlow()
 
         init {
+            viewModelScope.launch {
+                // collectLatest 로 둔다 — collect 면 delay 동안 수집기가 스트림을 붙들어
+                // 연달아 저장할 때 두 번째 완료 표시가 밀린다. 새 완료가 오면 이전 표시를
+                // 즉시 대체하는 것이 맞는 동작이기도 하다.
+                completedRecordings.collectLatest { recording ->
+                    mutableJustSaved.value = recording
+                    delay(SAVED_DISPLAY_MILLIS)
+                    mutableJustSaved.value = null
+                }
+            }
             viewModelScope.launch {
                 // 녹화가 진행 중이 아닐 때만 고아 임시 파일을 조회한다.
                 // 서비스가 녹화 중인 채로 Activity가 재생성되면 활성 temp 파일을 고아로 오인하기 때문이다.
@@ -281,9 +280,26 @@ class HomeViewModel
             mutablePendingRecoveries.update { list -> list.filterNot { it.id == id } }
         }
 
+        private fun RecordingConfig.estimateBitrateBps(): Int =
+            when (val option = bitrate) {
+                is BitrateOption.Fixed -> option.megabitsPerSecond * BPS_PER_MBPS
+                is BitrateOption.Auto ->
+                    // 추정 용도이므로 기기 최대 해상도는 FHD로 근사한다 (표시 문구 "약 N시간").
+                    AutoBitratePolicy.bitrateBpsFor(resolution.resolve(Resolution.FHD), frameRate)
+            }
+
         private companion object {
+            /**
+             * 저장 완료 표시를 붙드는 시간.
+             *
+             * 눈에 남을 만큼 길고, 다음 녹화를 막지 않을 만큼 짧다. 완료 안내 자체는
+             * 스낵바가 이어받는다 (기능명세서 6.2절).
+             */
+            const val SAVED_DISPLAY_MILLIS = 900L
+
             const val RECENT_RECORDING_COUNT = 3
             const val STOP_SHARING_TIMEOUT_MS = 5_000L
+            const val BPS_PER_MBPS = 1_000_000
             const val LOG_TAG = "HomeViewModel"
         }
     }

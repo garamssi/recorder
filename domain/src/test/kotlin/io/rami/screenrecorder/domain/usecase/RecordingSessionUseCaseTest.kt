@@ -4,21 +4,12 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
-import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingConfig
-import io.rami.screenrecorder.domain.model.RecordingId
 import io.rami.screenrecorder.domain.model.RecordingState
-import io.rami.screenrecorder.domain.model.Resolution
-import io.rami.screenrecorder.domain.model.VideoCodec
-import io.rami.screenrecorder.domain.repository.CompletedRecordingAnnouncer
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.seconds
@@ -26,7 +17,6 @@ import kotlin.time.Duration.Companion.seconds
 class RecordingSessionUseCaseTest {
     private val sessionRepository = mockk<RecordingSessionRepository>(relaxed = true)
     private val storageRepository = mockk<StorageRepository>()
-    private val announcer = mockk<CompletedRecordingAnnouncer>(relaxed = true)
 
     private fun givenState(state: RecordingState) {
         every { sessionRepository.state } returns flowOf(state)
@@ -189,40 +179,4 @@ class RecordingSessionUseCaseTest {
 
             assertTrue(result.isFailure)
         }
-
-    // --- 완료 표시 (기능명세서 2.1절 [결정]) ---
-
-    @Test
-    fun `보여 주지 못한 완료 녹화본을 그대로 흘려 준다`() =
-        runTest {
-            every { announcer.pendingCompletedRecording } returns MutableStateFlow(SAVED)
-
-            val pending = ObservePendingCompletedRecordingUseCase(announcer)().first()
-
-            assertEquals(SAVED, pending)
-        }
-
-    @Test
-    fun `소모를 요청하면 공지 보관소에 그대로 넘긴다`() =
-        runTest {
-            ConsumeCompletedRecordingUseCase(announcer)()
-
-            verify(exactly = 1) { announcer.consumeCompletedRecording() }
-        }
-
-    private companion object {
-        val SAVED =
-            Recording(
-                id = RecordingId(11L),
-                displayName = "Rec_20260901_120000.mp4",
-                contentUri = "content://media/external/video/media/11",
-                sizeBytes = 4_096L,
-                duration = 30.seconds,
-                resolution = Resolution.FHD,
-                frameRate = 60,
-                codec = VideoCodec.H264,
-                createdAtEpochMillis = 1_788_800_000_000L,
-                bitrateBps = 15_000_000,
-            )
-    }
 }

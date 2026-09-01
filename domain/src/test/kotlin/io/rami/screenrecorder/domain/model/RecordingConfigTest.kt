@@ -96,42 +96,4 @@ class RecordingConfigTest {
         assertEquals(0, resolved.height % 2)
         assertEquals(720, resolved.height)
     }
-
-    // --- 비트레이트 추정 (기능명세서 2.1절 "약 N시간" 표시) ---
-
-    @Test
-    fun `고정 비트레이트는 Mbps 를 그대로 bps 로 옮긴다`() {
-        val config = RecordingConfig.DEFAULT.copy(bitrate = BitrateOption.Fixed(megabitsPerSecond = 12))
-
-        assertEquals(12_000_000, config.estimateBitrateBps())
-    }
-
-    @Test
-    fun `자동 비트레이트는 해상도와 프레임레이트에서 계산한다`() {
-        val config =
-            RecordingConfig.DEFAULT.copy(
-                bitrate = BitrateOption.Auto,
-                resolution = ResolutionOption.Fixed(Resolution.HD),
-                frameRate = FrameRate.FPS_60,
-            )
-
-        assertEquals(AutoBitratePolicy.bitrateBpsFor(Resolution.HD, FrameRate.FPS_60), config.estimateBitrateBps())
-    }
-
-    @Test
-    fun `기기 최대 해상도는 넘겨받은 근사값으로 푼다`() {
-        val config =
-            RecordingConfig.DEFAULT.copy(
-                bitrate = BitrateOption.Auto,
-                resolution = ResolutionOption.DeviceMax,
-                frameRate = FrameRate.FPS_30,
-            )
-
-        val approximate = Resolution(2560, 1600)
-
-        assertEquals(
-            AutoBitratePolicy.bitrateBpsFor(approximate, FrameRate.FPS_30),
-            config.estimateBitrateBps(approximateDeviceMax = approximate),
-        )
-    }
 }

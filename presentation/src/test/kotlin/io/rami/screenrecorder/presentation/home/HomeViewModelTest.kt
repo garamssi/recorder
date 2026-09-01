@@ -11,7 +11,6 @@ import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.TrashItem
 import io.rami.screenrecorder.domain.model.VideoCodec
-import io.rami.screenrecorder.domain.repository.CompletedRecordingAnnouncer
 import io.rami.screenrecorder.domain.repository.MediaLibraryRepository
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.SettingsRepository
@@ -27,7 +26,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -85,21 +83,7 @@ class HomeViewModelTest {
         override suspend fun resume() = Unit
     }
 
-    /** 홈이 보여 줄 때까지 남는 완료 공지 (기능명세서 2.1절 [결정]). */
-    private class FakeCompletionAnnouncer : CompletedRecordingAnnouncer {
-        val pending = MutableStateFlow<Recording?>(null)
-        var consumeCount = 0
-
-        override val pendingCompletedRecording: StateFlow<Recording?> = pending
-
-        override fun consumeCompletedRecording() {
-            consumeCount++
-            pending.value = null
-        }
-    }
-
     private val sessionRepository = FakeSessionRepository(stateFlow)
-    private val completionAnnouncer = FakeCompletionAnnouncer()
 
     private val libraryRepository =
         object : MediaLibraryRepository {
@@ -184,12 +168,6 @@ class HomeViewModelTest {
                     observeCompletedRecording =
                         io.rami.screenrecorder.domain.usecase
                             .ObserveCompletedRecordingUseCase(sessionRepository),
-                    observePendingCompletedRecording =
-                        io.rami.screenrecorder.domain.usecase
-                            .ObservePendingCompletedRecordingUseCase(completionAnnouncer),
-                    consumeCompletedRecording =
-                        io.rami.screenrecorder.domain.usecase
-                            .ConsumeCompletedRecordingUseCase(completionAnnouncer),
                     renameRecording =
                         io.rami.screenrecorder.domain.usecase
                             .RenameRecordingUseCase(libraryRepository),
@@ -499,8 +477,8 @@ class HomeViewModelTest {
     /**
      * 저장 완료 표시 (기능명세서 2.1절 [결정]).
      *
-     * 발행이 확정될 때만 켜지고, 홈이 실제로 보여 준 뒤에 소모한다. 시간만으로 꺼 버리면
-     * 버블로 녹화를 시작해 다른 앱에 있던 사용자는 표시를 영영 보지 못한다.
+     * 발행이 확정될 때만 켜지고, 사용자가 누를 것 없이 스스로 꺼진다. 확인 버튼을 두면
+     * 저장할 때마다 손이 한 번 더 가고, 누르지 않으면 다음 녹화가 막힌다.
      */
     @Test
     fun `발행이 확정되면 저장 완료 표시를 켠다`() =
@@ -508,39 +486,24 @@ class HomeViewModelTest {
             val viewModel = viewModel()
             advanceUntilIdle()
 
-            completionAnnouncer.pending.value = SAVED
+            sessionRepository.completed.emit(SAVED)
             runCurrent()
 
             assertEquals(SAVED, viewModel.justSaved.value)
         }
 
     @Test
-    fun `보여 주기 전에는 시간이 지나도 완료 표시가 꺼지지 않는다`() =
+    fun `저장 완료 표시는 누르지 않아도 스스로 꺼진다`() =
         runTest {
             val viewModel = viewModel()
             advanceUntilIdle()
-            completionAnnouncer.pending.value = SAVED
+            sessionRepository.completed.emit(SAVED)
             runCurrent()
-            // 켜진 것을 먼저 확인해야 "안 꺼졌다"와 "애초에 켜지지 않았다"가 구분된다.
+            // 켜진 것을 먼저 확인해야 "꺼졌다"와 "애초에 켜지지 않았다"가 구분된다.
             assertEquals(SAVED, viewModel.justSaved.value)
 
             advanceUntilIdle()
 
-            assertEquals(SAVED, viewModel.justSaved.value)
-        }
-
-    @Test
-    fun `홈이 보여 줬다고 알리면 완료 표시를 소모한다`() =
-        runTest {
-            val viewModel = viewModel()
-            advanceUntilIdle()
-            completionAnnouncer.pending.value = SAVED
-            runCurrent()
-
-            viewModel.onSavedDisplayed()
-            advanceUntilIdle()
-
-            assertEquals(1, completionAnnouncer.consumeCount)
             assertNull(viewModel.justSaved.value)
         }
 

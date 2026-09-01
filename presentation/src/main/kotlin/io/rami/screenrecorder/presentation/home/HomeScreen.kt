@@ -27,29 +27,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import io.rami.screenrecorder.core.designsystem.component.KineticSnackbarHost
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.presentation.R
 import io.rami.screenrecorder.presentation.library.RenameDialog
-import kotlinx.coroutines.delay
 
 /** 화면 좌우 여백 (DESIGN_GUIDE.md 3절: 태블릿 그립 영역 확보). */
 internal val ScreenPadding = 32.dp
 
 /** 본문 최대 폭 — 넓은 태블릿에서 줄 길이가 지나치게 길어지지 않게 한다. */
 internal val ContentMaxWidth = 1100.dp
-
-/**
- * 저장 완료 표시를 붙드는 시간 (DESIGN_GUIDE.md 4절 "저장 완료").
- *
- * 홈이 화면에 보이기 시작한 뒤부터 센다. 눈이 닿는 시점부터 세므로 체크로 바뀌는 전환을
- * 알아볼 여유를 주되, 다음 녹화를 막지 않을 만큼 짧게 둔다.
- */
-private const val SAVED_DISPLAY_MILLIS = 2_000L
 
 /** 홈(녹화) 화면 (기능명세서 2절, DESIGN_GUIDE.md 5절). */
 @Composable
@@ -66,7 +54,6 @@ fun HomeScreen(
 
     ObserveSavedRecordings(viewModel, snackbarHost) { renameTarget = it }
     ObserveRecoveryFailures(viewModel, snackbarHost)
-    DismissSavedWhenSeen(justSaved, viewModel::onSavedDisplayed)
 
     Box(modifier = Modifier.fillMaxSize()) {
         HomeContent(
@@ -142,7 +129,6 @@ private fun HomeContent(
 }
 
 /** 저장 완료 스낵바 + 이름 변경 진입 (기능명세서 6.2절 [결정]). */
-
 @Composable
 private fun ObserveSavedRecordings(
     viewModel: HomeViewModel,
@@ -160,28 +146,6 @@ private fun ObserveSavedRecordings(
                     duration = SnackbarDuration.Long,
                 )
             if (result == SnackbarResult.ActionPerformed) onRenameRequested(completed)
-        }
-    }
-}
-
-/**
- * 완료 표시를 홈이 실제로 보여 준 뒤에 소모한다 (기능명세서 2.1절 [결정]).
- *
- * 화면이 앞에 있는 동안에만 [SAVED_DISPLAY_MILLIS] 를 센다. 백그라운드에서 시간을 흘려보내면
- * 플로팅 버블로 녹화를 시작한 사용자는 돌아왔을 때 이미 접힌 카드를 본다 — 실사용의 주 경로가
- * 바로 그 경로다. 가시성은 화면만 알고 ViewModel 은 모르므로 여기서 센다.
- */
-@Composable
-private fun DismissSavedWhenSeen(
-    justSaved: Recording?,
-    onDisplayed: () -> Unit,
-) {
-    if (justSaved == null) return
-    val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(justSaved, lifecycleOwner) {
-        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            delay(SAVED_DISPLAY_MILLIS)
-            onDisplayed()
         }
     }
 }

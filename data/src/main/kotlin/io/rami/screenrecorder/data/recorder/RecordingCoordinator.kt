@@ -15,7 +15,6 @@ import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.TimeLimit
-import io.rami.screenrecorder.domain.repository.CompletedRecordingAnnouncer
 import io.rami.screenrecorder.domain.repository.RecordingSessionRepository
 import io.rami.screenrecorder.domain.repository.StorageRepository
 import io.rami.screenrecorder.domain.session.MonotonicClock
@@ -59,10 +58,7 @@ class RecordingCoordinator(
     private val scope: CoroutineScope,
     /** 블로킹 어댑터 호출(코덱 정리 대기, 파일 IO)을 위임할 디스패처. */
     private val blockingDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    /** 홈이 볼 때까지 완료 공지를 들고 있는다 (기능명세서 2.1절 [결정]). */
-    private val completion: CompletedRecordingAnnouncement = CompletedRecordingAnnouncement(),
-) : RecordingSessionRepository,
-    CompletedRecordingAnnouncer by completion {
+) : RecordingSessionRepository {
     private val fileStore = dependencies.fileStore
     private val fileNameProvider = dependencies.fileNameProvider
     private val displayInfo = dependencies.displayInfo
@@ -84,8 +80,6 @@ class RecordingCoordinator(
 
     override suspend fun start(config: RecordingConfig) {
         check(activeSession == null) { "이미 진행 중인 세션이 있다" }
-        // 지난 녹화의 완료 표시가 새 녹화를 가리면 안 된다 (기능명세서 2.1절 [결정]).
-        completion.discard()
         val aborted =
             try {
                 countdown.run(config.countdown.seconds) { remaining ->
@@ -304,12 +298,7 @@ class RecordingCoordinator(
                         }
                     }
                 // 프레임이 하나도 인코딩되지 않은 빈 세션은 저장할 내용이 없으므로 완료를 알리지 않는다.
-                recording?.let {
-                    mutableCompleted.emit(it)
-                    // 이벤트는 지금 듣는 곳에만 닿는다. 버블로 녹화를 시작했으면 홈이 없으므로
-                    // 보여 줄 때까지 따로 남긴다 (기능명세서 2.1절 [결정]).
-                    completion.announce(it)
-                }
+                recording?.let { mutableCompleted.emit(it) }
                 // 어떤 실패든 사용자에게는 알려야 하므로 넓게 받는다.
             } catch (
                 @Suppress("TooGenericExceptionCaught") failure: Exception,

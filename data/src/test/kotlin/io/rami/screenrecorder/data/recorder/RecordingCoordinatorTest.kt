@@ -530,50 +530,6 @@ class RecordingCoordinatorTest {
             assertTrue(preparingAt < recordingAt, "준비는 녹화보다 먼저여야 한다: $seen")
         }
 
-    // --- 완료 표시 (기능명세서 2.1절 [결정]) ---
-
-    @Test
-    fun `발행이 확정되면 완료 표시가 남는다`() =
-        runTest {
-            val coordinator = coordinator()
-            coordinator.start(noCountdownConfig)
-            encoder.listener?.onOutputFormatReady(mockk())
-
-            coordinator.stop()
-
-            // 완료 이벤트를 구독한 곳이 없어도 남아야 한다 — 버블로 녹화하면 홈이 없다.
-            assertEquals("Rec_test.mp4", coordinator.pendingCompletedRecording.value?.displayName)
-        }
-
-    @Test
-    fun `홈이 보여 준 뒤 소모하면 완료 표시가 사라진다`() =
-        runTest {
-            val coordinator = coordinator()
-            coordinator.start(noCountdownConfig)
-            encoder.listener?.onOutputFormatReady(mockk())
-            coordinator.stop()
-            assertNotNull(coordinator.pendingCompletedRecording.value)
-
-            coordinator.consumeCompletedRecording()
-
-            assertNull(coordinator.pendingCompletedRecording.value)
-        }
-
-    @Test
-    fun `새 세션이 시작되면 보여 주지 못한 완료 표시를 버린다`() =
-        runTest {
-            val coordinator = coordinator()
-            coordinator.start(noCountdownConfig)
-            encoder.listener?.onOutputFormatReady(mockk())
-            coordinator.stop()
-            assertNotNull(coordinator.pendingCompletedRecording.value)
-
-            coordinator.start(noCountdownConfig)
-
-            // 지난 녹화의 완료가 새 녹화를 가려서는 안 된다.
-            assertNull(coordinator.pendingCompletedRecording.value)
-        }
-
     @Test
     fun `녹화된 내용이 없으면 완료 이벤트 없이 유휴로 돌아간다`() =
         runTest {
