@@ -21,6 +21,9 @@ interface SaveOverlay {
     /**
      * 발행이 진행 중임을 보여 준다. 이미 떠 있으면 값만 갱신한다.
      *
+     * 오버레이 권한이 없어도 토스트로 대체하지 않는다 — 알림이 이미 퍼센트를 알리고 있고,
+     * 발행 2~4분 동안 토스트를 반복해 띄우면 화면을 가린다.
+     *
      * @param progress 0f..1f. 아직 모르면 null.
      */
     fun showSaving(
@@ -29,11 +32,20 @@ interface SaveOverlay {
         progress: Float?,
     )
 
-    /** 발행이 확정됐음을 보여 주고 잠시 뒤 스스로 접힌다. */
-    fun showSaved(
-        elapsed: String,
-        fileName: String,
-    )
+    /**
+     * 발행이 확정됐음을 보여 주고 잠시 뒤 스스로 접힌다.
+     *
+     * 길이는 받지 않는다 — 완료 국면의 중앙은 체크이고, 길이는 저장 중에 이미 보여 줬다.
+     */
+    fun showSaved(fileName: String)
+
+    /**
+     * 발행 구간이 끝났다. 완료를 보여 주지 못한 채 끝났으면 내린다.
+     *
+     * 발행 실패와 빈 세션도 유휴로 똑같이 끝난다. 그때 내리지 않으면 저장 중 표시가 화면에
+     * 영구히 남는다. 완료를 이미 보여 줬다면 그쪽 수명(3초)을 건드리지 않는다.
+     */
+    fun endSaving()
 
     /** 표시를 즉시 내린다. 새 세션이 시작되면 지난 발행이 남아 있어서는 안 된다. */
     fun dismiss()
@@ -73,26 +85,22 @@ internal class SaveOverlayWindow(
         fileName: String,
         progress: Float?,
     ) {
-        // 진행 구간에는 권한이 없어도 대체하지 않는다. 알림이 이미 퍼센트를 알리고 있고,
-        // 발행 2~4분 동안 토스트를 반복해 띄우면 화면을 가린다.
-        if (!Settings.canDrawOverlays(context)) return
-        if (completed) return
         render(SaveOverlayContent(elapsed, fileName, progress, done = false))
     }
 
-    override fun showSaved(
-        elapsed: String,
-        fileName: String,
-    ) {
-        if (!Settings.canDrawOverlays(context)) {
-            fallBackToToast(fileName)
-            return
-        }
-        completed = true
-        render(SaveOverlayContent(elapsed, fileName, progress = 1f, done = true)) {
+    override fun showSaved(fileName: String) {
+        render(SaveOverlayContent(elapsed = "", fileName = fileName, progress = 1f, done = true)) {
+            completed = true
             val removal = Runnable { removeExisting() }
             pendingRemoval = removal
             mainHandler.postDelayed(removal, SAVE_OVERLAY_DISPLAY_MILLIS)
+        }
+    }
+
+    override fun endSaving() {
+        mainHandler.post {
+            // 완료를 이미 보여 줬다면 그쪽 3초 수명이 접기를 맡는다.
+            if (!completed) removeExisting()
         }
     }
 
@@ -111,6 +119,9 @@ internal class SaveOverlayWindow(
         onAttached: () -> Unit = {},
     ) {
         mainHandler.post {
+            // 완료 판정은 메인 스레드 안에서 한다. 상태 흐름과 완료 흐름은 서로 다른 수집기에서
+            // 돌아, 호출 스레드에서 보면 늦은 진행률 갱신이 완료를 덮는 창이 남는다.
+            if (completed && !content.done) return@post
             // 앞 발행의 완료 예약이 남아 있으면 거둔다. 그대로 두면 새 표시를 지운다.
             pendingRemoval?.let(mainHandler::removeCallbacks)
             pendingRemoval = null
@@ -120,11 +131,17 @@ internal class SaveOverlayWindow(
                 onAttached()
                 return@post
             }
+            // 카드가 없을 때만 권한을 확인한다. 진행률은 발행 내내 수백 번 갱신되는데 그때마다
+            // 시스템 서버로 바인더 호출을 보낼 이유가 없다.
+            if (!Settings.canDrawOverlays(context)) {
+                if (content.done) fallBackToToast(content.fileName)
+                return@post
+            }
             val fresh = SaveOverlayCard(context)
             fresh.render(content)
             // 권한 검사와 실제 붙이기는 스레드가 달라 그 사이 권한이 사라질 수 있다.
             if (!windows.attach(fresh.root, saveOverlayLayoutParams(context.dpToPx(TOP_OFFSET_DP)))) {
-                fallBackToToast(content.fileName)
+                if (content.done) fallBackToToast(content.fileName)
                 return@post
             }
             card = fresh

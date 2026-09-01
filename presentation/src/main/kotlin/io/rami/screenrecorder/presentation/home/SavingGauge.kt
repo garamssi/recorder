@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
 import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.core.designsystem.component.KINETIC_FADE_MILLIS
 import io.rami.screenrecorder.core.designsystem.theme.tabularNumbers
@@ -146,13 +147,17 @@ private fun SavingGauge(
     // 진행률이 정체돼도 화면이 죽어 보이지 않게 하는 층이다. remux 는 균일하게 진행되지 않는다.
     val trailRotation by transition.animateFloat(
         initialValue = 0f,
-        targetValue = -FULL_TURN,
-        animationSpec = infiniteRepeatable(tween(SAVE_TRAIL_MILLIS, easing = LinearEasing), RepeatMode.Restart),
+        targetValue = -SavingGaugeSpec.FULL_TURN_DEGREES,
+        animationSpec =
+            infiniteRepeatable(
+                tween(SavingGaugeSpec.TRAIL_MILLIS, easing = LinearEasing),
+                RepeatMode.Restart,
+            ),
         label = "savingTrail",
     )
     val glowAlpha by transition.animateFloat(
-        initialValue = SAVE_GLOW_MIN_ALPHA,
-        targetValue = SAVE_GLOW_MAX_ALPHA,
+        initialValue = SavingGaugeSpec.GLOW_MIN_ALPHA,
+        targetValue = SavingGaugeSpec.GLOW_MAX_ALPHA,
         animationSpec = infiniteRepeatable(tween(PULSE_MILLIS), repeatMode = RepeatMode.Reverse),
         label = "savingGlow",
     )
@@ -226,11 +231,11 @@ private fun rememberGlowBrush(color: Color): Brush {
         Brush.radialGradient(
             colorStops =
                 arrayOf(
-                    GLOW_HOLLOW_STOP to Color.Transparent,
-                    GLOW_PEAK_STOP to color,
+                    SavingGaugeSpec.GLOW_HOLLOW_STOP to Color.Transparent,
+                    SavingGaugeSpec.GLOW_PEAK_STOP to color,
                     1f to Color.Transparent,
                 ),
-            radius = ringRadius * GLOW_RADIUS_SCALE,
+            radius = ringRadius * SavingGaugeSpec.GLOW_RADIUS_SCALE,
         )
     }
 }
@@ -250,7 +255,7 @@ private fun DrawScope.drawSavingGauge(
     // 링 테두리에서 밖으로 번지는 후광. 중심을 비워 두어야 가운데 시간 텍스트의 대비를
     // 깎지 않는다. 노드 경계를 넘어 그려도 Canvas 는 클립하지 않는다.
     // 맥동은 브러시를 다시 만들지 않고 alpha 인자로만 준다.
-    drawCircle(brush = glowBrush, radius = ringRadius * GLOW_RADIUS_SCALE, alpha = frame.glowAlpha)
+    drawCircle(brush = glowBrush, radius = ringRadius * SavingGaugeSpec.GLOW_RADIUS_SCALE, alpha = frame.glowAlpha)
     drawCircle(
         color = color.copy(alpha = RING_ALPHA),
         radius = ringRadius,
@@ -261,9 +266,9 @@ private fun DrawScope.drawSavingGauge(
     val arcSize = Size(size.width - RING_WIDTH.toPx(), size.height - RING_WIDTH.toPx())
     if (frame.spinning) {
         drawArc(
-            color = color.copy(alpha = SAVE_TRAIL_ALPHA),
-            startAngle = TOP_ANGLE + frame.trailRotation,
-            sweepAngle = SAVE_TRAIL_SWEEP,
+            color = color.copy(alpha = SavingGaugeSpec.TRAIL_ALPHA),
+            startAngle = SavingGaugeSpec.TOP_ANGLE_DEGREES + frame.trailRotation,
+            sweepAngle = SavingGaugeSpec.TRAIL_SWEEP_DEGREES,
             useCenter = false,
             topLeft = arcOffset,
             size = arcSize,
@@ -273,8 +278,8 @@ private fun DrawScope.drawSavingGauge(
     if (frame.sweepFraction <= 0f) return
     drawArc(
         color = color,
-        startAngle = TOP_ANGLE,
-        sweepAngle = FULL_TURN * frame.sweepFraction,
+        startAngle = SavingGaugeSpec.TOP_ANGLE_DEGREES,
+        sweepAngle = SavingGaugeSpec.FULL_TURN_DEGREES * frame.sweepFraction,
         useCenter = false,
         topLeft = arcOffset,
         size = arcSize,
@@ -292,24 +297,7 @@ private val SAVE_ELAPSED_SIZE_LONG = 28.sp
 /** "MM:SS" 다섯 자. 이보다 길면 시간 자리가 붙은 것이다. */
 private const val MINUTES_ONLY_CHARS = 5
 private val CAPTION_GAP = 10.dp
-private const val SAVE_TRAIL_ALPHA = 0.25f
-private const val SAVE_TRAIL_SWEEP = 70f
-private const val SAVE_TRAIL_MILLIS = 3000
-private const val SAVE_GLOW_MIN_ALPHA = 0.10f
-private const val SAVE_GLOW_MAX_ALPHA = 0.28f
 
-/** 후광이 링 밖으로 번지도록 링보다 크게 그린다. */
-private const val GLOW_RADIUS_SCALE = 1.35f
-
-/** 이 반경까지는 투명하다 — 링 안쪽을 비워 중앙 텍스트를 살린다. 링은 1/1.35 = 0.74 지점이다. */
-private const val GLOW_HOLLOW_STOP = 0.62f
-
-/** 후광이 가장 진한 지점. 링 테두리 바로 밖이다. */
-private const val GLOW_PEAK_STOP = 0.78f
-
-/** 12시에서 시작해 시계 방향으로 돈다. Canvas 의 0도는 3시 방향이다. */
-private const val TOP_ANGLE = -90f
-private const val FULL_TURN = 360f
 private const val PERCENT = 100
 private val PROGRESS_RANGE = 0f..1f
 

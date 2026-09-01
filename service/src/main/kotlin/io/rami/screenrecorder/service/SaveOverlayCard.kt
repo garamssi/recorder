@@ -101,40 +101,8 @@ internal class SaveOverlayCard(
     private fun percentOf(progress: Float): Int = (progress.coerceIn(0f, 1f) * PERCENT_SCALE).toInt()
 
     private fun buildRoot(): View {
-        val center =
-            LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                addView(elapsedText)
-                addView(percentText)
-                addView(check, context.dpToPx(CHECK_SIZE_DP), context.dpToPx(CHECK_SIZE_DP))
-            }
-        val ring =
-            FrameLayout(context).apply {
-                addView(gauge)
-                addView(
-                    center,
-                    FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        FrameLayout.LayoutParams.WRAP_CONTENT,
-                        Gravity.CENTER,
-                    ),
-                )
-            }
-        val statusRow =
-            LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                // 맥동을 멈춘 REC 점 — 녹화 중이 아니라 이미 끝난 국면이다.
-                addView(context.statusDot(active = true))
-                addView(statusLabel, statusLabelParams())
-            }
-        val statusRowParams =
-            LinearLayout
-                .LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = context.dpToPx(ROW_GAP_DP) }
+        val paddingH = context.dpToPx(PADDING_H_DP)
+        val paddingV = context.dpToPx(PADDING_V_DP)
         return LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -143,14 +111,54 @@ internal class SaveOverlayCard(
                     setColor(OVERLAY_SURFACE)
                     cornerRadius = context.dpToPx(CORNER_DP).toFloat()
                 }
-            val paddingH = context.dpToPx(PADDING_H_DP)
-            val paddingV = context.dpToPx(PADDING_V_DP)
             setPadding(paddingH, paddingV, paddingH, paddingV)
-            addView(ring)
-            addView(statusRow, statusRowParams)
+            addView(buildRing())
+            addView(buildStatusRow(), rowParams())
             addView(fileNameText)
         }
     }
+
+    /** 링 위에 중앙 내용을 얹은 층. */
+    private fun buildRing(): View =
+        FrameLayout(context).apply {
+            addView(gauge)
+            addView(
+                buildCenter(),
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER,
+                ),
+            )
+        }
+
+    /** 링 가운데 — 저장 중에는 길이와 퍼센트, 완료 뒤에는 체크. */
+    private fun buildCenter(): View =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            addView(elapsedText)
+            addView(percentText)
+            addView(check, context.dpToPx(CHECK_SIZE_DP), context.dpToPx(CHECK_SIZE_DP))
+        }
+
+    /** REC 점 + 상태 문구 한 줄. */
+    private fun buildStatusRow(): View =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            // 맥동을 멈춘 REC 점 — 녹화 중이 아니라 이미 끝난 국면이다. 홈의 저장 중
+            // 상태 줄과 같은 흐린 점이다 (RecordControl.kt 의 animated = false).
+            addView(context.statusDot(active = false))
+            addView(statusLabel, statusLabelParams())
+        }
+
+    private fun rowParams() =
+        LinearLayout
+            .LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = context.dpToPx(ROW_GAP_DP) }
 
     private fun statusLabelParams() =
         LinearLayout

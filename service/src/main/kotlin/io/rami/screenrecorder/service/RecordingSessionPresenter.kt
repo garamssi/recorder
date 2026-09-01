@@ -42,7 +42,7 @@ internal class RecordingSessionPresenter(
             context.showCompletedNotification(context.completedText(autoStopReason))
             // 알림만으로는 화면에서 아무 일도 일어나지 않는다. 사용자는 다른 앱을 보고 있다
             // (기능명세서 6.1절 [결정]). 링이 꽉 찬 채 중앙이 체크로 바뀐다.
-            saveOverlay.showSaved(DurationFormatter.formatElapsed(recording.duration), recording.displayName)
+            saveOverlay.showSaved(recording.displayName)
             autoStopReason = null
         }
     }
@@ -100,6 +100,9 @@ internal class RecordingSessionPresenter(
                 is RecordingState.Idle -> {
                     countdownOverlay.dismiss()
                     lastSavingText = null
+                    // 발행 실패와 빈 세션도 여기로 끝난다. 완료를 보여 주지 못했으면 저장 중
+                    // 표시가 화면에 영구히 남으므로 여기서 닫는다 (기능명세서 6.1절 [결정]).
+                    saveOverlay.endSaving()
                     onIdle()
                 }
             }
