@@ -51,14 +51,17 @@ object SavingGaugeSpec {
     const val TOP_ANGLE_DEGREES = -90f
     const val FULL_TURN_DEGREES = 360f
 
+    /** 점과 상태 문구 사이 간격(dp). */
+    const val CAPTION_GAP_DP = 10f
+
+    /** 진행률을 퍼센트로 옮기는 배수. */
+    const val PERCENT_SCALE = 100
+
     /** 링 가운데 경과 시간 글자 크기(sp). 녹화 중(56sp)보다 작은 것이 "이미 끝난 값" 을 뜻한다. */
     const val ELAPSED_SP = 40f
 
     /** "HH:MM:SS" 여덟 자를 링 안에 글꼴 배율 여유까지 두고 담는 크기(sp). */
     const val ELAPSED_LONG_SP = 28f
-
-    /** "MM:SS" 다섯 자. 이보다 길면 시간 자리가 붙은 것이라 글자를 줄인다. */
-    const val MINUTES_ONLY_CHARS = 5
 
     /** 발행이 확정됐을 때 링 가운데 체크 크기(dp). */
     const val CHECK_DP = 44f

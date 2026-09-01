@@ -9,6 +9,14 @@ import kotlin.time.Duration
  */
 object DurationFormatter {
     /**
+     * "MM:SS" 의 글자 수. [formatElapsed] 결과가 이보다 길면 시간 자리가 붙은 것이다.
+     *
+     * 형식이 바뀌면 이 값도 함께 바뀌어야 하므로 형식을 만드는 쪽이 들고 있는다 — 이 값을
+     * 읽는 화면들이 자릿수에 따라 글자 크기를 낮춘다.
+     */
+    const val MINUTES_ONLY_LENGTH = 5
+
+    /**
      * [duration]을 경과 시간 문자열로 변환한다. 밀리초 이하는 버림.
      *
      * @throws IllegalArgumentException 음수 시간이 주어진 경우

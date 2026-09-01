@@ -291,10 +291,10 @@ private val SAVE_ARC_WIDTH = SavingGaugeSpec.ARC_WIDTH_DP.dp
 private val SAVE_ELAPSED_SIZE = SavingGaugeSpec.ELAPSED_SP.sp
 
 private val SAVE_ELAPSED_SIZE_LONG = SavingGaugeSpec.ELAPSED_LONG_SP.sp
-private const val MINUTES_ONLY_CHARS = SavingGaugeSpec.MINUTES_ONLY_CHARS
-private val CAPTION_GAP = 10.dp
+private const val MINUTES_ONLY_CHARS = DurationFormatter.MINUTES_ONLY_LENGTH
+private val CAPTION_GAP = SavingGaugeSpec.CAPTION_GAP_DP.dp
 
-private const val PERCENT = 100
+private const val PERCENT = SavingGaugeSpec.PERCENT_SCALE
 private val PROGRESS_RANGE = 0f..1f
 
 // 저장 완료 (DESIGN_GUIDE.md 4절 "저장 완료")

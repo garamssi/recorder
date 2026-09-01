@@ -118,6 +118,15 @@ class SaveOverlayTest {
             else -> null
         }
 
+    /** 화면에 실제로 보이는 글자만 모은다. GONE 뷰까지 읽으면 "감췄는가" 를 못 잰다. */
+    private fun View.visibleTexts(): List<String> =
+        when {
+            visibility != View.VISIBLE -> emptyList()
+            this is TextView -> listOf(text.toString())
+            this is ViewGroup -> (0 until childCount).flatMap { getChildAt(it).visibleTexts() }
+            else -> emptyList()
+        }
+
     private fun View.allTexts(): List<String> =
         when (this) {
             is TextView -> listOf(text.toString())
@@ -204,7 +213,8 @@ class SaveOverlayTest {
         settle()
 
         val card = windowShadow.views.single()
-        val texts = card.allTexts()
+        // 화면에 실제로 보이는 것만 센다 — GONE 뷰의 텍스트까지 읽으면 숨긴 회귀를 못 잡는다.
+        val texts = card.visibleTexts()
         assertTrue("실패 문구가 없다: $texts", context.getString(R.string.save_failed_overlay) in texts)
         assertTrue("완료 문구가 떴다: $texts", context.getString(R.string.save_complete_banner) !in texts)
         assertTrue("파일명이 사라졌다: $texts", FILE_NAME in texts)
@@ -224,8 +234,50 @@ class SaveOverlayTest {
         overlay.showFailed()
         settle()
 
-        val toast = ShadowToast.getTextOfLatestToast()
-        assertTrue("실패를 알리지 않았다: $toast", toast != null && FILE_NAME in toast)
+        // 두 문구가 모두 파일명을 담는다. 파일명만 보면 템플릿이 뒤집혀도 통과한다.
+        assertEquals(
+            context.getString(R.string.save_failed_toast, FILE_NAME),
+            ShadowToast.getTextOfLatestToast(),
+        )
+    }
+
+    /**
+     * 결말을 그린 뒤에는 물려줄 것이 없다.
+     *
+     * 남겨 두면 다음 세션이 준비 구간을 못 거친 채(상태 병합) 곧장 실패했을 때, 지난 녹화의
+     * 이름과 진행률을 물려받은 실패 카드가 뜬다.
+     */
+    @Test
+    fun `결말을 그린 뒤에는 물려줄 내용이 남지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
+        settle()
+        overlay.showSaved(FILE_NAME)
+        settle()
+        advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS + MARGIN_MILLIS)
+        assertEquals(0, windowShadow.views.size)
+
+        overlay.showFailed()
+        settle()
+
+        assertEquals("지난 발행의 내용을 물려받았다", 0, windowShadow.views.size)
+    }
+
+    /** 새 세션이 시작되면 지난 발행의 내용을 물려줄 곳이 없다. */
+    @Test
+    fun `새 세션이 시작되면 물려줄 내용도 버린다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = SaveOverlayWindow(context)
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
+        settle()
+
+        overlay.dismiss()
+        settle()
+        overlay.showFailed()
+        settle()
+
+        assertEquals("지난 발행의 내용을 물려받았다", 0, windowShadow.views.size)
     }
 
     /** 실패도 결말이다 — 뒤이어 오는 유휴가 표시를 즉시 지워서는 안 된다. */

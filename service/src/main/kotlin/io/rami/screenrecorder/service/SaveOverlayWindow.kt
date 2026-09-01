@@ -84,6 +84,9 @@ internal class SaveOverlayWindow(
      * 마지막으로 그린 발행 중 내용.
      *
      * 실패 표시가 길이·파일명·진행률을 물려받는 출처다. 메인 스레드에서만 읽고 쓴다.
+     *
+     * 권한이 없어 그리지 못한 내용도 남긴다 — 그래야 그 상태에서 실패해도 토스트가 무엇이
+     * 실패했는지 말할 수 있다. 정확히는 "마지막으로 그리려던" 내용이다.
      */
     private var lastSaving: SaveOverlayContent? = null
 
@@ -101,37 +104,33 @@ internal class SaveOverlayWindow(
         fileName: String,
         progress: Float?,
     ) {
-        render(SaveOverlayContent(elapsed, fileName, progress, SaveOutcome.IN_PROGRESS))
+        render { SaveOverlayContent(elapsed, fileName, progress, SaveOutcome.IN_PROGRESS) }
     }
 
     override fun showSaved(fileName: String) {
-        mainHandler.post {
-            // 성공은 발행 중 표시를 못 그렸더라도 반드시 알린다. 실패와 달리 물려받지 못해도
-            // 스스로 만든다 — 완료 카드는 중앙이 체크라 물려받을 것이 사실상 없다.
-            // 이름은 발행이 확정한 것이 진실이다(같은 이름이 있으면 발행이 "(1)" 을 붙인다).
-            val base = lastSaving ?: SaveOverlayContent(NO_ELAPSED, fileName, null, SaveOutcome.SAVED)
-            showOutcome(base.copy(fileName = fileName, progress = 1f, outcome = SaveOutcome.SAVED))
-        }
+        // 성공은 발행 중 표시를 못 그렸더라도 반드시 알린다. 그래서 실패와 달리 직전 내용을
+        // 물려받지 않는다 — 완료 카드는 중앙이 체크라 물려받을 것도 없다. 이름은 발행이
+        // 확정한 것이 진실이다(같은 이름이 있으면 발행이 "(1)" 을 붙인다).
+        showOutcome { SaveOverlayContent(NO_ELAPSED, fileName, progress = 1f, SaveOutcome.SAVED) }
     }
 
     override fun showFailed() {
-        mainHandler.post {
-            // 직전까지 그리던 것을 그대로 물려받되 결말만 바꾼다. 진행률은 채우지 않는다 —
-            // 채우면 저장된 것으로 읽힌다. 물려받을 것이 없으면 무엇이 실패했는지 말할 수
-            // 없으므로 알림에 맡긴다.
-            val saving = lastSaving ?: return@post
-            showOutcome(saving.copy(outcome = SaveOutcome.FAILED))
-        }
+        // 직전까지 그리던 것을 물려받되 결말만 바꾼다. 진행률은 채우지 않는다 — 채우면
+        // 저장된 것으로 읽힌다. 물려받을 것이 없으면 무엇이 실패했는지 말할 수 없어 알림에 맡긴다.
+        showOutcome { lastSaving?.copy(outcome = SaveOutcome.FAILED) }
     }
 
     /** 결말을 그리고 스스로 접히도록 예약한다. */
-    private fun showOutcome(content: SaveOverlayContent) {
-        render(content) {
-            outcomeShown = true
-            val removal = Runnable { removeExisting() }
-            pendingRemoval = removal
-            mainHandler.postDelayed(removal, SAVE_OVERLAY_DISPLAY_MILLIS)
-        }
+    private fun showOutcome(content: () -> SaveOverlayContent?) {
+        render(
+            onAttached = {
+                outcomeShown = true
+                val removal = Runnable { removeExisting() }
+                pendingRemoval = removal
+                mainHandler.postDelayed(removal, SAVE_OVERLAY_DISPLAY_MILLIS)
+            },
+            content = content,
+        )
     }
 
     override fun endSaving() {
@@ -150,23 +149,30 @@ internal class SaveOverlayWindow(
     }
 
     /**
-     * 카드를 [content] 로 맞춘다. 창이 없으면 붙이고, 붙이지 못하면 [onAttached] 를 건너뛴다.
+     * 카드를 그린다. 창이 없으면 붙이고, 붙이지 못하면 [onAttached] 를 건너뛴다.
      *
      * 이미 떠 있으면 값만 갱신한다 — 진행률은 0.5% 단위로 올라와 발행 내내 수백 번 갱신되는데,
      * 그때마다 창을 다시 붙이면 링 애니메이션이 매번 처음부터 시작한다.
+     *
+     * 내용을 값이 아니라 함수로 받는다. 실패 카드는 [lastSaving] 을 읽어야 하는데, 그 읽기를
+     * 바깥에서 하면 메시지가 하나 더 늘어 그 사이에 들어온 [dismiss] 를 지나쳐 버린다 — 새
+     * 세션이 시작된 뒤에 지난 결말이 다시 붙는다. 읽기와 그리기를 한 메시지 안에 둔다.
      */
     private fun render(
-        content: SaveOverlayContent,
         onAttached: () -> Unit = {},
+        content: () -> SaveOverlayContent?,
     ) {
         mainHandler.post {
+            val content = content() ?: return@post
             // 완료 판정은 메인 스레드 안에서 한다. 상태 흐름과 완료 흐름은 서로 다른 수집기에서
             // 돌아, 호출 스레드에서 보면 늦은 진행률 갱신이 완료를 덮는 창이 남는다.
             if (outcomeShown && content.outcome == SaveOutcome.IN_PROGRESS) return@post
             // 앞 발행의 완료 예약이 남아 있으면 거둔다. 그대로 두면 새 표시를 지운다.
             pendingRemoval?.let(mainHandler::removeCallbacks)
             pendingRemoval = null
-            if (content.outcome == SaveOutcome.IN_PROGRESS) lastSaving = content
+            // 결말을 그리고 나면 물려줄 것이 없다. 남겨 두면 다음 세션의 실패가 지난 녹화의
+            // 이름을 물려받을 수 있다.
+            lastSaving = content.takeIf { it.outcome == SaveOutcome.IN_PROGRESS }
             val existing = card
             if (existing != null) {
                 existing.render(content)

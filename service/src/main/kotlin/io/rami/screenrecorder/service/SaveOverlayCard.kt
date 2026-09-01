@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.graphics.ColorUtils
 import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
+import io.rami.screenrecorder.core.common.time.DurationFormatter
 
 /**
  * 저장 오버레이가 한 번에 그릴 내용 (DESIGN_GUIDE.md 4절 "저장 오버레이").
@@ -102,7 +103,7 @@ internal class SaveOverlayCard(
         elapsedText.text = content.elapsed
         // 한 시간을 넘으면 "HH:MM:SS" 여덟 자가 되어 링 폭을 넘는다. 자릿수에 따라 낮춘다.
         elapsedText.textSize =
-            if (content.elapsed.length > SavingGaugeSpec.MINUTES_ONLY_CHARS) {
+            if (content.elapsed.length > DurationFormatter.MINUTES_ONLY_LENGTH) {
                 SavingGaugeSpec.ELAPSED_LONG_SP
             } else {
                 SavingGaugeSpec.ELAPSED_SP
@@ -130,7 +131,7 @@ internal class SaveOverlayCard(
             SaveOutcome.FAILED -> R.string.save_failed_overlay
         }
 
-    private fun percentOf(progress: Float): Int = (progress.coerceIn(0f, 1f) * PERCENT_SCALE).toInt()
+    private fun percentOf(progress: Float): Int = (progress.coerceIn(0f, 1f) * SavingGaugeSpec.PERCENT_SCALE).toInt()
 
     private fun buildRoot(): View {
         val paddingH = context.dpToPx(PADDING_H_DP)
@@ -198,7 +199,7 @@ internal class SaveOverlayCard(
             .LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { marginStart = context.dpToPx(GAP_DP) }
+            ).apply { marginStart = context.dpToPx(SavingGaugeSpec.CAPTION_GAP_DP) }
 
     private companion object {
         /**
@@ -219,9 +220,7 @@ internal class SaveOverlayCard(
         const val CORNER_DP = 24f
         const val PADDING_H_DP = 24f
         const val PADDING_V_DP = 20f
-        const val GAP_DP = 8f
         const val ROW_GAP_DP = 12f
-        const val PERCENT_SCALE = 100
 
         /** 홈의 `DISABLED_ALPHA` 와 같은 값. */
         const val DOT_DIM_ALPHA = 0.5f
