@@ -28,6 +28,30 @@ class ObserveCompletedRecordingUseCase
         operator fun invoke(): Flow<Recording> = sessionRepository.completedRecordings
     }
 
+/**
+ * 홈이 아직 보여 주지 못한 저장 완료 녹화본을 관찰한다 (기능명세서 2.1절 [결정]).
+ *
+ * 보여 준 뒤에는 [ConsumeCompletedRecordingUseCase] 로 소모한다.
+ */
+class ObservePendingCompletedRecordingUseCase
+    @Inject
+    constructor(
+        private val sessionRepository: RecordingSessionRepository,
+    ) {
+        /** 아직 보여 주지 못한 완료 녹화본 스트림. 없으면 null. */
+        operator fun invoke(): Flow<Recording?> = sessionRepository.pendingCompletedRecording
+    }
+
+/** 완료 표시를 소모한다 (기능명세서 2.1절 [결정]: 홈이 보여 준 뒤에만 부른다). */
+class ConsumeCompletedRecordingUseCase
+    @Inject
+    constructor(
+        private val sessionRepository: RecordingSessionRepository,
+    ) {
+        /** 남아 있는 완료 표시를 지운다. */
+        operator fun invoke() = sessionRepository.consumeCompletedRecording()
+    }
+
 /** 휴지통 목록을 관찰한다 (기능명세서 9절). */
 class ObserveTrashUseCase
     @Inject

@@ -66,9 +66,20 @@ class HomeViewModelTest {
         /** 발행이 확정된 녹화본만 흐르는 이벤트. 저장 완료 표시가 이 축으로만 켜져야 한다. */
         val completed = MutableSharedFlow<Recording>(extraBufferCapacity = 1)
 
+        /** 홈이 보여 줄 때까지 남는 완료 표시 (기능명세서 2.1절 [결정]). */
+        val pendingCompleted = MutableStateFlow<Recording?>(null)
+
+        var consumeCount = 0
+
         override val state: Flow<RecordingState> = stateFlow
         override val completedRecordings: Flow<Recording> = completed
+        override val pendingCompletedRecording: Flow<Recording?> = pendingCompleted
         override val sessionEvents: Flow<RecordingSessionEvent> = emptyFlow()
+
+        override fun consumeCompletedRecording() {
+            consumeCount++
+            pendingCompleted.value = null
+        }
 
         override suspend fun start(config: RecordingConfig) = Unit
 
@@ -477,8 +488,8 @@ class HomeViewModelTest {
     /**
      * 저장 완료 표시 (기능명세서 2.1절 [결정]).
      *
-     * 발행이 확정될 때만 켜지고, 사용자가 누를 것 없이 스스로 꺼진다. 확인 버튼을 두면
-     * 저장할 때마다 손이 한 번 더 가고, 누르지 않으면 다음 녹화가 막힌다.
+     * 발행이 확정될 때만 켜지고, 홈이 실제로 보여 준 뒤에 소모한다. 시간만으로 꺼 버리면
+     * 버블로 녹화를 시작해 다른 앱에 있던 사용자는 표시를 영영 보지 못한다.
      */
     @Test
     fun `발행이 확정되면 저장 완료 표시를 켠다`() =
@@ -486,24 +497,39 @@ class HomeViewModelTest {
             val viewModel = viewModel()
             advanceUntilIdle()
 
-            sessionRepository.completed.emit(SAVED)
+            sessionRepository.pendingCompleted.value = SAVED
             runCurrent()
 
             assertEquals(SAVED, viewModel.justSaved.value)
         }
 
     @Test
-    fun `저장 완료 표시는 누르지 않아도 스스로 꺼진다`() =
+    fun `보여 주기 전에는 시간이 지나도 완료 표시가 꺼지지 않는다`() =
         runTest {
             val viewModel = viewModel()
             advanceUntilIdle()
-            sessionRepository.completed.emit(SAVED)
+            sessionRepository.pendingCompleted.value = SAVED
             runCurrent()
-            // 켜진 것을 먼저 확인해야 "꺼졌다"와 "애초에 켜지지 않았다"가 구분된다.
+            // 켜진 것을 먼저 확인해야 "안 꺼졌다"와 "애초에 켜지지 않았다"가 구분된다.
             assertEquals(SAVED, viewModel.justSaved.value)
 
             advanceUntilIdle()
 
+            assertEquals(SAVED, viewModel.justSaved.value)
+        }
+
+    @Test
+    fun `홈이 보여 줬다고 알리면 완료 표시를 소모한다`() =
+        runTest {
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            sessionRepository.pendingCompleted.value = SAVED
+            runCurrent()
+
+            viewModel.onSavedDisplayed()
+            advanceUntilIdle()
+
+            assertEquals(1, sessionRepository.consumeCount)
             assertNull(viewModel.justSaved.value)
         }
 

@@ -23,6 +23,18 @@ interface RecordingSessionRepository {
      */
     val completedRecordings: Flow<Recording>
 
+    /**
+     * 홈이 아직 보여 주지 못한 저장 완료 녹화본. 없으면 null (기능명세서 2.1절 [결정]).
+     *
+     * [completedRecordings] 와 달리 지나가는 이벤트가 아니라 남아 있는 상태다. 완료 순간
+     * 홈이 화면에 없어도 (버블로 녹화를 시작한 경우가 그렇다) 사라지지 않고, 홈이 한 번
+     * 보여 준 뒤 [consumeCompletedRecording] 로 소모될 때까지 유지된다.
+     */
+    val pendingCompletedRecording: Flow<Recording?>
+
+    /** 완료 표시를 소모한다. 홈이 실제로 보여 준 뒤에만 부른다 (기능명세서 2.1절 [결정]). */
+    fun consumeCompletedRecording()
+
     /** 세션 진행 이벤트 스트림 (예고/자동 중지 사유, 기능명세서 11절 알림용). */
     val sessionEvents: Flow<RecordingSessionEvent>
 

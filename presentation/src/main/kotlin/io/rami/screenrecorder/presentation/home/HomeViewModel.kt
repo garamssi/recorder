@@ -123,6 +123,9 @@ class HomeViewModel
          */
         val justSaved: StateFlow<Recording?> = mutableJustSaved.asStateFlow()
 
+        /** 홈이 완료 표시를 실제로 보여 줬다고 알린다 (기능명세서 2.1절 [결정]). */
+        fun onSavedDisplayed() = Unit
+
         init {
             viewModelScope.launch {
                 // collectLatest 로 둔다 — collect 면 delay 동안 수집기가 스트림을 붙들어

@@ -67,6 +67,9 @@ class RecordingCoordinator(
 
     private val mutableState = MutableStateFlow<RecordingState>(RecordingState.Idle)
     private val mutableCompleted = MutableSharedFlow<Recording>(extraBufferCapacity = 1)
+
+    // 완료 이벤트와 달리 홈이 보여 줄 때까지 남는다 (기능명세서 2.1절 [결정]).
+    private val mutablePendingCompleted = MutableStateFlow<Recording?>(null)
     private val mutableEvents = MutableSharedFlow<RecordingSessionEvent>(extraBufferCapacity = EVENT_BUFFER)
 
     private val countdown = CountdownRunner()
@@ -75,6 +78,12 @@ class RecordingCoordinator(
     override val state: StateFlow<RecordingState> = mutableState
 
     override val completedRecordings: Flow<Recording> = mutableCompleted
+
+    override val pendingCompletedRecording: StateFlow<Recording?> = mutablePendingCompleted
+
+    override fun consumeCompletedRecording() {
+        mutablePendingCompleted.value = null
+    }
 
     override val sessionEvents: Flow<RecordingSessionEvent> = mutableEvents
 
