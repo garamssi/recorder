@@ -21,6 +21,13 @@ class RecordingNotificationTextTest {
     private val context get() = RuntimeEnvironment.getApplication()
 
     @Test
+    fun `파이프라인 준비 중에는 준비 중을 보여 준다`() {
+        val text = context.ongoingNotificationText(RecordingState.Preparing)
+
+        assertEquals(context.getString(R.string.recording_notification_preparing), text)
+    }
+
+    @Test
     fun `발행 중에는 저장 중을 보여 준다`() {
         val text = context.ongoingNotificationText(RecordingState.Stopping(elapsed = 3.minutes, fileName = "Rec.mp4"))
 

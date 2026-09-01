@@ -14,6 +14,7 @@ import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.session.MonotonicClock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -500,6 +501,28 @@ class RecordingCoordinatorTest {
             assertTrue(muxer.closed)
             assertEquals("Rec_test.mp4", fileStore.publishedFileName)
             assertEquals(RecordingState.Idle, coordinator.state.value)
+        }
+
+    /**
+     * 파이프라인을 세우는 동안의 상태 (기능명세서 6.1절 [결정]).
+     *
+     * 이 구간이 `Idle` 로 남으면 버블과 홈이 "녹화 시작" 을 그대로 내놓는다.
+     */
+    @Test
+    fun `파이프라인을 세우는 동안 준비 상태를 알린다`() =
+        runTest {
+            val coordinator = coordinator()
+            val seen = mutableListOf<RecordingState>()
+            val collector = launch { coordinator.state.toList(seen) }
+
+            coordinator.start(noCountdownConfig)
+            runCurrent()
+            collector.cancel()
+
+            val preparingAt = seen.indexOf(RecordingState.Preparing)
+            val recordingAt = seen.indexOfFirst { it is RecordingState.Recording }
+            assertTrue(preparingAt >= 0, "준비 상태를 한 번도 알리지 않았다: $seen")
+            assertTrue(preparingAt < recordingAt, "준비는 녹화보다 먼저여야 한다: $seen")
         }
 
     // --- 완료 표시 (기능명세서 2.1절 [결정]) ---

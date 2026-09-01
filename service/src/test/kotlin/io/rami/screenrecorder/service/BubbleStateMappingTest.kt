@@ -31,6 +31,22 @@ class BubbleStateMappingTest {
         assertEquals(BubbleState.ScreenRecording("03:24 / 10:00", isPaused = false), state)
     }
 
+    /**
+     * 파이프라인을 세우는 동안 버블이 유휴 메뉴를 내놓으면 "녹화 시작" 을 누를 수 있게 된다.
+     * 카운트다운을 "없음" 으로 두면 이 구간이 그대로 노출된다 (기능명세서 6.1절 [결정]).
+     */
+    @Test
+    fun `준비 구간에는 유휴 메뉴 대신 준비 중을 보여 준다`() {
+        val state =
+            bubbleStateFor(
+                screen = RecordingState.Preparing,
+                voice = noVoice,
+                settingTimeLimit = TimeLimit.None,
+            )
+
+        assertEquals(BubbleState.Busy(BubbleBusyReason.PREPARING), state)
+    }
+
     @Test
     fun `제한이 없으면 경과 시간만 보여준다`() {
         val state =

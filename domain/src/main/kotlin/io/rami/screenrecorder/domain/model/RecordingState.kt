@@ -7,6 +7,16 @@ sealed interface RecordingState {
     /** 세션 없음. */
     data object Idle : RecordingState
 
+    /**
+     * 파이프라인 준비 중 — 인코더·먹서·캡처를 세운다 (기능명세서 6.1절 [결정]).
+     *
+     * 카운트다운이 끝난 뒤부터 첫 프레임을 받기 전까지의 구간이다. 세션이 아직 없어
+     * 중지·일시정지가 아무 일도 하지 않으므로, 이 구간을 [Idle] 로 두면 버블과 홈이
+     * "녹화 시작" 을 그대로 내놓는다. 카운트다운을 "없음" 으로 두면 [CountingDown] 이
+     * 한 번도 방출되지 않아 이 구간이 그대로 드러난다.
+     */
+    data object Preparing : RecordingState
+
     /** 카운트다운 진행 중 (기능명세서 3절). 인코딩은 아직 시작되지 않았다. */
     data class CountingDown(
         val remainingSeconds: Int,

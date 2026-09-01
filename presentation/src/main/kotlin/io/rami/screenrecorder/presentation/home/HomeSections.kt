@@ -46,6 +46,7 @@ private fun headerTitleRes(state: RecordingState): Int =
     when (state) {
         is RecordingState.Idle -> R.string.home_ready_title
         is RecordingState.Stopping -> R.string.home_saving_title
+        is RecordingState.Preparing,
         is RecordingState.CountingDown,
         is RecordingState.Recording,
         is RecordingState.Paused,
@@ -56,6 +57,7 @@ private fun headerSubtitleRes(state: RecordingState): Int =
     when (state) {
         is RecordingState.Idle -> R.string.home_ready_subtitle
         is RecordingState.Stopping -> R.string.home_saving_subtitle
+        is RecordingState.Preparing,
         is RecordingState.CountingDown,
         is RecordingState.Recording,
         is RecordingState.Paused,

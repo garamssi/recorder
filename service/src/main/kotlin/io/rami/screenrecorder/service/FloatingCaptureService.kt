@@ -168,7 +168,11 @@ internal fun bubbleStateFor(
 
         is RecordingState.Stopping -> BubbleState.Busy(BubbleBusyReason.SAVING)
 
-        is RecordingState.CountingDown -> BubbleState.Busy(BubbleBusyReason.PREPARING)
+        // 준비와 카운트다운은 사용자에게 같은 국면이다 — 아직 아무것도 시작되지 않았고
+        // 누를 것도 없다.
+        is RecordingState.Preparing,
+        is RecordingState.CountingDown,
+        -> BubbleState.Busy(BubbleBusyReason.PREPARING)
 
         // 화면 녹화가 없을 때만 음성 녹음이 버블을 차지한다.
         RecordingState.Idle ->

@@ -109,9 +109,12 @@ private fun ColumnScope.RecordControlContent(
 
         is RecordingState.Stopping -> SavingStatus(state)
 
+        // 준비·카운트다운 구간은 세션이 이미 시작된 뒤다. 버튼을 누를 수 있는 채로 두면
+        // MediaProjection 동의만 한 번 더 소비하고 아무 일도 일어나지 않는다
+        // (기능명세서 6.1절 [결정]).
         else ->
             IdleRecordButton(
-                enabled = uiState.canStartRecording,
+                enabled = uiState.canStartRecording && state is RecordingState.Idle,
                 onClick = actions.control.onStart,
             )
     }

@@ -56,6 +56,14 @@ internal class RecordingSessionPresenter(
                     context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = true) }
                 }
 
+                // 준비 구간에는 중지도 두지 않는다. 카운트다운과 달리 취소할 대상이 없다 —
+                // 세션이 만들어지는 중이라 코디네이터의 중지가 아무 일도 하지 않는다
+                // (기능명세서 6.1절 [결정]).
+                is RecordingState.Preparing -> {
+                    countdownOverlay.dismiss()
+                    context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = false) }
+                }
+
                 is RecordingState.Recording, is RecordingState.Paused -> {
                     countdownOverlay.dismiss()
                     context.ongoingNotificationText(state)?.let {

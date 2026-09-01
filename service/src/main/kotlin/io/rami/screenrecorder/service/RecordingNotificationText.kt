@@ -29,7 +29,9 @@ internal fun Context.ongoingNotificationText(state: RecordingState): String? =
                 ?.let { (it.coerceIn(0f, 1f) * PERCENT).toInt() }
                 ?.let { getString(R.string.recording_notification_saving_progress, it) }
                 ?: getString(R.string.recording_notification_saving)
-        is RecordingState.CountingDown -> getString(R.string.recording_notification_preparing)
+        is RecordingState.Preparing,
+        is RecordingState.CountingDown,
+        -> getString(R.string.recording_notification_preparing)
         // 유휴는 알림을 갱신할 상태가 아니다. else 를 두지 않아야 상태가 늘 때 컴파일러가 잡는다.
         RecordingState.Idle -> null
     }

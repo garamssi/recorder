@@ -5,9 +5,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import io.rami.screenrecorder.domain.model.Recording
@@ -77,6 +80,25 @@ class RecordControlSavingTest {
     private fun rootHeight(): Float {
         val bounds = compose.onRoot().getUnclippedBoundsInRoot()
         return (bounds.bottom - bounds.top).value
+    }
+
+    /**
+     * 준비·카운트다운 구간에는 세션이 이미 시작됐다. 시작 버튼이 눌리는 채로 남으면
+     * MediaProjection 동의만 한 번 더 소비하고 아무 일도 일어나지 않는다
+     * (기능명세서 6.1절 [결정]).
+     */
+    @Test
+    fun `준비 구간에는 녹화 시작 버튼을 누를 수 없다`() {
+        show(RecordingState.Preparing)
+
+        compose.onNodeWithContentDescription("녹화 시작").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `유휴 상태에서는 녹화 시작 버튼을 누를 수 있다`() {
+        show(RecordingState.Idle)
+
+        compose.onNodeWithContentDescription("녹화 시작").assertIsEnabled()
     }
 
     @Test

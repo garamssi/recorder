@@ -100,6 +100,9 @@ class RecordingCoordinator(
             mutableState.value = RecordingState.Idle
             return
         }
+        // 세션을 세우는 동안 Idle 로 두면 버블과 홈이 "녹화 시작"을 그대로 내놓는다
+        // (기능명세서 6.1절 [결정]). 상태 전이는 이 함수가 소유하고, startPipeline 은 자원만 세운다.
+        mutableState.value = RecordingState.Preparing
         startPipeline(config)
     }
 

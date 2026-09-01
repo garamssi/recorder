@@ -77,6 +77,20 @@ class RecordingSessionUseCaseTest {
             coVerify(exactly = 0) { sessionRepository.start(any()) }
         }
 
+    @Test
+    fun `파이프라인 준비 중이면 시작을 거부한다`() =
+        runTest {
+            givenState(RecordingState.Preparing)
+            givenAvailableBytes(1_000_000_000)
+            val useCase = StartRecordingUseCase(sessionRepository, storageRepository)
+
+            val result = useCase(RecordingConfig.DEFAULT)
+
+            // 준비 중 연타가 두 번째 세션을 세우면 안 된다 (기능명세서 6.1절 [결정]).
+            assertTrue(result.exceptionOrNull() is RecordingSessionException.InvalidState)
+            coVerify(exactly = 0) { sessionRepository.start(any()) }
+        }
+
     // --- 일시정지 / 재개 (기능명세서 11.2, 11.3절) ---
 
     @Test
