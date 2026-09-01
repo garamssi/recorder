@@ -38,8 +38,11 @@ internal class RecordingSessionPresenter(
      * 저장할 내용이 없던 세션은 이 흐름에 아무것도 흘리지 않으므로 알림도 없다.
      */
     suspend fun observeCompletion(completed: Flow<Recording>) {
-        completed.collectLatest {
+        completed.collectLatest { recording ->
             context.showCompletedNotification(context.completedText(autoStopReason))
+            // 알림만으로는 화면에서 아무 일도 일어나지 않는다. 사용자는 다른 앱을 보고 있다
+            // (기능명세서 6.1절 [결정]).
+            saveCompleteBanner.show(recording.displayName)
             autoStopReason = null
         }
     }

@@ -1,5 +1,8 @@
 package io.rami.screenrecorder.service
 
+import android.content.ComponentName
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -38,6 +42,22 @@ class SaveCompleteBannerTest {
 
     private val windowShadow: ShadowWindowManagerImpl
         get() = Shadow.extract(context.getSystemService(WindowManager::class.java))
+
+    /**
+     * 완료 알림은 앱을 여는 PendingIntent 를 담는다. 테스트 환경에는 런처 액티비티가 없어
+     * 그 조회가 실패하므로, 실제 앱과 같은 진입점을 등록해 둔다.
+     */
+    @Before
+    fun registerLauncherActivity() {
+        val launcher = ComponentName(context, "io.rami.screenrecorder.MainActivity")
+        shadowOf(context.packageManager).run {
+            addActivityIfNotPresent(launcher)
+            addIntentFilterForActivity(
+                launcher,
+                IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) },
+            )
+        }
+    }
 
     private class FakeBanner : SaveCompleteBanner {
         val shown = mutableListOf<String>()

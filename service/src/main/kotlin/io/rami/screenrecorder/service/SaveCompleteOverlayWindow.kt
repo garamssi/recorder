@@ -2,9 +2,17 @@ package io.rami.screenrecorder.service
 
 import android.content.Context
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
 
 /**
  * 발행이 확정됐음을 화면 위에 알리는 표시 (기능명세서 6.1절 [결정]).
@@ -23,11 +31,46 @@ internal interface SaveCompleteBanner {
  * 카운트다운과 같은 시스템 오버레이 창이다 — 녹화가 끝나는 순간 사용자는 다른 앱을 보고 있고
  * 알림 그림자는 접혀 있다. 플로팅 버블과 별개인 이유: 버블을 끈 사용자도 녹화는 하고, 녹화가
  * 끝난 사실을 아는 것이 설정에 달려 있어서는 안 된다.
+ *
+ * 창의 수명은 이 객체를 만든 서비스보다 길다. 발행이 끝나면 서비스는 곧 접히므로, 사라지는
+ * 시점을 코루틴 스코프가 아니라 메인 스레드 핸들러가 쥔다. 애플리케이션 컨텍스트로 만든다.
  */
 internal class SaveCompleteOverlayWindow(
     private val context: Context,
 ) : SaveCompleteBanner {
-    override fun show(fileName: String) = Unit
+    private val windowManager = context.getSystemService(WindowManager::class.java)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var root: View? = null
+
+    override fun show(fileName: String) {
+        // 권한이 없으면 화면에 그릴 수단이 토스트뿐이다. 조용히 넘어가면 아무 표시도 남지 않는다.
+        if (!Settings.canDrawOverlays(context)) {
+            mainHandler.post {
+                Toast.makeText(context, context.getString(R.string.save_complete_banner), Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        mainHandler.post {
+            // 연달아 저장하면 앞의 배너가 아직 떠 있다. 두 장을 겹치지 않고 새것으로 바꾼다.
+            removeExisting()
+            val banner = context.buildSaveCompleteBanner(fileName)
+            root = banner
+            windowManager.addView(banner, saveCompleteLayoutParams(context.dpToPx(TOP_OFFSET_DP)))
+            mainHandler.postDelayed(::removeExisting, DISPLAY_MILLIS)
+        }
+    }
+
+    private fun removeExisting() {
+        val banner = root ?: return
+        root = null
+        windowManager.removeView(banner)
+    }
+
+    private companion object {
+        /** 눈에 걸릴 만큼 길고, 화면을 오래 가리지 않을 만큼 짧다. */
+        const val DISPLAY_MILLIS = 3_000L
+        const val TOP_OFFSET_DP = 24f
+    }
 }
 
 /**
@@ -51,5 +94,58 @@ internal fun saveCompleteLayoutParams(topOffsetPx: Int): WindowManager.LayoutPar
             y = topOffsetPx
         }
 
-/** 배너 뷰. 완료 문구 한 줄과 무엇이 저장됐는지(파일명) 한 줄. */
-internal fun Context.buildSaveCompleteBanner(fileName: String): View = View(this)
+/**
+ * 배너 뷰 — 체크 + "녹화를 저장했습니다", 그 아래 파일명.
+ *
+ * 파일명을 함께 두는 이유: 완료 순간 사용자에게 필요한 정보는 "무엇이 저장됐는가" 하나다.
+ */
+internal fun Context.buildSaveCompleteBanner(fileName: String): View {
+    val check =
+        ImageView(this).apply {
+            setImageResource(R.drawable.ic_banner_check)
+            layoutParams =
+                LinearLayout.LayoutParams(dpToPx(CHECK_SIZE_DP), dpToPx(CHECK_SIZE_DP)).apply {
+                    marginEnd = dpToPx(GAP_DP)
+                }
+        }
+    val title =
+        TextView(this).apply {
+            text = getString(R.string.save_complete_banner)
+            setTextColor(BUBBLE_FOREGROUND)
+            textSize = TITLE_TEXT_SP
+        }
+    val name =
+        TextView(this).apply {
+            text = fileName
+            setTextColor(BUBBLE_MUTED)
+            textSize = NAME_TEXT_SP
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        }
+    val column =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(title)
+            addView(name)
+        }
+    return LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        background =
+            GradientDrawable().apply {
+                setColor(BUBBLE_SURFACE)
+                cornerRadius = dpToPx(CORNER_DP).toFloat()
+            }
+        setPadding(dpToPx(PADDING_H_DP), dpToPx(PADDING_V_DP), dpToPx(PADDING_H_DP), dpToPx(PADDING_V_DP))
+        addView(check)
+        addView(column)
+    }
+}
+
+private const val CHECK_SIZE_DP = 20f
+private const val GAP_DP = 10f
+private const val CORNER_DP = 28f
+private const val PADDING_H_DP = 18f
+private const val PADDING_V_DP = 12f
+private const val TITLE_TEXT_SP = 15f
+private const val NAME_TEXT_SP = 12f
