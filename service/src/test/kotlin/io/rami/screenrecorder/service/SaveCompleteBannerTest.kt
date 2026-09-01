@@ -215,6 +215,35 @@ class SaveCompleteBannerTest {
         )
     }
 
+    /**
+     * 배너를 띄운 서비스는 발행 직후 스스로 접히고, 다음 세션은 새 서비스 인스턴스에서 시작된다.
+     * 프레젠터를 두 번 만드는 것이 그 경계를 그대로 모형화한다.
+     *
+     * 이 테스트가 고정하는 것은 "배너를 공유하면 다음 세션이 지난 배너를 내린다" 는 동작이다.
+     * 실제로 공유되는지(= `ServiceModule` 의 `@Singleton`)는 [ServiceModuleTest] 가 본다.
+     */
+    @Test
+    fun `서비스가 바뀌어도 다음 세션이 지난 배너를 내린다`() =
+        runTest {
+            ShadowSettings.setCanDrawOverlays(true)
+            val shared = SaveCompleteOverlayWindow(context)
+
+            presenter(shared).observeCompletion(flowOf(SAVED))
+            settle()
+            assertEquals(1, windowShadow.views.size)
+
+            presenter(shared).observeState(flowOf(RecordingState.Preparing))
+            settle()
+
+            assertEquals("다음 세션이 지난 배너를 내리지 못했다", 0, windowShadow.views.size)
+        }
+
+    /** 시스템이 권한 회수와 함께 창을 먼저 떼어 간 상황. 떼지 못한다고 죽어서는 안 된다. */
+    @Test
+    fun `붙은 적 없는 창을 떼도 죽지 않는다`() {
+        SystemOverlayWindows(context).detach(View(context))
+    }
+
     @Test
     fun `배너를 내리면 창이 사라진다`() {
         ShadowSettings.setCanDrawOverlays(true)
