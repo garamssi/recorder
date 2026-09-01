@@ -35,7 +35,8 @@ interface SaveOverlay {
     /**
      * 발행이 확정됐음을 보여 주고 잠시 뒤 스스로 접힌다.
      *
-     * 길이는 받지 않는다 — 완료 국면의 중앙은 체크이고, 길이는 저장 중에 이미 보여 줬다.
+     * 이름만 받는다 — 길이와 진행률은 직전까지 그리던 것을 물려받는다. 이름은 발행이 확정한
+     * 것이 진실이라 따로 받는다(같은 이름이 이미 있으면 발행이 "(1)" 을 붙인다).
      */
     fun showSaved(fileName: String)
 
@@ -43,9 +44,7 @@ interface SaveOverlay {
      * 발행이 실패했음을 보여 주고 잠시 뒤 스스로 접힌다 (기능명세서 6.1절 [결정]).
      *
      * 인자를 받지 않는다. 무엇이 어디까지 가다 실패했는지는 직전까지 그리던 내용이 이미
-     * 알고 있다 — 실패 이벤트에는 그 정보가 없어 부르는 쪽이 다른 코루틴의 상태를 훔쳐보게
-     * 된다. 발행 중 표시가 없었다면 물려받을 것이 없어 아무것도 하지 않는다(알림이 이미
-     * 사실을 전달했다).
+     * 알고 있고, 실패 이벤트에는 그 정보가 없다.
      */
     fun showFailed()
 
@@ -106,13 +105,20 @@ internal class SaveOverlayWindow(
     }
 
     override fun showSaved(fileName: String) {
-        showOutcome(SaveOverlayContent(elapsed = "", fileName = fileName, progress = 1f, SaveOutcome.SAVED))
+        mainHandler.post {
+            // 성공은 발행 중 표시를 못 그렸더라도 반드시 알린다. 실패와 달리 물려받지 못해도
+            // 스스로 만든다 — 완료 카드는 중앙이 체크라 물려받을 것이 사실상 없다.
+            // 이름은 발행이 확정한 것이 진실이다(같은 이름이 있으면 발행이 "(1)" 을 붙인다).
+            val base = lastSaving ?: SaveOverlayContent(NO_ELAPSED, fileName, null, SaveOutcome.SAVED)
+            showOutcome(base.copy(fileName = fileName, progress = 1f, outcome = SaveOutcome.SAVED))
+        }
     }
 
     override fun showFailed() {
         mainHandler.post {
             // 직전까지 그리던 것을 그대로 물려받되 결말만 바꾼다. 진행률은 채우지 않는다 —
-            // 채우면 저장된 것으로 읽힌다.
+            // 채우면 저장된 것으로 읽힌다. 물려받을 것이 없으면 무엇이 실패했는지 말할 수
+            // 없으므로 알림에 맡긴다.
             val saving = lastSaving ?: return@post
             showOutcome(saving.copy(outcome = SaveOutcome.FAILED))
         }
@@ -211,6 +217,9 @@ internal class SaveOverlayWindow(
 
     private companion object {
         const val TOP_OFFSET_DP = 24f
+
+        /** 완료 카드는 중앙이 체크라 길이를 그리지 않는다. 물려받을 것이 없을 때 쓰는 빈 값. */
+        const val NO_ELAPSED = ""
     }
 }
 

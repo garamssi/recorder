@@ -288,17 +288,14 @@ private fun DrawScope.drawSavingGauge(
 
 // 저장 중 게이지 (DESIGN_GUIDE.md 4절 "저장 중")
 private val SAVE_ARC_WIDTH = SavingGaugeSpec.ARC_WIDTH_DP.dp
-private val SAVE_ELAPSED_SIZE = 40.sp
+private val SAVE_ELAPSED_SIZE = SavingGaugeSpec.ELAPSED_SP.sp
 
-/** "HH:MM:SS" 여덟 자를 160dp 링 안에 글꼴 배율 여유까지 두고 담는 크기. */
-private val SAVE_ELAPSED_SIZE_LONG = 28.sp
-
-/** "MM:SS" 다섯 자. 이보다 길면 시간 자리가 붙은 것이다. */
-private const val MINUTES_ONLY_CHARS = 5
+private val SAVE_ELAPSED_SIZE_LONG = SavingGaugeSpec.ELAPSED_LONG_SP.sp
+private const val MINUTES_ONLY_CHARS = SavingGaugeSpec.MINUTES_ONLY_CHARS
 private val CAPTION_GAP = 10.dp
 
 private const val PERCENT = 100
 private val PROGRESS_RANGE = 0f..1f
 
 // 저장 완료 (DESIGN_GUIDE.md 4절 "저장 완료")
-private val SAVED_CHECK_SIZE = 44.dp
+private val SAVED_CHECK_SIZE = SavingGaugeSpec.CHECK_DP.dp

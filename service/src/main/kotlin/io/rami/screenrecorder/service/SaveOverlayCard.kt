@@ -10,11 +10,14 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.graphics.ColorUtils
+import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
 
 /**
  * 저장 오버레이가 한 번에 그릴 내용 (DESIGN_GUIDE.md 4절 "저장 오버레이").
  *
- * @param elapsed 방금 녹화한 길이. 흘러가는 값이 아니라 이미 끝난 값이다.
+ * @param elapsed 방금 녹화한 길이. 흘러가는 값이 아니라 이미 끝난 값이다. 완료 국면에서는
+ *   그리지 않는다 — 중앙이 체크로 바뀌므로 값이 없어도 된다.
  * @param fileName 무엇이 저장되는지 못 박는다.
  * @param progress 0f..1f 발행 진행률. 아직 모르면 null — 발행은 메타데이터 판독으로 시작하는데
  *   그 구간에는 진행률 신호가 없다.
@@ -53,18 +56,16 @@ internal class SaveOverlayCard(
     private val elapsedText =
         TextView(context).apply {
             setTextColor(BUBBLE_FOREGROUND)
-            textSize = ELAPSED_TEXT_SP
-            // 녹화 중(56sp)보다 작게 둔다 — 흘러가는 값이 아니라 이미 끝난 값이다.
             fontFeatureSettings = "tnum"
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
             gravity = Gravity.CENTER
+            maxLines = 1
         }
 
     private val percentText =
         TextView(context).apply {
             setTextColor(BUBBLE_ACCENT)
             textSize = PERCENT_TEXT_SP
-            tag = PERCENT_TAG
             fontFeatureSettings = "tnum"
             gravity = Gravity.CENTER
         }
@@ -87,6 +88,9 @@ internal class SaveOverlayCard(
             textSize = NAME_TEXT_SP
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.MIDDLE
+            // 폭을 묶지 않으면 말줄임이 발동하지 않고 카드가 파일명만큼 늘어난다. 부모가
+            // WRAP_CONTENT 라 카드가 화면보다 넓어질 수 있다.
+            maxWidth = context.dpToPx(SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE)
         }
 
     /** 창에 붙일 뷰. 갱신해도 이 참조는 바뀌지 않는다. */
@@ -96,6 +100,13 @@ internal class SaveOverlayCard(
     fun render(content: SaveOverlayContent) {
         val settled = content.outcome != SaveOutcome.IN_PROGRESS
         elapsedText.text = content.elapsed
+        // 한 시간을 넘으면 "HH:MM:SS" 여덟 자가 되어 링 폭을 넘는다. 자릿수에 따라 낮춘다.
+        elapsedText.textSize =
+            if (content.elapsed.length > SavingGaugeSpec.MINUTES_ONLY_CHARS) {
+                SavingGaugeSpec.ELAPSED_LONG_SP
+            } else {
+                SavingGaugeSpec.ELAPSED_SP
+            }
         fileNameText.text = content.fileName
         gauge.spinning = !settled
         // 실패한 진행률을 100%로 채우면 저장된 것으로 읽힌다.
@@ -160,7 +171,7 @@ internal class SaveOverlayCard(
             gravity = Gravity.CENTER
             addView(elapsedText)
             addView(percentText)
-            addView(check, context.dpToPx(CHECK_SIZE_DP), context.dpToPx(CHECK_SIZE_DP))
+            addView(check, context.dpToPx(SavingGaugeSpec.CHECK_DP), context.dpToPx(SavingGaugeSpec.CHECK_DP))
         }
 
     /** REC 점 + 상태 문구 한 줄. */
@@ -191,18 +202,20 @@ internal class SaveOverlayCard(
 
     private companion object {
         /**
-         * 카드 배경 — 버블 알약(`BUBBLE_SURFACE`, 93%)과 달리 **불투명**하다.
+         * 카드 배경 — 버블 알약과 같은 색을 **불투명**하게 쓴다.
          *
-         * 알약은 작아서 살짝 비쳐도 읽히지만, 이 카드는 200dp가 넘어 아래 앱의 제목과 본문이
-         * 그대로 뚫고 올라온다. 실기기에서 실제로 앱 글자가 링 위에 겹쳐 보였다.
+         * 알약(93%)은 작아서 살짝 비쳐도 읽히지만, 이 카드는 200dp가 넘어 아래 앱의 제목과
+         * 본문이 그대로 뚫고 올라온다. 실기기에서 앱 글자가 링 위에 겹쳐 보였다.
+         *
+         * 색을 다시 적지 않고 알약 토큰에서 알파만 올린다 — 카드색이 바뀌면 함께 바뀌어야 한다.
          */
-        const val OVERLAY_SURFACE = 0xFF18181B.toInt()
+        val OVERLAY_SURFACE = ColorUtils.setAlphaComponent(BUBBLE_SURFACE, OPAQUE_ALPHA)
 
-        const val ELAPSED_TEXT_SP = 40f
+        const val OPAQUE_ALPHA = 255
+
         const val PERCENT_TEXT_SP = 12f
         const val LABEL_TEXT_SP = 15f
         const val NAME_TEXT_SP = 12f
-        const val CHECK_SIZE_DP = 44f
         const val CORNER_DP = 24f
         const val PADDING_H_DP = 24f
         const val PADDING_V_DP = 20f
@@ -214,6 +227,3 @@ internal class SaveOverlayCard(
         const val DOT_DIM_ALPHA = 0.5f
     }
 }
-
-/** 테스트가 퍼센트 뷰를 확정적으로 찾도록 붙이는 표식. */
-internal const val PERCENT_TAG = "save_overlay_percent"

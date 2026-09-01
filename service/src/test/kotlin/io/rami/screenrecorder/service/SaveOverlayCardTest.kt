@@ -1,5 +1,6 @@
 package io.rami.screenrecorder.service
 
+import android.text.TextUtils
 import android.view.View
 import android.view.View.MeasureSpec.UNSPECIFIED
 import android.view.ViewGroup
@@ -40,7 +41,14 @@ class SaveOverlayCardTest {
             else -> emptyList()
         }
 
-    private fun View.percentView(): TextView = textViews().single { it.tag == PERCENT_TAG }
+    /** 화면에 실제로 보이는 글자만 모은다. GONE 뷰의 텍스트까지 읽으면 "감췄는가" 를 못 잰다. */
+    private fun View.visibleTexts(): List<String> =
+        when {
+            visibility != View.VISIBLE -> emptyList()
+            this is TextView -> listOf(text.toString())
+            this is ViewGroup -> (0 until childCount).flatMap { getChildAt(it).visibleTexts() }
+            else -> emptyList()
+        }
 
     private fun View.textViews(): List<TextView> =
         when (this) {
@@ -80,8 +88,9 @@ class SaveOverlayCardTest {
 
         card.render(saving(progress = null))
 
-        assertTrue("길이는 그대로 보여야 한다", ELAPSED in card.root.allTexts())
-        assertEquals(View.GONE, card.root.percentView().visibility)
+        val visible = card.root.visibleTexts()
+        assertTrue("길이는 그대로 보여야 한다: $visible", ELAPSED in visible)
+        assertTrue("퍼센트가 아직 보인다: $visible", visible.none { "%" in it })
     }
 
     /** 다 끝난 값에 퍼센트를 남겨 두면 아직 진행 중으로 읽힌다. */
@@ -89,9 +98,9 @@ class SaveOverlayCardTest {
     fun `발행이 확정되면 퍼센트 대신 체크를 보여 준다`() {
         val card = render(SaveOverlayContent(ELAPSED, FILE_NAME, progress = 1f, SaveOutcome.SAVED))
 
-        val texts = card.allTexts()
-        assertTrue("완료 문구가 없다: $texts", context.getString(R.string.save_complete_banner) in texts)
-        assertEquals(View.GONE, card.percentView().visibility)
+        val visible = card.visibleTexts()
+        assertTrue("완료 문구가 없다: $visible", context.getString(R.string.save_complete_banner) in visible)
+        assertTrue("퍼센트가 아직 보인다: $visible", visible.none { "%" in it })
         assertTrue("체크 아이콘이 없다", card.imageViews().any { it.visibility == View.VISIBLE })
     }
 
@@ -147,6 +156,43 @@ class SaveOverlayCardTest {
     }
 
     /**
+     * 한 시간을 넘으면 "HH:MM:SS" 여덟 자가 되어 40sp 로는 링 폭을 넘는다 — 홈이 자릿수에 따라
+     * 크기를 낮추는 이유다. 그리고 발행이 오래 걸리는 것이 바로 그 긴 녹화라, 이 오버레이가
+     * 가장 오래 떠 있는 경우가 곧 깨지는 경우다.
+     */
+    @Test
+    fun `한 시간을 넘는 길이는 글자를 줄여 링 안에 담는다`() {
+        val short = render(saving(progress = 0.5f)).textViews().single { it.text == ELAPSED }
+
+        val longCard = SaveOverlayCard(context)
+        longCard.render(SaveOverlayContent(LONG_ELAPSED, FILE_NAME, 0.5f, SaveOutcome.IN_PROGRESS))
+        val long = longCard.root.textViews().single { it.text == LONG_ELAPSED }
+
+        assertTrue("여덟 자인데 글자가 줄지 않았다", long.textSize < short.textSize)
+    }
+
+    /**
+     * 카드가 링보다 넓어지면 화면 밖으로 나간다. 부모가 WRAP_CONTENT 라 폭을 묶지 않으면
+     * 말줄임이 발동하지 않고 카드가 파일명만큼 늘어난다.
+     *
+     * 폭이 아니라 제약을 본다 — Robolectric 은 실제 글꼴로 글자를 재지 않아, 긴 이름을 넣어도
+     * 측정 폭이 늘지 않는다. 측정값을 비교하면 무엇을 해도 통과하는 테스트가 된다.
+     */
+    @Test
+    fun `파일명 폭을 링 크기에 묶는다`() {
+        val card =
+            SaveOverlayCard(context)
+                .apply { render(SaveOverlayContent(ELAPSED, LONG_FILE_NAME, 0.5f, SaveOutcome.IN_PROGRESS)) }
+                .root
+
+        val fileName = card.textViews().single { it.text == LONG_FILE_NAME }
+
+        val glowDiameterDp = SavingGaugeSpec.RING_DP * SavingGaugeSpec.GLOW_RADIUS_SCALE
+        assertEquals(context.dpToPx(glowDiameterDp), fileName.maxWidth)
+        assertEquals(TextUtils.TruncateAt.MIDDLE, fileName.ellipsize)
+    }
+
+    /**
      * 뷰가 링 크기로 재면 후광이 사각으로 잘린다 — 플랫폼 뷰는 Compose 와 달리 자기 경계에서
      * 자르기 때문이다. 실기기에서 붉은 얼룩으로 드러났던 회귀다.
      */
@@ -166,6 +212,8 @@ class SaveOverlayCardTest {
 
     private companion object {
         const val ELAPSED = "03:42"
+        const val LONG_ELAPSED = "01:02:03"
+        const val LONG_FILE_NAME = "Rec_20260901_120000_아주_긴_이름을_가진_녹화본_파일입니다.mp4"
         const val FILE_NAME = "Rec_20260901_120000.mp4"
     }
 }
