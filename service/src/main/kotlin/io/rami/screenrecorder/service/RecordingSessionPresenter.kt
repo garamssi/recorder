@@ -55,6 +55,8 @@ internal class RecordingSessionPresenter(
         states.dropWhile { it is RecordingState.Idle }.collectLatest { state ->
             when (state) {
                 is RecordingState.CountingDown -> {
+                    // 지난 녹화의 완료 배너가 새 녹화의 첫 프레임에 찍히면 안 된다.
+                    saveCompleteBanner.dismiss()
                     countdownOverlay.show(state.remainingSeconds, onSkip = onSkipCountdown)
                     // 이 구간의 일시정지는 아무 일도 하지 않는다 (명세 6.1절 [결정]).
                     context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = true) }
@@ -64,6 +66,7 @@ internal class RecordingSessionPresenter(
                 // 세션이 만들어지는 중이라 코디네이터의 중지가 아무 일도 하지 않는다
                 // (기능명세서 6.1절 [결정]).
                 is RecordingState.Preparing -> {
+                    saveCompleteBanner.dismiss()
                     countdownOverlay.dismiss()
                     context.ongoingNotificationText(state)?.let { notifications.showLimited(it, stoppable = false) }
                 }

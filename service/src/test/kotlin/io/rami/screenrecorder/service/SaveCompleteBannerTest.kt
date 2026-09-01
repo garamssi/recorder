@@ -10,8 +10,10 @@ import android.view.WindowManager
 import android.widget.TextView
 import io.rami.screenrecorder.domain.model.Recording
 import io.rami.screenrecorder.domain.model.RecordingId
+import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -25,6 +27,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowSettings
+import org.robolectric.shadows.ShadowToast
 import org.robolectric.shadows.ShadowWindowManagerImpl
 import java.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -61,13 +64,20 @@ class SaveCompleteBannerTest {
 
     private class FakeBanner : SaveCompleteBanner {
         val shown = mutableListOf<String>()
+        var dismissCount = 0
 
         override fun show(fileName: String) {
             shown += fileName
         }
+
+        override fun dismiss() {
+            dismissCount++
+        }
     }
 
     private fun settle() = shadowOf(Looper.getMainLooper()).idle()
+
+    private fun advanceMillis(millis: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(millis))
 
     private fun View.allTexts(): List<String> =
         when (this) {
@@ -86,6 +96,28 @@ class SaveCompleteBannerTest {
             presenter(banner).observeCompletion(flowOf(SAVED))
 
             assertEquals(listOf(FILE_NAME), banner.shown)
+        }
+
+    /** 발행이 아무것도 남기지 않은 세션(빈 녹화·발행 실패)은 이 흐름에 흐르지 않는다. */
+    @Test
+    fun `발행이 확정되지 않으면 배너를 띄우지 않는다`() =
+        runTest {
+            val banner = FakeBanner()
+
+            presenter(banner).observeCompletion(emptyFlow())
+
+            assertEquals(emptyList<String>(), banner.shown)
+        }
+
+    /** 지난 녹화의 완료 배너가 새 녹화의 첫 프레임에 찍히면 안 된다. */
+    @Test
+    fun `새 세션이 시작되면 배너를 내린다`() =
+        runTest {
+            val banner = FakeBanner()
+
+            presenter(banner).observeState(flowOf(RecordingState.Preparing))
+
+            assertEquals(1, banner.dismissCount)
         }
 
     // --- 내용: 무엇이 저장됐는지 ---
@@ -112,27 +144,67 @@ class SaveCompleteBannerTest {
     // --- 수명: 스스로 사라진다 ---
 
     @Test
-    fun `배너는 창에 붙었다가 스스로 사라진다`() {
+    fun `배너는 정해진 시간 동안만 머문다`() {
         ShadowSettings.setCanDrawOverlays(true)
 
         SaveCompleteOverlayWindow(context).show(FILE_NAME)
         settle()
-        assertEquals(1, windowShadow.views.size)
+        // 시간을 재는 테스트여야 한다. "충분히 오래 뒤에 없다"만 보면 3초가 30ms 가 돼도 통과한다.
+        // 정확한 경계 1ms 는 섀도 시계 구현에 달려 있어 고정하지 않는다 — 500ms 여유로도
+        // 3초가 300ms 나 30초가 되는 회귀는 잡힌다.
+        advanceMillis(SAVE_COMPLETE_DISPLAY_MILLIS - MARGIN_MILLIS)
+        assertEquals("아직 사라지면 안 된다", 1, windowShadow.views.size)
 
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(BANNER_LIFETIME_SECONDS))
+        advanceMillis(MARGIN_MILLIS * 2)
+        assertEquals(0, windowShadow.views.size)
+    }
+
+    /**
+     * 앞 배너가 예약해 둔 제거가 뒤 배너를 잡아먹으면 안 된다.
+     *
+     * 제거 예약은 "지금 떠 있는 창"이 아니라 자기가 띄운 배너를 지목해야 한다.
+     */
+    @Test
+    fun `연달아 저장해도 뒤 배너가 제 수명을 산다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val window = SaveCompleteOverlayWindow(context)
+        window.show(FILE_NAME)
+        settle()
+        advanceMillis(SAVE_COMPLETE_DISPLAY_MILLIS - 100)
+
+        window.show(OTHER_FILE_NAME)
+        settle()
+        advanceMillis(200)
+
+        assertEquals("앞 배너의 예약이 뒤 배너를 지웠다", 1, windowShadow.views.size)
+    }
+
+    @Test
+    fun `배너를 내리면 창이 사라진다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val window = SaveCompleteOverlayWindow(context)
+        window.show(FILE_NAME)
+        settle()
+
+        window.dismiss()
+        settle()
 
         assertEquals(0, windowShadow.views.size)
     }
 
-    /** 오버레이 권한이 없으면 화면에 그릴 수단이 토스트뿐이다. 창을 만들려 들면 예외가 난다. */
+    /** 오버레이 권한이 없으면 화면에 그릴 수단이 토스트뿐이다. 그래도 내용은 같아야 한다. */
     @Test
-    fun `오버레이 권한이 없으면 창을 만들지 않는다`() {
+    fun `오버레이 권한이 없으면 파일명까지 담은 토스트로 대신한다`() {
         ShadowSettings.setCanDrawOverlays(false)
 
         SaveCompleteOverlayWindow(context).show(FILE_NAME)
         settle()
 
         assertEquals(0, windowShadow.views.size)
+        val toast = ShadowToast.getTextOfLatestToast()
+        assertTrue("토스트가 없다", toast != null)
+        assertTrue("완료 문구가 없다: $toast", context.getString(R.string.save_complete_banner) in toast)
+        assertTrue("파일 이름이 없다: $toast", FILE_NAME in toast)
     }
 
     private fun presenter(banner: SaveCompleteBanner) =
@@ -147,9 +219,10 @@ class SaveCompleteBannerTest {
 
     private companion object {
         const val FILE_NAME = "Rec_20260901_120000.mp4"
+        const val OTHER_FILE_NAME = "Rec_20260901_120500.mp4"
 
-        /** 배너가 머무는 시간보다 넉넉히 잡아 "사라졌다"를 확인한다. */
-        const val BANNER_LIFETIME_SECONDS = 10L
+        /** 표시 시간 경계를 재는 여유. 섀도 시계의 1ms 경계 의미에 기대지 않는다. */
+        const val MARGIN_MILLIS = 500L
 
         val SAVED =
             Recording(

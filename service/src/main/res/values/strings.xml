@@ -25,6 +25,7 @@
     <string name="floating_saving">Saving…</string>
     <string name="floating_preparing">Preparing…</string>
     <string name="save_complete_banner">Recording saved</string>
+    <string name="save_complete_toast">Recording saved · %1$s</string>
     <string name="capture_busy_title">Can’t start right now</string>
     <string name="capture_busy_recording">Another capture is already running.</string>
     <string name="screenshot_notification_capturing">Capturing screen…</string>
