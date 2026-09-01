@@ -11,6 +11,8 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import io.rami.screenrecorder.core.common.design.SavingGaugeSpec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * 발행 구간을 화면 위에 보여 주는 표시 (기능명세서 6.1절 [결정]).
@@ -73,9 +75,17 @@ interface SaveOverlay {
  */
 internal class SaveOverlayWindow(
     private val context: Context,
+    private val appForeground: AppForegroundState,
+    scope: CoroutineScope,
     private val windows: OverlayWindows = SystemOverlayWindows(context),
 ) : SaveOverlay {
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    init {
+        // 앱을 오가는 동안 표시를 맞춘다. 발행은 분 단위로 걸려 그 사이 앱에 들어왔다 나갈 수 있다.
+        scope.launch { appForeground.isForeground.collect(::followAppForeground) }
+    }
+
     private var card: SaveOverlayCard? = null
 
     /** 완료 표시를 지우려고 예약해 둔 일. 새 발행이 시작되면 거둔다. */
@@ -177,6 +187,12 @@ internal class SaveOverlayWindow(
             // 결말을 그리고 나면 물려줄 것이 없다. 남겨 두면 다음 세션의 실패가 지난 녹화의
             // 이름을 물려받을 수 있다.
             lastSaving = resolved.takeIf { it.outcome == SaveOutcome.IN_PROGRESS }
+            // 앱 화면이 앞에 있으면 홈 카드가 같은 링을 그린다. 여기서 또 그리면 링이 둘이 된다
+            // (기능명세서 6.1절 [결정]).
+            if (appForeground.isForeground.value) {
+                detachWindow()
+                return@post
+            }
             val existing = card
             if (existing != null) {
                 existing.render(resolved)
@@ -188,7 +204,7 @@ internal class SaveOverlayWindow(
             if (!Settings.canDrawOverlays(context)) {
                 // 진행 중에는 대체하지 않는다 — 발행 2~4분 동안 토스트를 반복하면 화면을 가린다.
                 // 결말은 성공이든 실패든 알려야 한다. 특히 실패를 놓치면 저장된 줄 알고 넘어간다.
-                if (resolved.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(resolved)
+                if (resolved.outcome != SaveOutcome.IN_PROGRESS) context.showSaveToast(resolved)
                 return@post
             }
             val fresh = SaveOverlayCard(context)
@@ -202,7 +218,7 @@ internal class SaveOverlayWindow(
                     ),
                 )
             ) {
-                if (resolved.outcome != SaveOutcome.IN_PROGRESS) fallBackToToast(resolved)
+                if (resolved.outcome != SaveOutcome.IN_PROGRESS) context.showSaveToast(resolved)
                 return@post
             }
             card = fresh
@@ -210,28 +226,38 @@ internal class SaveOverlayWindow(
         }
     }
 
-    /**
-     * 화면에 그릴 수단이 토스트뿐인 경우 (기능명세서 6.1절 [결정]).
-     *
-     * 호출 지점이 모두 [render] 의 메시지 안이라 이미 메인 스레드다. 다시 post 하지 않는다.
-     */
-    private fun fallBackToToast(content: SaveOverlayContent) {
-        val template =
-            if (content.outcome == SaveOutcome.FAILED) {
-                R.string.save_failed_toast
-            } else {
-                R.string.save_complete_toast
-            }
-        Toast.makeText(context, context.getString(template, content.fileName), Toast.LENGTH_SHORT).show()
-    }
-
     private fun removeExisting() {
         pendingRemoval?.let(mainHandler::removeCallbacks)
         pendingRemoval = null
         outcomeShown = false
+        detachWindow()
+    }
+
+    /**
+     * 창만 뗀다. 결말 예약과 물려줄 내용은 건드리지 않는다 — 앱에 들어와 잠시 감추는 것과
+     * 표시가 끝나는 것은 다르다.
+     */
+    private fun detachWindow() {
         val attached = card ?: return
         card = null
         windows.detach(attached.root)
+    }
+
+    /**
+     * 앱을 오갈 때 표시를 맞춘다 (기능명세서 6.1절 [결정]).
+     *
+     * 결말(완료·실패)은 되살리지 않는다. 몇 초짜리라 되살릴 시점에는 이미 지난 이야기고,
+     * 완료 알림이 사실을 들고 있다.
+     */
+    private fun followAppForeground(inApp: Boolean) {
+        mainHandler.post {
+            if (inApp) {
+                detachWindow()
+                return@post
+            }
+            if (outcomeShown) return@post
+            lastSaving?.let { saving -> render { saving } }
+        }
     }
 
     private companion object {
@@ -240,6 +266,21 @@ internal class SaveOverlayWindow(
         /** 완료 카드는 중앙이 체크라 길이를 그리지 않는다. 물려받을 것이 없을 때 쓰는 빈 값. */
         const val NO_ELAPSED = ""
     }
+}
+
+/**
+ * 화면에 그릴 수단이 토스트뿐인 경우 (기능명세서 6.1절 [결정]).
+ *
+ * 창 상태와 무관하다 — 문구를 고르고 띄우는 일뿐이다. 호출 지점이 모두 메인 스레드다.
+ */
+private fun Context.showSaveToast(content: SaveOverlayContent) {
+    val template =
+        if (content.outcome == SaveOutcome.FAILED) {
+            R.string.save_failed_toast
+        } else {
+            R.string.save_complete_toast
+        }
+    Toast.makeText(this, getString(template, content.fileName), Toast.LENGTH_SHORT).show()
 }
 
 /** 완료 표시가 머무는 시간. 눈에 걸릴 만큼 길고, 화면을 오래 가리지 않을 만큼 짧다. */

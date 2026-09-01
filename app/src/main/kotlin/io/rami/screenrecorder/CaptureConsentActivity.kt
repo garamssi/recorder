@@ -9,6 +9,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.data.recorder.MediaProjectionTokenHolder
 import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.usecase.ObserveSettingsUseCase
+import io.rami.screenrecorder.foreground.TransparentTrampoline
 import io.rami.screenrecorder.service.RecordingForegroundService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -22,7 +23,9 @@ import javax.inject.Inject
  * 동의가 끝나면 곧바로 스스로 종료한다 (앱을 앞으로 끌어내지 않는다).
  */
 @AndroidEntryPoint
-class CaptureConsentActivity : ComponentActivity() {
+class CaptureConsentActivity :
+    ComponentActivity(),
+    TransparentTrampoline {
     @Inject lateinit var projectionTokenHolder: MediaProjectionTokenHolder
 
     @Inject lateinit var observeSettings: ObserveSettingsUseCase

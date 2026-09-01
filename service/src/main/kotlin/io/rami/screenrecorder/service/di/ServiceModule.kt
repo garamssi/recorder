@@ -6,8 +6,12 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.rami.screenrecorder.service.AppForegroundState
 import io.rami.screenrecorder.service.SaveOverlay
 import io.rami.screenrecorder.service.SaveOverlayWindow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
 /** service 계층의 프로세스 스코프 협력자 조립. */
@@ -26,5 +30,11 @@ object ServiceModule {
     @Singleton
     fun provideSaveOverlay(
         @ApplicationContext context: Context,
-    ): SaveOverlay = SaveOverlayWindow(context)
+        appForeground: AppForegroundState,
+    ): SaveOverlay =
+        SaveOverlayWindow(
+            context = context,
+            appForeground = appForeground,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        )
 }

@@ -44,6 +44,8 @@ class FloatingCaptureService : Service() {
 
     @Inject lateinit var setTimeLimit: SetTimeLimitUseCase
 
+    @Inject lateinit var appForeground: AppForegroundState
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val notifications by lazy { RecordingNotifications(this) }
     private val bubble by lazy { FloatingCaptureBubble(this) }
@@ -53,6 +55,8 @@ class FloatingCaptureService : Service() {
     private var currentTimeLimit: TimeLimit = TimeLimit.None
     private val mainHandler = Handler(Looper.getMainLooper())
     private var stateObserverJob: kotlinx.coroutines.Job? = null
+
+    private var foregroundObserverJob: kotlinx.coroutines.Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -90,10 +94,28 @@ class FloatingCaptureService : Service() {
 
     private fun showBubble() {
         // 중복 START는 무시된다 (show가 이미 떠 있으면 아무것도 하지 않는다).
-        bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
+        if (!appForeground.isForeground.value) {
+            bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
+        }
         // 구독도 한 번만 — START가 반복돼도 수집기가 겹쳐 같은 상태를 여러 번 그리지 않게 한다.
         if (stateObserverJob?.isActive == true) return
         stateObserverJob = serviceScope.launch { observeCaptureState() }
+        foregroundObserverJob = serviceScope.launch { followAppForeground() }
+    }
+
+    /**
+     * 앱 화면이 앞에 있는 동안 버블을 감춘다 (기능명세서 11.1절 [결정]).
+     *
+     * 서비스는 그대로 살려 둔다. 창만 뗐다 붙이므로 드래그해 둔 자리도 그대로다.
+     */
+    private suspend fun followAppForeground() {
+        appForeground.isForeground.collect { inApp ->
+            if (inApp) {
+                bubble.dismiss()
+            } else {
+                bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
+            }
+        }
     }
 
     /**

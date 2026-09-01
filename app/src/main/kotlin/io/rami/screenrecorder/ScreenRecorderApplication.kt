@@ -7,6 +7,7 @@ import coil3.SingletonImageLoader
 import coil3.video.VideoFrameDecoder
 import dagger.hilt.android.HiltAndroidApp
 import io.rami.screenrecorder.data.storage.ProcessStartTime
+import io.rami.screenrecorder.foreground.ForegroundActivityTracker
 import javax.inject.Inject
 
 /** Hilt DI 그래프의 루트가 되는 Application. Coil 전역 로더(비디오 썸네일 지원)도 제공한다. */
@@ -22,9 +23,14 @@ class ScreenRecorderApplication :
     @Inject
     lateinit var processStartTime: ProcessStartTime
 
+    /** 앱 화면이 앞에 있는 동안 버블과 저장 오버레이를 감춘다 (기능명세서 11.1절 [결정]). */
+    @Inject
+    lateinit var foregroundTracker: ForegroundActivityTracker
+
     override fun onCreate() {
         super.onCreate()
         processStartTime.epochSeconds
+        registerActivityLifecycleCallbacks(foregroundTracker)
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

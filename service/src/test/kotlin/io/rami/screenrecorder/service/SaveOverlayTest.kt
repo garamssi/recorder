@@ -14,6 +14,10 @@ import io.rami.screenrecorder.domain.model.RecordingSessionEvent
 import io.rami.screenrecorder.domain.model.RecordingState
 import io.rami.screenrecorder.domain.model.Resolution
 import io.rami.screenrecorder.domain.model.VideoCodec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -72,6 +76,21 @@ class SaveOverlayTest {
 
         override fun detach(view: View) = Unit
     }
+
+    /** 앱 전면 여부를 테스트가 직접 흔든다. */
+    private val foreground = MutableStateFlow(false)
+
+    private val appForeground =
+        object : AppForegroundState {
+            override val isForeground: StateFlow<Boolean> = foreground
+        }
+
+    private fun overlayWindow(windows: OverlayWindows? = null) =
+        if (windows == null) {
+            SaveOverlayWindow(context, appForeground, CoroutineScope(Dispatchers.Unconfined))
+        } else {
+            SaveOverlayWindow(context, appForeground, CoroutineScope(Dispatchers.Unconfined), windows)
+        }
 
     private class FakeOverlay : SaveOverlay {
         val saving = mutableListOf<Triple<String, String, Float?>>()
@@ -205,7 +224,7 @@ class SaveOverlayTest {
     @Test
     fun `실패 표시는 저장 중이던 값을 그대로 물려받는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
         settle()
 
@@ -227,7 +246,7 @@ class SaveOverlayTest {
     @Test
     fun `권한이 없으면 실패도 토스트로 알린다`() {
         ShadowSettings.setCanDrawOverlays(false)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
         settle()
 
@@ -250,7 +269,7 @@ class SaveOverlayTest {
     @Test
     fun `새 세션이 시작되면 직전 결말이 다시 붙지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
 
         overlay.showSaved(FILE_NAME)
         overlay.dismiss()
@@ -266,7 +285,7 @@ class SaveOverlayTest {
     @Test
     fun `유휴가 실패보다 먼저 와도 실패가 값을 물려받는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
         settle()
 
@@ -291,7 +310,7 @@ class SaveOverlayTest {
     @Test
     fun `결말을 그린 뒤에는 물려줄 내용이 남지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
         settle()
         overlay.showSaved(FILE_NAME)
@@ -309,7 +328,7 @@ class SaveOverlayTest {
     @Test
     fun `새 세션이 시작되면 물려줄 내용도 버린다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
         settle()
 
@@ -325,7 +344,7 @@ class SaveOverlayTest {
     @Test
     fun `실패를 보여 준 뒤에도 유휴가 표시를 지우지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
         settle()
         overlay.showFailed()
@@ -346,7 +365,7 @@ class SaveOverlayTest {
     @Test
     fun `유휴가 완료보다 먼저 와도 완료 표시가 제 수명을 산다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.9f)
         settle()
 
@@ -366,7 +385,7 @@ class SaveOverlayTest {
     @Test
     fun `완료를 보여 준 뒤에는 유휴가 와도 표시가 남는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaved(FILE_NAME)
         settle()
 
@@ -379,7 +398,7 @@ class SaveOverlayTest {
     @Test
     fun `완료 없이 끝나면 창이 사라진다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.87f)
         settle()
         assertEquals(1, windowShadow.views.size)
@@ -394,12 +413,56 @@ class SaveOverlayTest {
     @Test
     fun `저장 중을 그린 적 없으면 실패 표시도 띄우지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
 
         overlay.showFailed()
         settle()
 
         assertEquals(0, windowShadow.views.size)
+    }
+
+    /** 앱 안에는 홈 카드가 같은 링을 그린다. 여기서 또 그리면 링이 둘이 된다. */
+    @Test
+    fun `앱이 전면이면 오버레이를 띄우지 않는다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        foreground.value = true
+        val overlay = overlayWindow()
+
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
+        settle()
+
+        assertEquals(0, windowShadow.views.size)
+    }
+
+    @Test
+    fun `앱으로 들어오면 떠 있던 오버레이를 감춘다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = overlayWindow()
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
+        settle()
+        assertEquals(1, windowShadow.views.size)
+
+        foreground.value = true
+        settle()
+
+        assertEquals(0, windowShadow.views.size)
+    }
+
+    /** 발행은 분 단위로 걸린다. 앱에 들렀다 나오면 그때 상태로 다시 떠야 한다. */
+    @Test
+    fun `앱을 벗어나면 발행 중 표시가 다시 뜬다`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val overlay = overlayWindow()
+        overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.5f)
+        settle()
+        foreground.value = true
+        settle()
+
+        foreground.value = false
+        settle()
+
+        val card = windowShadow.views.single()
+        assertTrue("진행 중 표시가 아니다", FILE_NAME in card.visibleTexts())
     }
 
     /** 지난 녹화의 완료 배너가 새 녹화의 첫 프레임에 찍히면 안 된다. */
@@ -444,7 +507,7 @@ class SaveOverlayTest {
     @Test
     fun `진행률이 갱신돼도 창은 하나로 유지된다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
 
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.1f)
         settle()
@@ -471,7 +534,7 @@ class SaveOverlayTest {
     @Test
     fun `완료 뒤 늦은 진행률 갱신이 완료 표시를 덮지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
         overlay.showSaved(FILE_NAME)
         settle()
 
@@ -489,7 +552,7 @@ class SaveOverlayTest {
     @Test
     fun `저장 중 표시는 시간이 지나도 사라지지 않는다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val overlay = SaveOverlayWindow(context)
+        val overlay = overlayWindow()
 
         overlay.showSaving(ELAPSED, FILE_NAME, progress = 0.2f)
         settle()
@@ -517,7 +580,7 @@ class SaveOverlayTest {
     fun `완료 표시는 정해진 시간 동안만 머문다`() {
         ShadowSettings.setCanDrawOverlays(true)
 
-        SaveOverlayWindow(context).showSaved(FILE_NAME)
+        overlayWindow().showSaved(FILE_NAME)
         settle()
         // 시간을 재는 테스트여야 한다. "충분히 오래 뒤에 없다"만 보면 3초가 30ms 가 돼도 통과한다.
         //
@@ -540,7 +603,7 @@ class SaveOverlayTest {
     @Test
     fun `연달아 저장해도 뒤 표시가 제 수명을 산다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val window = SaveOverlayWindow(context)
+        val window = overlayWindow()
         window.showSaved(FILE_NAME)
         settle()
         advanceMillis(SAVE_OVERLAY_DISPLAY_MILLIS - 100)
@@ -568,7 +631,7 @@ class SaveOverlayTest {
     fun `서비스가 바뀌어도 다음 세션이 지난 표시를 내린다`() =
         runTest {
             ShadowSettings.setCanDrawOverlays(true)
-            val shared = SaveOverlayWindow(context)
+            val shared = overlayWindow()
 
             presenter(shared).observeCompletion(flowOf(SAVED))
             settle()
@@ -589,7 +652,7 @@ class SaveOverlayTest {
     @Test
     fun `오버레이를 내리면 창이 사라진다`() {
         ShadowSettings.setCanDrawOverlays(true)
-        val window = SaveOverlayWindow(context)
+        val window = overlayWindow()
         window.showSaved(FILE_NAME)
         settle()
 
@@ -608,7 +671,7 @@ class SaveOverlayTest {
     fun `창이 거부되면 토스트로 넘어간다`() {
         ShadowSettings.setCanDrawOverlays(true)
 
-        SaveOverlayWindow(context, windows = RejectingWindows).showSaved(FILE_NAME)
+        overlayWindow(RejectingWindows).showSaved(FILE_NAME)
         settle()
 
         assertEquals(0, windowShadow.views.size)
@@ -621,7 +684,7 @@ class SaveOverlayTest {
     fun `오버레이 권한이 없으면 파일명까지 담은 토스트로 대신한다`() {
         ShadowSettings.setCanDrawOverlays(false)
 
-        SaveOverlayWindow(context).showSaved(FILE_NAME)
+        overlayWindow().showSaved(FILE_NAME)
         settle()
 
         assertEquals(0, windowShadow.views.size)
