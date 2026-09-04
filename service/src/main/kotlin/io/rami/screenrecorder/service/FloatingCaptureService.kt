@@ -93,10 +93,10 @@ class FloatingCaptureService : Service() {
     }
 
     private fun showBubble() {
+        // 감춤 여부를 먼저 정한다. 서비스는 앱 안에서 시작되므로, 붙인 뒤에 감추면 한 프레임 깜빡인다.
+        bubble.setHidden(appForeground.isForeground.value)
         // 중복 START는 무시된다 (show가 이미 떠 있으면 아무것도 하지 않는다).
-        if (!appForeground.isForeground.value) {
-            bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
-        }
+        bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
         // 구독도 한 번만 — START가 반복돼도 수집기가 겹쳐 같은 상태를 여러 번 그리지 않게 한다.
         if (stateObserverJob?.isActive == true) return
         stateObserverJob = serviceScope.launch { observeCaptureState() }
@@ -106,16 +106,10 @@ class FloatingCaptureService : Service() {
     /**
      * 앱 화면이 앞에 있는 동안 버블을 감춘다 (기능명세서 11.1절 [결정]).
      *
-     * 서비스는 그대로 살려 둔다. 창만 뗐다 붙이므로 드래그해 둔 자리도 그대로다.
+     * 창을 떼지 않고 보이지 않게만 한다. 감춰진 동안 도착한 상태도, 드래그해 둔 자리도 그대로다.
      */
     private suspend fun followAppForeground() {
-        appForeground.isForeground.collect { inApp ->
-            if (inApp) {
-                bubble.dismiss()
-            } else {
-                bubble.show(BubbleActionDelegate(this, onEditTimeLimit = ::showTimeLimitInput))
-            }
-        }
+        appForeground.isForeground.collect(bubble::setHidden)
     }
 
     /**
@@ -132,8 +126,7 @@ class FloatingCaptureService : Service() {
             currentTimeLimit = timeLimit
             bubbleStateFor(screen, voice, settingTimeLimit = timeLimit)
             // 버블은 저장 진행률을 쓰지 않으므로 Stopping 이 갱신될 때마다 같은 값이 온다.
-            // render 도 같은 값을 버리지만, 그쪽 조기 반환은 창이 붙기 전(root == null)에는
-            // 내부 상태를 갱신하지 않아 흐름 수준에서 한 번 더 걸러 두는 편이 안전하다.
+            // 흐름 수준에서 걸러 두면 창까지 가는 메시지 자체가 줄어든다.
         }.distinctUntilChanged().collect(bubble::render)
     }
 

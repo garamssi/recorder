@@ -8,7 +8,6 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import io.rami.screenrecorder.core.common.time.DurationFormatter
 import io.rami.screenrecorder.domain.model.TimeLimit
 
 /** 조작할 것이 없는 이유. 버블에 띄울 문구가 갈린다. */
@@ -121,11 +120,14 @@ internal class FloatingCaptureBubble(
     private var state: BubbleState = BubbleState.Idle()
     private var expanded = false
 
-    /** 버블을 띄운다. 이미 떠 있으면 무시한다. */
+    /** 앱 화면이 전면이라 감춰 둔 상태인지 ([setHidden]). 창을 붙일 때도 이 값을 따른다. */
+    private var hidden = false
+
+    /** 버블을 띄운다. 이미 떠 있으면 무시한다. 감춰 둔 상태면 보이지 않는 채로 붙는다. */
     fun show(actions: BubbleActions) {
         if (root != null) return
         this.actions = actions
-        val container = FrameLayout(context)
+        val container = FrameLayout(context).apply { visibility = visibilityWhenHidden(hidden) }
         val stack = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
         container.addView(stack)
         root = container
@@ -134,11 +136,30 @@ internal class FloatingCaptureBubble(
         rebuild()
     }
 
-    /** 상태를 반영해 다시 그린다. 값이 그대로면 아무것도 하지 않고, 경과 시간만 바뀌면 텍스트만 갱신한다. */
+    /**
+     * 앱 화면이 전면인 동안 버블을 감춘다 (기능명세서 11.1절 [결정]).
+     *
+     * 창을 떼지 않는다. 떼면 그 동안 도착한 상태와 놓아둔 자리를 잃는다 — 보이지 않게만 하면
+     * 뷰 트리와 창 좌표가 그대로 남아, 앱을 벗어나는 순간 있던 그대로 다시 보인다.
+     */
+    fun setHidden(hidden: Boolean) {
+        if (this.hidden == hidden) return
+        this.hidden = hidden
+        root?.visibility = visibilityWhenHidden(hidden)
+    }
+
+    /**
+     * 상태를 반영해 다시 그린다. 값이 그대로면 아무것도 하지 않고, 경과 시간만 바뀌면 텍스트만 갱신한다.
+     *
+     * 창이 떼어져 있어도 상태는 받아 둔다. 설정과 세션 스트림은 값이 **바뀔 때만** 방출하므로
+     * 감춰진 동안 도착한 방출이 그 값의 유일한 기회다 — 여기서 버리면 다시 붙을 때 그릴 것이
+     * 없어 생성 시점의 기본값(제한 없음, 유휴)이 그대로 남는다.
+     */
     fun render(newState: BubbleState) {
-        if (root == null || newState == state) return
+        if (newState == state) return
         val onlyElapsedChanged = state.sameShapeAs(newState)
         state = newState
+        if (root == null) return
         if (onlyElapsedChanged) {
             elapsedView?.text = newState.elapsedText()
             return
@@ -158,6 +179,7 @@ internal class FloatingCaptureBubble(
         menuBelowBase = false
         actions = null
         expanded = false
+        hidden = false
         position.reset()
         windowManager.removeView(container)
     }
@@ -172,7 +194,8 @@ internal class FloatingCaptureBubble(
         menuRows =
             if (expanded) {
                 context.bubbleMenuRows(context.menuItemsFor(state, actions), position.snappedToRight) {
-                    collapseThen(it.onClick)
+                    setExpanded(false)
+                    it.onClick()
                 }
             } else {
                 emptyList()
@@ -187,12 +210,13 @@ internal class FloatingCaptureBubble(
     /** 상태에 맞는 기준 요소 — 유휴면 토글 버튼, 진행 중이면 pill. */
     private fun createBase(): View? =
         when (val current = state) {
-            is BubbleState.Idle -> context.bubbleToggle(expanded, ::toggleExpanded).also { dragHandle = it }
+            is BubbleState.Idle -> context.bubbleToggle(expanded) { setExpanded(!expanded) }.also { dragHandle = it }
             is BubbleState.ScreenRecording -> context.buildScreenRecordingPill(current, actions)?.let(::adopt)
             is BubbleState.VoiceRecording -> context.buildVoiceRecordingPill(current, actions)?.let(::adopt)
             is BubbleState.Busy -> adopt(context.buildBusyPill(current.reason))
         }
 
+    /** pill 이 들고 있는 갱신 대상과 드래그 손잡이를 넘겨받는다. */
     private fun adopt(pill: PillViews): View {
         elapsedView = pill.elapsed
         dragHandle = pill.handle
@@ -225,7 +249,7 @@ internal class FloatingCaptureBubble(
         BubbleDragHandler(
             windowManager = windowManager,
             layoutParams = layoutParams,
-            onTap = { toggleExpanded() },
+            onTap = { setExpanded(!expanded) },
             onSnapped = { toRight ->
                 // 반대쪽 변으로 옮겨 가면 라벨 위치와 정렬이 뒤집히므로 메뉴를 다시 만든다.
                 val edgeChanged = position.snappedToRight != toRight
@@ -235,17 +259,24 @@ internal class FloatingCaptureBubble(
         ).attachTo(handle)
     }
 
-    private fun toggleExpanded() {
-        expanded = !expanded
+    /**
+     * 펼침 여부를 바꾸고 다시 그린다.
+     *
+     * 메뉴 항목을 고르면 먼저 접고 나서 동작을 실행한다 — 동작이 상태를 바꿔 버블 모양이
+     * 달라지는데, 펼친 채로 두면 그 모양에 없는 메뉴가 한 프레임 남는다.
+     */
+    private fun setExpanded(value: Boolean) {
+        expanded = value
         rebuild()
-    }
-
-    private fun collapseThen(action: () -> Unit) {
-        expanded = false
-        rebuild()
-        action()
     }
 }
+
+/**
+ * 감춤 여부를 뷰 가시성으로 옮긴다.
+ *
+ * [View.GONE]을 쓴다. [View.INVISIBLE]은 창의 서피스를 그대로 들고 있어 자리만 비운다.
+ */
+private fun visibilityWhenHidden(hidden: Boolean) = if (hidden) View.GONE else View.VISIBLE
 
 private const val INITIAL_MARGIN_DP = 12f
 private const val INITIAL_TOP_DP = 160f
@@ -268,44 +299,6 @@ private fun Context.overlayLayoutParams() =
             x = dpToPx(INITIAL_MARGIN_DP)
             y = dpToPx(INITIAL_TOP_DP)
         }
-
-/** 접힘/펼침 토글 버튼. 펼침 상태에서는 닫기 아이콘이 된다. */
-internal fun Context.bubbleToggle(
-    expanded: Boolean,
-    onToggle: () -> Unit,
-): View {
-    val icon = if (expanded) R.drawable.ic_bubble_close else R.drawable.ic_bubble_add
-    val label = getString(if (expanded) R.string.floating_collapse else R.string.floating_expand)
-    return circleButton(icon, label, accent = !expanded, onClick = onToggle)
-}
-
-/** 펼침 메뉴 줄들. 라벨은 붙어 있는 변의 반대쪽에 둔다. */
-internal fun Context.bubbleMenuRows(
-    items: List<BubbleMenuItem>,
-    snappedToRight: Boolean,
-    onSelect: (BubbleMenuItem) -> Unit,
-): List<View> =
-    items.map { item ->
-        actionRow(
-            iconRes = item.iconRes,
-            label = item.label,
-            accent = item.accent,
-            labelFirst = snappedToRight,
-        ) { onSelect(item) }
-    }
-
-/** 진행 중일 때는 겹칠 수 없는 캡처 동작을 빼고 "앱으로 가기"만 남긴다. */
-internal fun Context.menuItemsFor(
-    state: BubbleState,
-    actions: BubbleActions?,
-): List<BubbleMenuItem> {
-    val callbacks = actions ?: return emptyList()
-    return if (state is BubbleState.Idle) {
-        idleMenuItems(state.timeLimit, callbacks)
-    } else {
-        inSessionMenuItems(callbacks)
-    }
-}
 
 /** 기준 요소와 메뉴 줄을 방향에 맞는 순서와 정렬로 다시 담는다. */
 internal fun LinearLayout.arrange(
@@ -340,64 +333,3 @@ private fun BubbleState.elapsedText(): String =
         is BubbleState.Idle -> ""
         is BubbleState.Busy -> ""
     }
-
-/** 시간 제한 줄에 붙는 현재 값 — 없으면 "제한 없음". */
-internal fun Context.timeLimitLabel(timeLimit: TimeLimit): String =
-    getString(
-        R.string.floating_time_limit,
-        when (timeLimit) {
-            is TimeLimit.None -> getString(R.string.floating_time_limit_none)
-            is TimeLimit.Limited -> DurationFormatter.formatElapsed(timeLimit.duration)
-        },
-    )
-
-/**
- * 펼침 메뉴 항목 — 캡처 동작 3개, 시간 제한, 앱으로 이동 순이다 (DESIGN_GUIDE.md 4절).
- *
- * 시간 제한은 녹화를 시작하기 전에만 바꿀 수 있으므로 유휴 메뉴에만 둔다 (기능명세서 11.4절).
- */
-private fun Context.idleMenuItems(
-    timeLimit: TimeLimit,
-    callbacks: BubbleActions,
-) = listOf(
-    BubbleMenuItem(
-        R.drawable.ic_bubble_record,
-        getString(R.string.floating_record),
-        accent = true,
-        onClick = callbacks::onStartRecording,
-    ),
-    BubbleMenuItem(
-        R.drawable.ic_bubble_screenshot,
-        getString(R.string.floating_screenshot),
-        onClick = callbacks::onCaptureScreenshot,
-    ),
-    BubbleMenuItem(
-        R.drawable.ic_bubble_mic,
-        getString(R.string.floating_voice),
-        onClick = callbacks::onStartVoiceRecording,
-    ),
-    BubbleMenuItem(
-        R.drawable.ic_bubble_time_limit,
-        timeLimitLabel(timeLimit),
-        onClick = callbacks::onEditTimeLimit,
-    ),
-    BubbleMenuItem(
-        R.drawable.ic_bubble_open_app,
-        getString(R.string.floating_open_app),
-        onClick = callbacks::onOpenApp,
-    ),
-)
-
-/**
- * 진행 중 펼침 메뉴 — 화면 캡처·음성 녹음은 세션이 겹쳐 시작할 수 없으므로 넣지 않는다.
- *
- * 시간 제한도 뺀다: 녹화 중 해제·연장은 1차 범위 제외다 (기능명세서 11.4절).
- */
-private fun Context.inSessionMenuItems(callbacks: BubbleActions) =
-    listOf(
-        BubbleMenuItem(
-            R.drawable.ic_bubble_open_app,
-            getString(R.string.floating_open_app),
-            onClick = callbacks::onOpenApp,
-        ),
-    )
