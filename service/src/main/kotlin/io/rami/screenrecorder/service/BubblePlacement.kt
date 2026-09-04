@@ -23,11 +23,15 @@ internal data class BubbleLayout(
     val height: Int,
     val baseHeight: Int,
 ) {
-    /** 메뉴가 없어 창이 곧 기준 요소인 상태. 이때의 위치만 기준선이 된다. */
+    /** 메뉴가 없어 창이 곧 기준 요소인 상태. 펼칠 것이 없으니 방향을 정할 일도 없다. */
     val isBaseOnly: Boolean get() = height <= baseHeight
 }
 
-/** 배치 결과 — 창 좌표, 다음 계산에 쓸 기준선, 메뉴를 그릴 방향. */
+/**
+ * 배치 결과 — 창 좌표, 이어서 배치할 때 넘길 기준선, 메뉴를 그릴 방향.
+ *
+ * [anchorBottom]은 들어온 값 그대로다. 이 계산은 기준선을 옮기지 않는다 ([placeBubble] 참고).
+ */
 internal data class BubblePlacement(
     val x: Int,
     val y: Int,
@@ -44,6 +48,11 @@ internal data class BubblePlacement(
  *
  * 상태 바·제스처 바(시스템 바 인셋)는 피한다. 그 영역에 겹치면 그려지기는 해도
  * 터치를 SystemUI가 가져가 버블을 눌러도 반응하지 않는다.
+ *
+ * 화면 안으로 밀어 넣는 것은 그릴 때뿐이고 [anchorBottom]은 건드리지 않는다 (기능명세서 11.1절
+ * [결정]). 기준을 옮기는 것은 사용자의 드래그뿐이다 — 밀어 올린 만큼을 기억해 버리면 화면이
+ * 다시 넓어져도 원래 자리로 돌아오지 못한다. 세로에서 아래쪽에 놓아둔 버블을 가로로 돌렸다
+ * 되돌리면 화면 중간에 남는다.
  */
 internal fun placeBubble(
     anchorBottom: Int,
@@ -68,13 +77,10 @@ internal fun placeBubble(
         } else {
             screen.insetLeft + margin
         }
-    // 펼침은 일시적인 모양이다. 화면에 맞추느라 밀려난 만큼을 기준선에 반영하면
-    // 접을 때 돌아갈 자리를 잃는다.
-    val nextAnchorBottom = if (layout.isBaseOnly) y + layout.height else anchorBottom
     return BubblePlacement(
         x = x,
         y = y,
-        anchorBottom = nextAnchorBottom,
+        anchorBottom = anchorBottom,
         menuBelowBase = menuBelowBase,
     )
 }

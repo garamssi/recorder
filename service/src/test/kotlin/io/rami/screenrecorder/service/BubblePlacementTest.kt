@@ -95,11 +95,33 @@ class BubblePlacementTest {
     }
 
     @Test
-    fun `접힘 버블이 화면 아래로 넘치면 기준선까지 함께 끌어올린다`() {
+    fun `접힘 버블이 화면 아래로 넘치면 화면 안으로 끌어올린다`() {
         val placement = place(anchorBottom = 3000, layout = collapsed)
 
         assertEquals(2320, placement.y)
-        assertEquals(2476, placement.anchorBottom)
+    }
+
+    @Test
+    fun `접힘 버블을 끌어올린 만큼은 기준선에 반영하지 않는다`() {
+        val placement = place(anchorBottom = 3000, layout = collapsed)
+
+        assertEquals(3000, placement.anchorBottom, "밀어 올린 만큼을 기억하면 화면이 넓어져도 원래 자리로 못 돌아온다")
+    }
+
+    @Test
+    fun `화면이 짧아 밀렸다가 다시 넓어지면 놓아둔 자리로 돌아온다`() {
+        // 세로에서 아래쪽에 놓아둔 버블을 가로로 돌렸다 되돌리는 경우.
+        val onShortScreen =
+            placeBubble(
+                anchorBottom = 2400,
+                snappedToRight = false,
+                layout = collapsed,
+                screen = screen.copy(height = 1200),
+                margin = margin,
+            )
+        val back = place(anchorBottom = onShortScreen.anchorBottom, layout = collapsed)
+
+        assertEquals(2400 - baseHeight, back.y)
     }
 
     @Test

@@ -67,21 +67,31 @@ class BubbleRotationPlacementTest {
         return attachedRoot().apply { measure(unspecified, unspecified) }.measuredWidth
     }
 
-    /** 오른쪽 가장자리까지 드래그해 그 변에 붙인다. 스냅 판정은 [BubbleDragHandler]가 한다. */
-    private fun dragToRightEdge(bubble: FloatingCaptureBubble) {
+    private fun screenHeight(): Int = windowManager.currentWindowMetrics.bounds.height()
+
+    private fun windowY(): Int = (attachedRoot().layoutParams as WindowManager.LayoutParams).y
+
+    /** [x], [y]까지 드래그한다. 손을 떼면 [BubbleDragHandler]가 가까운 좌우 변으로 스냅한다. */
+    private fun dragTo(
+        x: Int,
+        y: Int,
+    ) {
         val handle = attachedRoot().firstTouchable() ?: error("드래그 손잡이를 찾지 못했다")
-        val target = screenWidth().toFloat()
         handle.touch(MotionEvent.ACTION_DOWN, 0f, 0f)
-        handle.touch(MotionEvent.ACTION_MOVE, target, 0f)
-        handle.touch(MotionEvent.ACTION_UP, target, 0f)
+        handle.touch(MotionEvent.ACTION_MOVE, x.toFloat(), y.toFloat())
+        handle.touch(MotionEvent.ACTION_UP, x.toFloat(), y.toFloat())
         shadowOf(context.mainLooper).idle()
+    }
+
+    /** 오른쪽 가장자리까지 드래그해 그 변에 붙인다. */
+    private fun dragToRightEdge() {
+        dragTo(x = screenWidth(), y = 0)
         // 스냅 직후에는 붙은 변 기준으로 배치돼 있어야 한다. 아니면 이 테스트의 전제가 깨진다.
         assertEquals(
             "드래그가 오른쪽 변 스냅으로 이어지지 않았다",
             screenWidth() - windowWidth() - context.dpToPx(EDGE_MARGIN_DP),
             windowX(),
         )
-        bubble.render(BubbleState.Idle())
     }
 
     private fun View.touch(
@@ -109,7 +119,7 @@ class BubbleRotationPlacementTest {
     fun `세로로 돌리면 오른쪽에 붙어 있던 버블이 화면 안으로 들어온다`() {
         val bubble = FloatingCaptureBubble(context)
         bubble.show(actions)
-        dragToRightEdge(bubble)
+        dragToRightEdge()
         val landscapeWidth = screenWidth()
 
         RuntimeEnvironment.setQualifiers("ko-w800dp-h1280dp")
@@ -128,7 +138,7 @@ class BubbleRotationPlacementTest {
     fun `세로로 돌려도 붙어 있던 오른쪽 변을 유지한다`() {
         val bubble = FloatingCaptureBubble(context)
         bubble.show(actions)
-        dragToRightEdge(bubble)
+        dragToRightEdge()
 
         RuntimeEnvironment.setQualifiers("ko-w800dp-h1280dp")
         bubble.reposition()
@@ -144,7 +154,7 @@ class BubbleRotationPlacementTest {
     fun `감춰 둔 동안 회전해도 다시 보일 때 화면 안에 있다`() {
         val bubble = FloatingCaptureBubble(context)
         bubble.show(actions)
-        dragToRightEdge(bubble)
+        dragToRightEdge()
 
         bubble.setHidden(true)
         RuntimeEnvironment.setQualifiers("ko-w800dp-h1280dp")
@@ -155,6 +165,24 @@ class BubbleRotationPlacementTest {
             "감춰 둔 사이의 회전을 놓쳐 창이 화면 밖에 남았다 — x=${windowX()}, 화면 폭=${screenWidth()}",
             windowX() + windowWidth() <= screenWidth(),
         )
+    }
+
+    @Test
+    fun `가로로 돌렸다 되돌리면 놓아둔 세로 자리로 돌아온다`() {
+        RuntimeEnvironment.setQualifiers("ko-w800dp-h1280dp")
+        val bubble = FloatingCaptureBubble(context)
+        bubble.show(actions)
+        dragTo(x = screenWidth(), y = screenHeight())
+        val placed = windowY()
+
+        // 가로는 세로보다 짧아 아래쪽에 둔 버블을 밀어 올려야 한다. 밀어 올린 만큼을 기억하면
+        // 세로로 되돌아와도 그 자리에 남는다 (기능명세서 11.1절 [결정]).
+        RuntimeEnvironment.setQualifiers("ko-w1280dp-h800dp")
+        bubble.reposition()
+        RuntimeEnvironment.setQualifiers("ko-w800dp-h1280dp")
+        bubble.reposition()
+
+        assertEquals("가로에서 밀어 올린 자리를 기억해 버렸다", placed, windowY())
     }
 
     private companion object {
