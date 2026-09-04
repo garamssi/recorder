@@ -17,7 +17,6 @@ import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import io.rami.screenrecorder.core.designsystem.theme.ScreenRecorderTheme
 import io.rami.screenrecorder.data.recorder.MediaProjectionTokenHolder
-import io.rami.screenrecorder.domain.model.AppSettings
 import io.rami.screenrecorder.domain.model.CaptureModeKind
 import io.rami.screenrecorder.domain.model.CaptureRegion
 import io.rami.screenrecorder.domain.model.LanguageSetting
@@ -26,8 +25,10 @@ import io.rami.screenrecorder.presentation.R
 import io.rami.screenrecorder.presentation.navigation.AppNavHost
 import io.rami.screenrecorder.presentation.navigation.RecordingControlActions
 import io.rami.screenrecorder.presentation.overlay.RegionSelectionOverlay
+import io.rami.screenrecorder.service.FloatingBubbleCommand
 import io.rami.screenrecorder.service.FloatingCaptureService
 import io.rami.screenrecorder.service.RecordingForegroundService
+import io.rami.screenrecorder.service.floatingBubbleCommand
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -71,12 +72,14 @@ class MainActivity : ComponentActivity() {
         // 플로팅 버블이 부분 영역 녹화를 요청하면 영역 선택 오버레이가 필요해 앱을 경유한다.
         if (intent?.action == ACTION_START_RECORDING) startRecordingFlow()
         setContent {
-            val settings by observeSettings().collectAsState(initial = AppSettings.DEFAULT)
-            LaunchedEffect(settings.language) { applyAppLocale(settings.language) }
+            // 저장된 설정을 읽기 전에는 null 이다. 플레이스홀더 기본값을 저장된 값처럼 쓰면
+            // 언어를 잘못 적용해 액티비티를 재생성하고, 떠 있는 버블 서비스에 HIDE 를 보내 죽인다.
+            val settings by observeSettings().collectAsState(initial = null)
+            LaunchedEffect(settings?.language) { settings?.language?.let(::applyAppLocale) }
             // 설정과 오버레이 권한이 모두 갖춰졌을 때만 버블 서비스를 띄운다 (기능명세서 11.1절).
             // 권한 화면에서 돌아오면 Activity가 재개되며 이 효과가 다시 평가된다.
-            LaunchedEffect(settings.showFloatingBubble, lifecycleResumeCount.intValue) {
-                applyFloatingBubbleSetting(settings.showFloatingBubble)
+            LaunchedEffect(settings?.showFloatingBubble, lifecycleResumeCount.intValue) {
+                applyFloatingBubbleSetting(settings?.showFloatingBubble)
             }
             ScreenRecorderTheme {
                 AppNavHost(
@@ -95,14 +98,17 @@ class MainActivity : ComponentActivity() {
     /**
      * 플로팅 버블 서비스를 설정에 맞춘다.
      *
-     * 오버레이 권한이 없으면 서비스를 띄우지 않는다 — 권한 없이 시작하면 서비스가 스스로 멈춰
-     * 알림만 깜빡이기 때문이다. 권한 요청은 설정 화면이 담당한다.
+     * 무엇을 보낼지는 [floatingBubbleCommand]가 정한다. 설정을 아직 읽지 못했으면 아무것도
+     * 보내지 않는다 — 그 순간의 플레이스홀더 기본값으로 HIDE 를 보내면 떠 있는 버블 서비스가
+     * 죽고, 다시 뜨면서 드래그해 둔 자리와 그리고 있던 상태를 잃는다.
+     *
+     * @param showFloatingBubble 저장된 설정값. 아직 읽지 못했으면 null.
      */
-    private fun applyFloatingBubbleSetting(enabled: Boolean) {
-        if (enabled && Settings.canDrawOverlays(this)) {
-            startForegroundService(FloatingCaptureService.startIntent(this))
-        } else {
-            startService(FloatingCaptureService.hideIntent(this))
+    private fun applyFloatingBubbleSetting(showFloatingBubble: Boolean?) {
+        when (floatingBubbleCommand(showFloatingBubble, Settings.canDrawOverlays(this))) {
+            FloatingBubbleCommand.SHOW -> startForegroundService(FloatingCaptureService.startIntent(this))
+            FloatingBubbleCommand.HIDE -> startService(FloatingCaptureService.hideIntent(this))
+            null -> Unit
         }
     }
 
