@@ -167,7 +167,12 @@ internal class FloatingCaptureBubble(
         rebuild()
     }
 
-    /** 버블을 닫는다. */
+    /**
+     * 버블을 닫는다.
+     *
+     * 감춤([hidden])과 마지막으로 받은 상태([state])는 그대로 둔다. 둘 다 창의 사정이 아니라
+     * 바깥 세계의 사실이다 — 창을 뗀다고 앱이 뒤로 가거나 녹화가 멈추지는 않는다.
+     */
     fun dismiss() {
         val container = root ?: return
         root = null
@@ -179,7 +184,6 @@ internal class FloatingCaptureBubble(
         menuBelowBase = false
         actions = null
         expanded = false
-        hidden = false
         position.reset()
         windowManager.removeView(container)
     }

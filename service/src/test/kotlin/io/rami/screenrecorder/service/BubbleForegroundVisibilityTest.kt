@@ -88,12 +88,46 @@ class BubbleForegroundVisibilityTest {
         }
 
     @Test
-    fun `감춰진 동안 바뀐 시간 제한이 다시 뜰 때 보인다`() {
+    fun `감춰 둔 사이에 바뀐 시간 제한이 다시 보일 때 반영돼 있다`() {
         val bubble = FloatingCaptureBubble(context)
         bubble.show(actions)
 
         // 앱에 들어가 감춰진 사이에 설정이 바뀐다. 설정 스트림은 값이 바뀔 때만 방출하므로
         // 이 방출이 유일한 기회다.
+        bubble.setHidden(true)
+        bubble.render(BubbleState.Idle(tenMinutes))
+        bubble.setHidden(false)
+
+        expandMenu()
+
+        assertTrue(
+            "감춰 둔 사이에 도착한 시간 제한을 잃었다 — 메뉴에 남은 글자: ${attachedRoot().texts()}",
+            context.timeLimitLabel(tenMinutes) in attachedRoot().texts(),
+        )
+    }
+
+    @Test
+    fun `감춰 둔 사이에 시작된 녹화가 다시 보일 때 pill로 그려져 있다`() {
+        val bubble = FloatingCaptureBubble(context)
+        bubble.show(actions)
+
+        bubble.setHidden(true)
+        bubble.render(BubbleState.ScreenRecording(elapsed = "00:42", isPaused = false))
+        bubble.setHidden(false)
+
+        assertTrue(
+            "감춰 둔 사이에 시작된 녹화를 잃고 유휴 버블로 돌아왔다 — 남은 글자: ${attachedRoot().texts()}",
+            "00:42" in attachedRoot().texts(),
+        )
+    }
+
+    @Test
+    fun `창이 떼어진 동안 바뀐 시간 제한도 잃지 않는다`() {
+        val bubble = FloatingCaptureBubble(context)
+        bubble.show(actions)
+
+        // 감추기와 달리 창이 아예 없는 경우다 (서비스가 죽었다 되살아나는 경로).
+        // 그리지 못하는 것과 모르는 것은 다르다.
         bubble.dismiss()
         bubble.render(BubbleState.Idle(tenMinutes))
         bubble.show(actions)
@@ -101,23 +135,8 @@ class BubbleForegroundVisibilityTest {
         expandMenu()
 
         assertTrue(
-            "감춰진 동안 도착한 시간 제한을 잃었다 — 메뉴에 남은 글자: ${attachedRoot().texts()}",
+            "창이 없는 동안 도착한 시간 제한을 잃었다 — 메뉴에 남은 글자: ${attachedRoot().texts()}",
             context.timeLimitLabel(tenMinutes) in attachedRoot().texts(),
-        )
-    }
-
-    @Test
-    fun `감춰진 동안 시작된 녹화가 다시 뜰 때 pill로 보인다`() {
-        val bubble = FloatingCaptureBubble(context)
-        bubble.show(actions)
-
-        bubble.dismiss()
-        bubble.render(BubbleState.ScreenRecording(elapsed = "00:42", isPaused = false))
-        bubble.show(actions)
-
-        assertTrue(
-            "감춰진 동안 시작된 녹화를 잃고 유휴 버블로 돌아왔다 — 남은 글자: ${attachedRoot().texts()}",
-            "00:42" in attachedRoot().texts(),
         )
     }
 
@@ -171,6 +190,20 @@ class BubbleForegroundVisibilityTest {
 
         val after = attachedRoot().layoutParams as WindowManager.LayoutParams
         assertEquals(placed, after.x to after.y)
+    }
+
+    @Test
+    fun `창을 뗐다 다시 붙여도 감춰 둔 상태를 잊지 않는다`() {
+        val bubble = FloatingCaptureBubble(context)
+        bubble.setHidden(true)
+        bubble.show(actions)
+
+        // 감춤은 앱이 전면인지에 대한 사실이지 창의 사정이 아니다. 창을 뗀다고 앱이
+        // 뒤로 가지는 않는다.
+        bubble.dismiss()
+        bubble.show(actions)
+
+        assertEquals(View.GONE, attachedRoot().visibility)
     }
 
     @Test
