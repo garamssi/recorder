@@ -67,12 +67,17 @@ internal class TimeLimitInputWindow(
         windowManager.removeView(container)
     }
 
-    private fun overlayLayoutParams(): WindowManager.LayoutParams {
-        val bounds = windowManager.currentWindowMetrics.bounds
-        return WindowManager
+    /**
+     * 화면 전체를 덮는 입력 창의 파라미터.
+     *
+     * 크기를 픽셀로 못 박지 않는다. 띄울 때의 화면 크기를 박아 두면 회전한 뒤 딤이 화면을
+     * 다 덮지 못해, 남는 자리로 아래 앱이 눌리고 바깥 탭 취소도 그 자리에서는 먹지 않는다.
+     */
+    private fun overlayLayoutParams(): WindowManager.LayoutParams =
+        WindowManager
             .LayoutParams(
-                bounds.width(),
-                bounds.height(),
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 // FLAG_NOT_FOCUSABLE을 주면 소프트 키보드가 이 창에 붙지 않아 숫자를 입력할 수 없다.
                 // FLAG_WATCH_OUTSIDE_TOUCH 대신 딤 뷰가 화면 전체를 덮어 바깥 탭을 직접 받는다.
@@ -82,5 +87,4 @@ internal class TimeLimitInputWindow(
                 gravity = Gravity.TOP or Gravity.START
                 softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
             }
-    }
 }
