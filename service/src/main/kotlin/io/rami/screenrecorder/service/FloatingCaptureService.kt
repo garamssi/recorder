@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.Configuration
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -82,6 +83,17 @@ class FloatingCaptureService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * 회전하면 버블을 새 화면에 맞춰 다시 배치한다 (기능명세서 11.1절 [결정]).
+     *
+     * 창 좌표는 픽셀 절대값이라 화면이 좁아지면 그대로 화면 밖에 남는다. 오버레이 창에는
+     * `FLAG_LAYOUT_NO_LIMITS` 가 걸려 있어 시스템이 안으로 잘라 넣어 주지도 않는다.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        bubble.reposition()
+    }
 
     override fun onDestroy() {
         mainHandler.post {

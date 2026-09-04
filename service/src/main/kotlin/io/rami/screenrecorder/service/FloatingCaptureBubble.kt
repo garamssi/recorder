@@ -204,7 +204,7 @@ internal class FloatingCaptureBubble(
         menuBelowBase = false
         stack.arrange(menuRows, base, menuBelowBase = false, snappedToRight = position.snappedToRight)
         attachDrag()
-        place(position::keepOnScreen)
+        reposition()
     }
 
     /** 상태에 맞는 기준 요소 — 유휴면 토글 버튼, 진행 중이면 pill. */
@@ -226,13 +226,18 @@ internal class FloatingCaptureBubble(
     /**
      * 창을 화면 안에 맞추고, 정해진 방향대로 메뉴를 다시 담는다.
      *
-     * @param reposition 컨테이너와 기준 요소를 받아 "메뉴를 기준 요소 아래에 둘지"를 돌려준다.
+     * 인자 없이 부르면 지금 화면 기준으로 다시 잡는다 — 화면이 회전하면 폭과 높이가 바뀌는데
+     * 창 좌표는 픽셀 절대값이고 `FLAG_LAYOUT_NO_LIMITS` 라 시스템이 화면 안으로 잘라 넣어
+     * 주지 않는다 (기능명세서 11.1절 [결정]). 감춰 둔 동안 들어온 회전도 여기서 반영한다 —
+     * 측정은 창이 보이지 않아도 된다.
+     *
+     * @param recalculate 컨테이너와 기준 요소를 받아 "메뉴를 기준 요소 아래에 둘지"를 돌려준다.
      */
-    private fun place(reposition: (container: View, base: View) -> Boolean) {
+    fun reposition(recalculate: (container: View, base: View) -> Boolean = position::keepOnScreen) {
         val container = root ?: return
         val stack = content ?: return
         val base = baseView ?: return
-        val below = reposition(container, base)
+        val below = recalculate(container, base)
         if (below == menuBelowBase) return
         menuBelowBase = below
         stack.arrange(menuRows, base, below, position.snappedToRight)
@@ -253,7 +258,7 @@ internal class FloatingCaptureBubble(
             onSnapped = { toRight ->
                 // 반대쪽 변으로 옮겨 가면 라벨 위치와 정렬이 뒤집히므로 메뉴를 다시 만든다.
                 val edgeChanged = position.snappedToRight != toRight
-                place { container, base -> position.onSnapped(toRight, container, base) }
+                reposition { container, base -> position.onSnapped(toRight, container, base) }
                 if (edgeChanged && expanded) rebuild()
             },
         ).attachTo(handle)
